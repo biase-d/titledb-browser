@@ -53,8 +53,9 @@
 	$: if (selectedPublisher && browser) {
 		(async () => {
 			isLoadingData = true
+			const fileName = selectedPublisher.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'
 			try {
-				const res = await fetch(publisherUrl(selectedPublisher))
+				const res = await fetch(`${publisherUrl}/${fileName}`)
 				if (res.ok) publisherData = await res.json()
 			} catch (e) { console.error('Failed to fetch publisher data:', e); publisherData = [] }
 			finally { isLoadingData = false }
