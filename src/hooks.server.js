@@ -1,9 +1,6 @@
 import { titleIdUrl, nameUrl } from '$lib/index.js';
 
-const BOT_USER_AGENTS = [
-    'Twitterbot', 'facebookexternalhit', 'LinkedInBot',
-'Discordbot', 'Slackbot', 'Pinterest', 'WhatsApp'
-];
+const BOT_REGEX = /bot|crawler|spider|facebook|slack|discord|whatsapp|preview|linkedin|embed|twitter|pinterest|vkShare/i;
 
 function escapeHtml(str = '') {
     return str
@@ -18,10 +15,7 @@ export async function handle({ event, resolve }) {
     const userAgent = event.request.headers.get('user-agent') || '';
     const accept = event.request.headers.get('accept') || '';
 
-    const isBot = BOT_USER_AGENTS.some(bot =>
-    userAgent.toLowerCase().includes(bot.toLowerCase())
-    );
-
+    const isBot = BOT_REGEX.test(userAgent);
     const wantsHtml = accept.includes('text/html');
     const isPreviewBot = isBot && wantsHtml;
 
@@ -64,7 +58,6 @@ export async function handle({ event, resolve }) {
             .replace(/<meta[^>]+property="twitter:[^"]*"[^>]*>/g, '');
 
             appHtml = appHtml.replace('</head>', `${metaTags}\n</head>`);
-
 
             const headers = new Headers(response.headers);
             headers.set('content-type', 'text/html');
