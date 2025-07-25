@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 
 const dataRepoPath = path.resolve(process.cwd(), 'tmp/titledb_data')
-const mainIndexPath = path.join(dataRepoPath, 'main.json')
+const mainIndexPath = path.join(dataRepoPath, 'output/main.json')
 const detailsDirPath = path.join(dataRepoPath, 'output/titleid')
 
 const staticDir = path.resolve(process.cwd(), 'static')

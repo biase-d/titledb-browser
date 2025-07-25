@@ -68,11 +68,6 @@ jobs:
         if: steps.check_for_changes.outputs.should_build == 'true'
         run: npm install
 
-      # DEBUG
-      - name: List files in workspace for debugging
-        if: steps.check_for_changes.outputs.should_build == 'true'
-        run: ls -R
-
       - name: Build the rich index file from local data
         if: steps.check_for_changes.outputs.should_build == 'true'
         run: npm run build:index
