@@ -6,7 +6,7 @@ const INDEX_STORE_NAME = 'title-index'
 const FULL_INDEX_STORE_NAME = 'full-title-index'
 const DETAILS_STORE_NAME = 'title-details'
 
-const INDEX_CACHE_TTL = 1000 * 60 * 60 * 24 // 1 day
+const INDEX_CACHE_TTL = 1000 * 60 * 60 * 24
 const DETAILS_CACHE_TTL = 1000 * 60 * 60 * 24 * 7 // 7 days
 
 async function getDB () {

@@ -1,30 +1,33 @@
 <script>
-	import { titleIndex } from '$lib/stores'
 	import { onMount } from 'svelte'
-	import { getCachedTitleDetail, setCachedTitleDetail } from '$lib/db.js'
+	import { setCachedTitleDetail, getCachedTitleDetail } from '$lib/db.js'
 	import { fade } from 'svelte/transition'
+	import { titleIndex } from '$lib/stores'
 	import { titleIdUrl } from '$lib/index.js'
 
 	export let data
+	const { id } = data
+
 	let titleData = null
 	let lightboxImage = null
 	let isRawDataOpen = false
 
-	$: allNames = $titleIndex[data.id] || [data.id]
+	$: allNames = $titleIndex[id] || [id]
 	$: name = allNames[0]
 	$: alternateNames = allNames.slice(1)
 
 	onMount(async () => {
-	  const id = data.id
-	  const cached = await getCachedTitleDetail(id)
-	  if (cached) {
-	    titleData = cached
-	    return
-	  }
-	  const res = await fetch(titleIdUrl(id))
-	  const fetchedData = await res.json()
-	  titleData = fetchedData
-	  await setCachedTitleDetail(id, fetchedData)
+		const cached = await getCachedTitleDetail(id)
+		if (cached) {
+			titleData = cached
+			return
+		}
+
+		const res = await fetch(titleIdUrl(id))
+		const fetchedData = await res.json()
+		titleData = fetchedData
+
+		await setCachedTitleDetail(id, fetchedData)
 	})
 
 	function formatDate (releaseDate) {
@@ -38,15 +41,10 @@
 </script>
 
 <svelte:head>
+	<!-- Meta tags will be updated on the client after data loads -->
 	<title>{name || 'Loading...'} - Titledb Browser</title>
 	{#if titleData}
-		<meta name="description" content={titleData.description || `Details for ${name} (${data.id})`} />
-		<meta property="og:title" content={`${name} - Titledb Browser`} />
-		<meta property="og:description" content={titleData.description || `Details for ${name} (${data.id})`} />
-		<meta property="og:image" content={titleData.bannerUrl || titleData.iconUrl} />
-		<meta property="twitter:title" content={`${name} - Titledb Browser`} />
-		<meta property="twitter:description" content={titleData.description || `Details for ${name} (${data.id})`} />
-		<meta property="twitter:image" content={titleData.bannerUrl || titleData.iconUrl} />
+		<meta name="description" content={titleData.description || `Details for ${name} (${id})`} />
 	{/if}
 </svelte:head>
 
@@ -75,14 +73,12 @@
 						</div>
 					</div>
 				{/if}
-				<!--
-				<p class="description">{titleData.description || 'No description available.'}</p>
-				-->
+
 				<div class="details-grid">
 					<span><strong>Publisher:</strong> {titleData.publisher || 'N/A'}</span>
 					<span><strong>Release Date:</strong> {formatDate(titleData.releaseDate)}</span>
 					<span><strong>Size:</strong> {titleData.size || 'N/A'}</span>
-					<span><strong>Title ID:</strong> {data.id}</span>
+					<span><strong>Title ID:</strong> {id}</span>
 				</div>
 			</div>
 		</div>
@@ -140,7 +136,7 @@
     .alt-name-tag {
         background-color: var(--surface-color);
         padding: 0.3rem 0.75rem;
-        border-radius: 999px; /* Pill shape */
+        border-radius: 999px;
         font-size: 0.85rem;
         border: 1px solid var(--border-color);
         box-shadow: 0 1px 2px rgba(0,0,0,0.03);

@@ -15,7 +15,7 @@
 		"lint:fix": "standard \"src/**/*.{js,ts,svelte}\" --fix"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^6.0.0",
+		"@sveltejs/adapter-vercel": "^5.8.1",
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
 		"@typescript-eslint/parser": "^8.38.0",

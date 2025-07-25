@@ -1,7 +1,7 @@
 {
 	"name": "Titledb Browser",
 	"short_name": "Titledb",
-	"description": "A fast, offline-capable browser for the Titledb database.",
+	"description": "A fast browser for the Titledb database.",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#1a1a1a",
