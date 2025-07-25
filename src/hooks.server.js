@@ -57,7 +57,14 @@ export async function handle({ event, resolve }) {
             <meta property="twitter:card" content="summary_large_image" />
             `;
 
+            appHtml = appHtml
+            .replace(/<title>.*?<\/title>/, '')
+            .replace(/<meta[^>]+property="og:[^"]*"[^>]*>/g, '')
+            .replace(/<meta[^>]+name="description"[^>]*>/, '')
+            .replace(/<meta[^>]+property="twitter:[^"]*"[^>]*>/g, '');
+
             appHtml = appHtml.replace('</head>', `${metaTags}\n</head>`);
+
 
             const headers = new Headers(response.headers);
             headers.set('content-type', 'text/html');
