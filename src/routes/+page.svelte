@@ -8,7 +8,7 @@
 	import { page } from '$app/stores'
 	import { goto } from '$app/navigation'
 	import { browser } from '$app/environment'
-	import { metadataUrl, publisherUrl} from '$lib'
+	import { metadataUrl, publisherUrl } from '$lib'
 
 	let search = ''
 	let defaultList = []
@@ -26,115 +26,112 @@
 	let isLoadingData = false
 
 	onMount(async () => {
-		try {
-			const res = await fetch(metadataUrl)
-			if (res.ok) metadata = await res.json()
-		} catch (e) { console.error("Could not load filter metadata:", e) }
+	  try {
+	    const res = await fetch(metadataUrl)
+	    if (res.ok) metadata = await res.json()
+	  } catch (e) { console.error('Could not load filter metadata:', e) }
 
-		const initialSearch = $page.url.searchParams.get('q')
-		if (initialSearch) search = initialSearch
+	  const initialSearch = $page.url.searchParams.get('q')
+	  if (initialSearch) search = initialSearch
 	})
 
 	$: if (selectedPublisher && browser) {
-		(async () => {
-			isLoadingData = true
-			const fileName = selectedPublisher.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'
-			try {
-				const res = await fetch(`${publisherUrl}/${fileName}`)
-				if(res.ok) publisherData = await res.json()
-			} catch(e) { console.error("Failed to fetch publisher data:", e); publisherData = [] }
-			finally { isLoadingData = false }
-		})()
+	  (async () => {
+	    isLoadingData = true
+	    const fileName = selectedPublisher.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'
+	    try {
+	      const res = await fetch(`${publisherUrl}/${fileName}`)
+	      if (res.ok) publisherData = await res.json()
+	    } catch (e) { console.error('Failed to fetch publisher data:', e); publisherData = [] } finally { isLoadingData = false }
+	  })()
 	} else {
-		publisherData = []
+	  publisherData = []
 	}
 
 	$: if ((selectedMinYear || selectedMaxYear || minSizeMB || maxSizeMB) && !selectedPublisher && browser) {
-		ensureFullIndexLoaded()
+	  ensureFullIndexLoaded()
 	}
 
-	async function ensureFullIndexLoaded() {
-		if ($fullTitleIndex.length > 0 || isLoadingData) return
-		isLoadingData = true
-		try {
-			const cached = await getCachedFullIndex()
-			if (cached) {
-				$fullTitleIndex = cached
-				return
-			}
-			const res = await fetch(fullIndexUrl)
-			if (res.ok) {
-				const data = await res.json()
-				await setCachedFullIndex(data)
-				$fullTitleIndex = data
-			}
-		} catch (e) { console.error("Failed to load full index", e) }
-		finally { isLoadingData = false }
+	async function ensureFullIndexLoaded () {
+	  if ($fullTitleIndex.length > 0 || isLoadingData) return
+	  isLoadingData = true
+	  try {
+	    const cached = await getCachedFullIndex()
+	    if (cached) {
+	      $fullTitleIndex = cached
+	      return
+	    }
+	    const res = await fetch(fullIndexUrl)
+	    if (res.ok) {
+	      const data = await res.json()
+	      await setCachedFullIndex(data)
+	      $fullTitleIndex = data
+	    }
+	  } catch (e) { console.error('Failed to load full index', e) } finally { isLoadingData = false }
 	}
 
 	$: isSearchingOrFiltering = !!search || !!selectedPublisher || !!selectedMinYear || !!selectedMaxYear || !!minSizeMB || !!maxSizeMB
 	$: activeFilterCount = (selectedPublisher ? 1 : 0) + (selectedMinYear ? 1 : 0) + (selectedMaxYear ? 1 : 0) + (minSizeMB ? 1 : 0) + (maxSizeMB ? 1 : 0)
 
 	$: results = (() => {
-		if (Object.keys($titleIndex).length === 0) return []
+	  if (Object.keys($titleIndex).length === 0) return []
 
-		const needsRichData = !!selectedPublisher || !!selectedMinYear || !!selectedMaxYear || !!minSizeMB || !!maxSizeMB
-		const lowerCaseSearch = search.toLowerCase()
+	  const needsRichData = !!selectedPublisher || !!selectedMinYear || !!selectedMaxYear || !!minSizeMB || !!maxSizeMB
+	  const lowerCaseSearch = search.toLowerCase()
 
-		let sourceData
-		if (selectedPublisher) {
-			sourceData = publisherData
-		} else if (needsRichData) {
-			sourceData = $fullTitleIndex
-		} else {
-			sourceData = Object.entries($titleIndex).map(([id, names]) => ({ id, names }))
-		}
+	  let sourceData
+	  if (selectedPublisher) {
+	    sourceData = publisherData
+	  } else if (needsRichData) {
+	    sourceData = $fullTitleIndex
+	  } else {
+	    sourceData = Object.entries($titleIndex).map(([id, names]) => ({ id, names }))
+	  }
 
-		if (!isSearchingOrFiltering) {
-			if (defaultList.length === 0) {
-				defaultList = shuffleArray(Object.entries($titleIndex)).slice(0, 50).map(([id, names]) => ({ id, names }))
-			}
-			return defaultList
-		}
+	  if (!isSearchingOrFiltering) {
+	    if (defaultList.length === 0) {
+	      defaultList = shuffleArray(Object.entries($titleIndex)).slice(0, 50).map(([id, names]) => ({ id, names }))
+	    }
+	    return defaultList
+	  }
 
-		const minBytes = minSizeMB ? parseFloat(minSizeMB) * 1024 * 1024 : null
-		const maxBytes = maxSizeMB ? parseFloat(maxSizeMB) * 1024 * 1024 : null
+	  const minBytes = minSizeMB ? parseFloat(minSizeMB) * 1024 * 1024 : null
+	  const maxBytes = maxSizeMB ? parseFloat(maxSizeMB) * 1024 * 1024 : null
 
-		return sourceData.filter(item => {
-			if (lowerCaseSearch) {
-				const nameMatch = item.names.some(name => name.toLowerCase().includes(lowerCaseSearch))
-				const idMatch = item.id?.toLowerCase().includes(lowerCaseSearch)
-				if (!(nameMatch || idMatch)) return false
-			}
+	  return sourceData.filter(item => {
+	    if (lowerCaseSearch) {
+	      const nameMatch = item.names.some(name => name.toLowerCase().includes(lowerCaseSearch))
+	      const idMatch = item.id?.toLowerCase().includes(lowerCaseSearch)
+	      if (!(nameMatch || idMatch)) return false
+	    }
 
-			if (needsRichData) {
-				const itemYear = item.releaseDate ? parseInt(item.releaseDate.toString().substring(0, 4)) : null
-				if (selectedMinYear && (!itemYear || itemYear < parseInt(selectedMinYear))) return false
-				if (selectedMaxYear && (!itemYear || itemYear > parseInt(selectedMaxYear))) return false
-				if (minBytes !== null && (item.sizeInBytes === undefined || item.sizeInBytes < minBytes)) return false
-				if (maxBytes !== null && (item.sizeInBytes === undefined || item.sizeInBytes > maxBytes)) return false
-			}
+	    if (needsRichData) {
+	      const itemYear = item.releaseDate ? parseInt(item.releaseDate.toString().substring(0, 4)) : null
+	      if (selectedMinYear && (!itemYear || itemYear < parseInt(selectedMinYear))) return false
+	      if (selectedMaxYear && (!itemYear || itemYear > parseInt(selectedMaxYear))) return false
+	      if (minBytes !== null && (item.sizeInBytes === undefined || item.sizeInBytes < minBytes)) return false
+	      if (maxBytes !== null && (item.sizeInBytes === undefined || item.sizeInBytes > maxBytes)) return false
+	    }
 
-			return true
-		})
-	})();
+	    return true
+	  })
+	})()
 
 	$: if (browser) {
-		clearTimeout(debounceTimer)
-		debounceTimer = setTimeout(() => {
-			const url = new URL($page.url)
-			if (search) { url.searchParams.set('q', search) }
-			else { url.searchParams.delete('q') }
-			goto(url, { keepFocus: true, noScroll: true, replaceState: true })
-		}, 300)
+	  clearTimeout(debounceTimer)
+	  debounceTimer = setTimeout(() => {
+	    const url = new URL($page.url)
+	    if (search) { url.searchParams.set('q', search) } else { url.searchParams.delete('q') }
+	    goto(url, { keepFocus: true, noScroll: true, replaceState: true })
+	  }, 300)
 	}
 
 	function shuffleArray (array) {
-		for (let i = array.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[array[i], array[j]] = [array[j], array[i]]
-		}
-		return array
+	  for (let i = array.length - 1; i > 0; i--) {
+	    const j = Math.floor(Math.random() * (i + 1));
+	    [array[i], array[j]] = [array[j], array[i]]
+	  }
+	  return array
 	}
 </script>
 

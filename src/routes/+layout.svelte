@@ -8,22 +8,22 @@ import { mainUrl } from '$lib/index.js'
 let isLoading = true
 
 onMount(async () => {
-	const cachedLite = await getCachedIndex()
-	if (cachedLite) {
-		$titleIndex = cachedLite
-	} else {
-		const res = await fetch(mainUrl)
-		const data = await res.json()
-		$titleIndex = data
-		await setCachedIndex(data)
-	}
+  const cachedLite = await getCachedIndex()
+  if (cachedLite) {
+    $titleIndex = cachedLite
+  } else {
+    const res = await fetch(mainUrl)
+    const data = await res.json()
+    $titleIndex = data
+    await setCachedIndex(data)
+  }
 
-	const cachedFull = await getCachedFullIndex()
-	if (cachedFull) {
-		$fullTitleIndex = cachedFull
-	}
+  const cachedFull = await getCachedFullIndex()
+  if (cachedFull) {
+    $fullTitleIndex = cachedFull
+  }
 
-	isLoading = false
+  isLoading = false
 })
 </script>
 

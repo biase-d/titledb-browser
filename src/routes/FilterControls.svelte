@@ -12,29 +12,29 @@
 	export let minSizeMB = ''
 	export let maxSizeMB = ''
 
-	function resetFilters() {
-		selectedPublisher = ''
-		selectedMinYear = ''
-		selectedMaxYear = ''
-		minSizeMB = ''
-		maxSizeMB = ''
+	function resetFilters () {
+	  selectedPublisher = ''
+	  selectedMinYear = ''
+	  selectedMaxYear = ''
+	  minSizeMB = ''
+	  maxSizeMB = ''
 	}
 
-	function handleNumberInput(field, increment) {
-		let currentValue = field === 'min' ? minSizeMB : maxSizeMB
-		let numericValue = currentValue === '' ? 0 : parseInt(currentValue, 10)
+	function handleNumberInput (field, increment) {
+	  const currentValue = field === 'min' ? minSizeMB : maxSizeMB
+	  let numericValue = currentValue === '' ? 0 : parseInt(currentValue, 10)
 
-		if (increment) {
-			numericValue++
-		} else {
-			if (numericValue > 0) numericValue--
-		}
+	  if (increment) {
+	    numericValue++
+	  } else {
+	    if (numericValue > 0) numericValue--
+	  }
 
-		if (field === 'min') {
-			minSizeMB = numericValue
-		} else {
-			maxSizeMB = numericValue
-		}
+	  if (field === 'min') {
+	    minSizeMB = numericValue
+	  } else {
+	    maxSizeMB = numericValue
+	  }
 	}
 </script>
 

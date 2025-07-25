@@ -1,34 +1,29 @@
-import { next } from '@vercel/edge';
 import { titleIdUrl, nameUrl } from '$lib/index.js';
 
 const BOT_USER_AGENTS = [
-    'Twitterbot',
-'facebookexternalhit',
-'LinkedInBot',
-'Discordbot',
-'Slackbot',
-'Pinterest'
+    'Twitterbot', 'facebookexternalhit', 'LinkedInBot',
+'Discordbot', 'Slackbot', 'Pinterest', 'WhatsApp'
 ];
 
-export async function middleware(request) {
-    const userAgent = request.headers.get('user-agent') || '';
-    const url = new URL(request.url);
+/** @type {import('@sveltejs/kit').Handle} */
+export async function handle({ event, resolve }) {
+    const userAgent = event.request.headers.get('user-agent') || '';
 
     const isBot = BOT_USER_AGENTS.some(bot => userAgent.includes(bot));
-    const isTitlePage = url.pathname.startsWith('/title/');
+    const isTitlePage = event.url.pathname.startsWith('/title/');
 
     if (isBot && isTitlePage) {
         try {
-            const id = url.pathname.split('/')[2];
-            if (!id) return next();
+            const id = event.url.pathname.split('/')[2];
+            if (!id) return resolve(event);
 
             const [nameRes, detailRes] = await Promise.all([
                 fetch(nameUrl(id)),
-                                                           fetch(titleIdUrl(id))
+                fetch(titleIdUrl(id))
             ]);
 
             if (!nameRes.ok || !detailRes.ok) {
-                return next();
+                return resolve(event);
             }
 
             const nameData = await nameRes.json();
@@ -36,8 +31,9 @@ export async function middleware(request) {
             const names = nameData.names || [id];
             const name = names[0];
 
-            const appHtmlRes = await fetch(request.url);
-            let appHtml = await appHtmlRes.text();
+
+            const response = await resolve(event);
+            let appHtml = await response.text();
 
             const metaTags = `
             <title>${name} - Titledb Browser</title>
@@ -51,14 +47,15 @@ export async function middleware(request) {
             appHtml = appHtml.replace(/<title>.*?<\/title>/, metaTags);
 
             return new Response(appHtml, {
-                headers: { 'Content-Type': 'text/html' },
+                status: response.status,
+                headers: response.headers
             });
 
         } catch (error) {
-            console.error('Error in middleware:', error);
-            return next();
+            console.error('Error in handle hook:', error);
+            return resolve(event);
         }
     }
 
-    return next();
+    return resolve(event);
 }

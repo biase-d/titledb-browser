@@ -17,17 +17,17 @@
 	$: alternateNames = allNames.slice(1)
 
 	onMount(async () => {
-		const cached = await getCachedTitleDetail(id)
-		if (cached) {
-			titleData = cached
-			return
-		}
+	  const cached = await getCachedTitleDetail(id)
+	  if (cached) {
+	    titleData = cached
+	    return
+	  }
 
-		const res = await fetch(titleIdUrl(id))
-		const fetchedData = await res.json()
-		titleData = fetchedData
+	  const res = await fetch(titleIdUrl(id))
+	  const fetchedData = await res.json()
+	  titleData = fetchedData
 
-		await setCachedTitleDetail(id, fetchedData)
+	  await setCachedTitleDetail(id, fetchedData)
 	})
 
 	function formatDate (releaseDate) {
