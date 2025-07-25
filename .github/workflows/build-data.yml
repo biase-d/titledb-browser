@@ -62,7 +62,7 @@ jobs:
         with:
           repository: masagrator/titledb_filtered
           path: ./tmp/titledb_data
-          depth: 1
+          fetch-depth: 1
 
       - name: Install dependencies
         if: steps.check_for_changes.outputs.should_build == 'true'
