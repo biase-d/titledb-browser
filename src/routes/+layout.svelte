@@ -4,27 +4,29 @@ import { titleIndex, fullTitleIndex } from '$lib/stores'
 import { onMount } from 'svelte'
 import { getCachedIndex, setCachedIndex, getCachedFullIndex } from '$lib/db.js'
 import { mainUrl } from '$lib/index.js'
+import { browser } from '$app/environment'
 
 let isLoading = true
 
 onMount(async () => {
-  const cachedLite = await getCachedIndex()
-  if (cachedLite) {
-    $titleIndex = cachedLite
-  } else {
-    const res = await fetch(mainUrl)
-    const data = await res.json()
-    $titleIndex = data
-    await setCachedIndex(data)
-  }
+	const cachedLite = await getCachedIndex()
+	if (cachedLite) {
+		$titleIndex = cachedLite
+	} else {
+		const res = await fetch(mainUrl)
+		const data = await res.json()
+		$titleIndex = data
+		await setCachedIndex(data)
+	}
 
-  const cachedFull = await getCachedFullIndex()
-  if (cachedFull) {
-    $fullTitleIndex = cachedFull
-  }
+	const cachedFull = await getCachedFullIndex()
+	if (cachedFull) {
+		$fullTitleIndex = cachedFull
+	}
 
-  isLoading = false
+	isLoading = false
 })
+
 </script>
 
 <svelte:head>
@@ -42,10 +44,16 @@ onMount(async () => {
 
 <div class="app-container">
 	<header>
-		<a href="/">
-			<h1>Titledb Browser</h1>
-		</a>
-		<p>A simple way to browse game titles.</p>
+		<div class="title-group">
+			<a href="/">
+				<h1>Titledb Browser</h1>
+			</a>
+			<p>A simple way to browse game titles.</p>
+		</div>
+		<nav>
+			<a href="/stats">Stats</a>
+			<a href="/favorites">Favorites</a>
+		</nav>
 	</header>
 	<main>
 		{#if isLoading}
@@ -68,30 +76,36 @@ onMount(async () => {
 		padding: 2rem;
 		opacity: 0.8;
 	}
-
 	.app-container {
 		max-width: 900px;
 		margin: 0 auto;
 		padding: 2rem 1.5rem;
 	}
-
 	header {
 		margin-bottom: 3rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		flex-wrap: wrap;
+		gap: 1rem;
 	}
-
-	header h1 {
-		font-size: 2rem;
-		font-weight: 700;
+	nav {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		margin-top: 0.5rem;
+	}
+	nav a {
+		font-size: 1.1rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+		text-decoration: none;
+		transition: color 0.2s ease;
+	}
+	nav a:hover {
 		color: var(--primary-color);
-		margin: 0;
+		text-decoration: none;
 	}
-
-	header p {
-		margin-top: 0.25rem;
-		color: var(--text-color);
-		opacity: 0.7;
-	}
-
 	footer {
 		text-align: center;
 		margin-top: 4rem;

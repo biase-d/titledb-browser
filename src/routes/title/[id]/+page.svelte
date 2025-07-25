@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte'
 	import { setCachedTitleDetail, getCachedTitleDetail } from '$lib/db.js'
 	import { fade } from 'svelte/transition'
-	import { titleIndex } from '$lib/stores'
+	import { titleIndex, favorites } from '$lib/stores'
 	import { titleIdUrl } from '$lib/index.js'
 
 	export let data
@@ -15,6 +15,8 @@
 	$: allNames = $titleIndex[id] || [id]
 	$: name = allNames[0]
 	$: alternateNames = allNames.slice(1)
+
+	$: isFavorited = $favorites.has(id)
 
 	onMount(async () => {
 	  const cached = await getCachedTitleDetail(id)
@@ -41,7 +43,6 @@
 </script>
 
 <svelte:head>
-	<!-- Meta tags will be updated on the client after data loads -->
 	<title>{name || 'Loading...'} - Titledb Browser</title>
 	{#if titleData}
 		<meta name="description" content={titleData.description || `Details for ${name} (${id})`} />
@@ -52,6 +53,20 @@
 	<div class="page-container" in:fade={{ duration: 300 }}>
 		<div class="page-header">
 			<a href="/" class="back-button">← Back to Search</a>
+
+			<button
+				class="favorite-button"
+				on:click={() => favorites.toggle(id)}
+				title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+			>
+				{#if isFavorited}
+					<!-- Filled Star -->
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279L12 19.182l-7.416 4.231 1.48-8.279-6.064-5.828 8.332-1.151z"/></svg>
+				{:else}
+					<!-- Outlined Star -->
+					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.1l2.351 4.788 5.293.753-3.832 3.687.904 5.222L12 14.247l-4.716 2.303.904-5.222-3.832-3.687 5.293-.753L12 2.1zm0 2.544l-1.928 3.921-.428.871-4.32.617 3.127 3.003-.739 4.267L12 15.34l3.86 1.977-.739-4.267 3.127-3.003-4.32-.617-.428-.871L12 4.644z"/></svg>
+				{/if}
+			</button>
 		</div>
 
 		<div class="title-card">
@@ -120,6 +135,37 @@
 {/if}
 
 <style>
+    .page-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+        margin-bottom: 1.5rem;
+    }
+	.favorite-button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 999px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--primary-color);
+		transition: background-color 0.2s ease;
+	}
+	.favorite-button:hover {
+		background-color: var(--input-bg);
+	}
+    .back-button {
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        transition: background-color 0.2s ease;
+    }
+    .back-button:hover {
+        background-color: var(--surface-color);
+        text-decoration: none;
+    }
     .alternate-titles {
         margin: 1.5rem 0;
     }

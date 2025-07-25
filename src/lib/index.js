@@ -1,4 +1,3 @@
-
 export const githubPagesUrl = 'https://biase-d.github.io/titledb-browser'
 
 export const mainUrl = 'https://raw.githubusercontent.com/masagrator/titledb_filtered/refs/heads/main/output/main.json'

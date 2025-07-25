@@ -3,7 +3,6 @@
 
 	const dispatch = createEventDispatcher()
 
-	// Component props
 	export let availablePublishers = []
 	export let years = []
 	export let selectedPublisher = ''
@@ -40,7 +39,6 @@
 
 <div class="filter-container">
 	<div class="filter-grid">
-		<!-- Publisher Filter -->
 		<div class="group">
 			<label for="publisher">Publisher</label>
 			<div class="input-wrapper">
@@ -53,7 +51,6 @@
 			</div>
 		</div>
 
-		<!-- Release Year Range Filter -->
 		<div class="group">
 			<label for="release-year-from">Release Year</label>
 			<div class="range-inputs">
@@ -72,7 +69,6 @@
 			</div>
 		</div>
 
-		<!-- File Size Range Filter (Full Span) -->
 		<div class="group full-span">
 			<label for="file-size-min">File Size (MB)</label>
 			<div class="range-inputs">
@@ -103,7 +99,6 @@
 </div>
 
 <style>
-	/* --- Main Structure --- */
 	.filter-container {
 		display: flex;
 		flex-direction: column;
@@ -123,7 +118,6 @@
 		display: flex;
 		flex-direction: column;
 	}
-	/* This is the key fix: it makes the file size group span both columns */
 	.group.full-span {
 		grid-column: 1 / -1;
 	}
@@ -143,7 +137,6 @@
 		width: 100%;
 	}
 
-	/* --- Input & Select Styling --- */
 	select, input[type="number"] {
 		width: 100%;
 		background-color: var(--input-bg);
@@ -154,13 +147,12 @@
 		font-size: 1rem;
 		outline: none;
 		transition: box-shadow 0.2s ease;
-		box-sizing: border-box; /* Ensures padding is included in width */
+		box-sizing: border-box;
 	}
 	select:focus, input[type="number"]:focus {
 		box-shadow: 0 0 0 2px var(--primary-color);
 	}
 
-	/* --- Custom Select Arrow --- */
 	.custom-select {
 		-webkit-appearance: none;
 		-moz-appearance: none;
@@ -169,10 +161,9 @@
 		background-repeat: no-repeat;
 		background-position: right 0.75rem center;
 		background-size: 1em 1em;
-		padding-right: 2.5rem; /* Make space for arrow */
+		padding-right: 2.5rem;
 	}
 
-	/* --- Custom Number Input --- */
 	.custom-number-input input::-webkit-outer-spin-button,
 	.custom-number-input input::-webkit-inner-spin-button {
 		-webkit-appearance: none;
@@ -200,7 +191,6 @@
 		color: var(--text-secondary);
 	}
 
-	/* --- Footer --- */
 	.divider {
 		border: none;
 		border-top: 1px solid var(--border-color);

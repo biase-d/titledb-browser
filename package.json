@@ -29,6 +29,7 @@
 		"vite": "^7.0.4"
 	},
 	"dependencies": {
+		"chart.js": "^4.5.0",
 		"idb": "^8.0.3"
 	},
 	"standard": {
