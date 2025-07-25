@@ -56,11 +56,19 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Clone upstream data repository
+        if: steps.check_for_changes.outputs.should_build == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: masagrator/titledb_filtered
+          path: ./tmp/titledb_data
+          depth: 1
+
       - name: Install dependencies
         if: steps.check_for_changes.outputs.should_build == 'true'
         run: npm install
 
-      - name: Build the rich index file
+      - name: Build the rich index file from local data
         if: steps.check_for_changes.outputs.should_build == 'true'
         run: npm run build:index
 

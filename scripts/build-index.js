@@ -1,6 +1,9 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { mainUrl, titleIdUrl} from '../src/lib/index.js'
+
+const dataRepoPath = path.resolve(process.cwd(), 'tmp/titledb_data')
+const mainIndexPath = path.join(dataRepoPath, 'main.json')
+const detailsDirPath = path.join(dataRepoPath, 'output/titleid')
 
 const staticDir = path.resolve(process.cwd(), 'static')
 const outputFilePath = path.join(staticDir, 'full_index.json')
@@ -13,45 +16,45 @@ function parseSize (sizeStr) {
 }
 
 async function buildRichIndex () {
-    console.log('Starting rich index build...')
-    console.log('NOTE: This will fetch thousands of files and may take several minutes.')
+    console.log('Starting rich index build from local files...')
 
     try {
-        console.log(`Fetching main index from ${mainUrl}`)
-        const mainIndexRes = await fetch(mainUrl)
-        if (!mainIndexRes.ok) throw new Error(`Failed to fetch main index: ${mainIndexRes.statusText}`)
-            const mainIndex = await mainIndexRes.json()
-            const titleIds = Object.keys(mainIndex)
-            console.log(`Found ${titleIds.length} titles.`)
+        console.log(`Reading main index from: ${mainIndexPath}`)
+        const mainIndexContent = await fs.readFile(mainIndexPath, 'utf-8')
+        const mainIndex = JSON.parse(mainIndexContent)
+        const titleIds = Object.keys(mainIndex)
+        console.log(`Found ${titleIds.length} titles.`)
 
-            console.log('Fetching details for all titles...')
-            const promises = titleIds.map(async (id) => {
-                try {
-                    const detailRes = await fetch(`${titleIdUrl(id)}`)
-                    if (!detailRes.ok) {
-                        console.warn(`Could not fetch details for ${id}. Skipping.`)
-                        return null
-                    }
-                    const details = await detailRes.json()
-                    return {
-                        id,
-                        names: mainIndex[id],
-                        publisher: details.publisher || 'N/A',
-                        releaseDate: details.releaseDate || null,
-                        sizeInBytes: parseSize(details.size)
-                    }
-                } catch (e) {
-                    return null
+        console.log('Reading details for all titles...')
+        const results = []
+
+        for (const id of titleIds) {
+            const detailPath = path.join(detailsDirPath, `${id}.json`)
+            try {
+                const detailContent = await fs.readFile(detailPath, 'utf-8')
+                const details = JSON.parse(detailContent)
+
+                results.push({
+                    id,
+                    names: mainIndex[id],
+                    publisher: details.publisher || 'N/A',
+                    releaseDate: details.releaseDate || null,
+                    sizeInBytes: parseSize(details.size)
+                })
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    console.warn(`File not found for ID: ${id}. Skipping.`)
+                } else {
+                    console.error(`Failed to process file for ID: ${id}`, error)
                 }
-            })
+            }
+        }
 
-            const results = await Promise.all(promises)
-            const validResults = results.filter(Boolean)
+        console.log(`Successfully processed details for ${results.length} titles.`)
+        console.log(`Missed ${titleIds.length - results.length} titles.`)
 
-            console.log(`Successfully fetched details for ${validResults.length} titles.`)
-
-            await fs.writeFile(outputFilePath, JSON.stringify(validResults))
-            console.log(`Rich index successfully built at: ${outputFilePath}`)
+        await fs.writeFile(outputFilePath, JSON.stringify(results))
+        console.log(`Rich index successfully built at: ${outputFilePath}`)
     } catch (error) {
         console.error('An error occurred during the build process:', error)
         process.exit(1)
