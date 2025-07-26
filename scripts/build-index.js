@@ -19,13 +19,20 @@ function parseSize(sizeStr) {
 }
 
 function dataChanged(existing, incoming) {
+    if (!existing) return true; // It's a new entry
+
     for (const key of Object.keys(incoming)) {
-        if (key === 'last_updated') continue
-            const a = existing?.[key]
-            const b = incoming[key]
-            if (JSON.stringify(a) !== JSON.stringify(b)) return true
+        if (key === 'last_updated') continue;
+        const a = existing[key];
+        const b = incoming[key];
+
+        if (key === 'performance') {
+            if (JSON.stringify(a) !== JSON.stringify(b)) return true;
+        } else {
+            if (JSON.stringify(a) !== JSON.stringify(b)) return true;
+        }
     }
-    return false
+    return false;
 }
 
 async function syncDatabase() {
@@ -60,7 +67,7 @@ async function syncDatabase() {
                 try {
                     performanceData = JSON.parse(await fs.readFile(path.join(performanceDataPath, `${id}.json`), 'utf-8'))
                 } catch {}
-                allRichData.push({
+                allGamesData.push({
                     id,
                     names: mainIndex[id],
                     publisher: details.publisher || null,
