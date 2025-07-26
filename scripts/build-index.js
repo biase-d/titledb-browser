@@ -48,7 +48,7 @@ async function syncDatabase() {
             `;
             const columnNames = columns.map(c => c.column_name);
 
-            const requiredColumns = ['id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'description', 'screenshots', 'performance', 'last_updated'];
+            const requiredColumns = ['id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'screenshots', 'performance', 'last_updated'];
 
             for (const col of requiredColumns) {
                 if (!columnNames.includes(col)) {
@@ -89,11 +89,10 @@ async function syncDatabase() {
                     publisher: details.publisher || null,
                     release_date: details.releaseDate || null,
                     size_in_bytes: parseSize(details.size),
-                                  icon_url: details.iconUrl || null,
-                                  banner_url: details.bannerUrl || null,
-                                  description: details.description || null,
-                                  screenshots: details.screenshots || null,
-                                  performance: performanceData,
+                    icon_url: details.iconUrl || null,
+                    banner_url: details.bannerUrl || null,
+                    screenshots: details.screenshots || null,
+                    performance: performanceData,
                 })
             } catch (error) {
                 if (error.code !== 'ENOENT') console.error(`Failed to process file for ID: ${id}`, error)
@@ -107,11 +106,11 @@ async function syncDatabase() {
             const batch = allGamesData.slice(i, i + batchSize);
             process.stdout.write(`  -> Processing batch ${Math.floor(i / batchSize) + 1} / ${Math.ceil(allGamesData.length / batchSize)}... `);
             await sql`
-            INSERT INTO games ${sql(batch, 'id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'description', 'screenshots', 'performance')}
+            INSERT INTO games ${sql(batch, 'id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'screenshots', 'performance')}
             ON CONFLICT (id) DO UPDATE SET
             names = EXCLUDED.names, publisher = EXCLUDED.publisher, release_date = EXCLUDED.release_date, size_in_bytes = EXCLUDED.size_in_bytes,
-            icon_url = EXCLUDED.icon_url, banner_url = EXCLUDED.banner_url, description = EXCLUDED.description,
-            screenshots = EXCLUDED.screenshots, performance = EXCLUDED.performance, last_updated = NOW()
+            icon_url = EXCLUDED.icon_url, banner_url = EXCLUDED.banner_url, screenshots = EXCLUDED.screenshots, 
+            performance = EXCLUDED.performance, last_updated = NOW()
             `
             console.log('Done.');
         }
