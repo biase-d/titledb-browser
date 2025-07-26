@@ -61,7 +61,7 @@ onMount(async () => {
 		{#if isLoading}
 			<p class="loading-message">Loading title database...</p>
 		{:else}
-			{@render children({ titleIndexStore: titleIndex })}
+			<slot />
 		{/if}
 	</main>
 	<footer>

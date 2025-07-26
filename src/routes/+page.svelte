@@ -166,8 +166,10 @@
 		font-weight: 500;
 		color: var(--secondary-color);
 	}
+
+
 	.search-container {
-		max-width: 600px;
+		max-width: 800px;
 		margin: 0 auto;
 	}
 
