@@ -1,11 +1,8 @@
 name: Build and Deploy Data Index
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
-
   workflow_dispatch:
-
+  
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
