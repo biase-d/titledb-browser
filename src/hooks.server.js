@@ -39,6 +39,7 @@ async function botMetaHandler({ event, resolve }) {
 }
 
 const authHandler = SvelteKitAuth({
+  trustHost: true,
   providers: [
     GitHub({
       clientId: GITHUB_ID,
