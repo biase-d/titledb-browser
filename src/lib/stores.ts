@@ -1,10 +1,11 @@
 import { writable } from 'svelte/store'
 import { browser } from '$app/environment'
-import { getFavorites, toggleFavorite } from '$lib/db.js'
+import { getFavorites, toggleFavorite, getAllDrafts } from '$lib/db.js'
 
 export const titleIndex = writable({})
 export const fullTitleIndex = writable([])
 export const favorites = createFavoritesStore()
+export const draftsStore = createDraftsStore()
 
 function createFavoritesStore() {
     const { subscribe, set } = writable(new Set())
@@ -20,4 +21,29 @@ function createFavoritesStore() {
         await init()
     }
     return { subscribe, toggle }
+}
+
+function createDraftsStore() {
+    const { subscribe, set, update } = writable([])
+
+    async function init() {
+        if (browser) {
+            const draftsFromDB = await getAllDrafts()
+            set(draftsFromDB)
+        }
+    }
+
+    init()
+
+    return {
+        subscribe,
+        save: async (id, data) => {
+            await saveDraft(id, data)
+            await init()
+        },
+        delete: async (id) => {
+            await deleteDraft(id)
+            await init()
+        }
+    }
 }

@@ -1,23 +1,18 @@
-import { fullIndexUrl } from '$lib/index.js';
-import { fullTitleIndex } from '$lib/stores';
-import { get } from 'svelte/store';
+import { error } from '@sveltejs/kit';
 
-export async function load({ fetch }) {
-    const existingData = get(fullTitleIndex);
-    if (existingData.length > 0) {
-        return { titles: existingData };
-    }
-
+/** @type {import('./$types').PageLoad} */
+export async function load({ fetch, url }) {
     try {
-        const res = await fetch(fullIndexUrl);
+        const res = await fetch(`/api/v1/stats?${url.searchParams.toString()}`);
+
         if (res.ok) {
-            const titles = await res.json();
-            fullTitleIndex.set(titles);
-            return { titles };
+            const statsData = await res.json();
+            return { stats: statsData };
         }
+        throw error(res.status, 'Failed to load statistics data from API.');
     } catch (e) {
         console.error("Failed to load stats data:", e);
+        if (e.status) throw e;
+        throw error(500, 'Could not load statistics.');
     }
-
-    return { titles: [] };
 }

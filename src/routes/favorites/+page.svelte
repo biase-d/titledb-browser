@@ -5,7 +5,7 @@
 		const names = $titleIndex[id]
 		return {
 			id,
-			name: names ? names[0] : id // Fallback to ID if name isn't found
+			name: names ? names[0] : id
 		}
 	})
 </script>

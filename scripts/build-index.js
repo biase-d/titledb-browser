@@ -1,104 +1,117 @@
 import fs from 'fs/promises'
 import path from 'path'
+import postgres from 'postgres'
 
 const dataRepoPath = path.resolve(process.cwd(), 'tmp/titledb_data')
 const mainIndexPath = path.join(dataRepoPath, 'output/main.json')
 const detailsDirPath = path.join(dataRepoPath, 'output/titleid')
+const performanceRepoPath = path.resolve(process.cwd(), 'tmp/performance_data')
+const performanceDataPath = path.join(performanceRepoPath, 'data')
+const schemaPath = path.resolve(process.cwd(), 'scripts/schema.sql')
 
-const staticDir = path.resolve(process.cwd(), 'static')
-const fullIndexOutputPath = path.join(staticDir, 'full_index.json')
-const namesDir = path.join(staticDir, 'names')
-const publishersDir = path.join(staticDir, 'publishers')
-const metadataPath = path.join(staticDir, 'metadata.json')
-
-function parseSize (sizeStr) {
-    if (!sizeStr) return 0
+function parseSize(sizeStr) {
+    if (!sizeStr) return null
         const sizeMap = { KiB: 1024, MiB: 1024 ** 2, GiB: 1024 ** 3 }
         const [value, unit] = (sizeStr || '').split(' ')
-        return parseFloat(value) * (sizeMap[unit] || 1)
+        const parsedValue = parseFloat(value)
+        if (isNaN(parsedValue)) return null
+            return Math.round(parsedValue * (sizeMap[unit] || 1))
 }
 
-async function buildRichIndex () {
-    console.log('Starting unified index build from local files...')
+function dataChanged(existing, incoming) {
+    for (const key of Object.keys(incoming)) {
+        if (key === 'last_updated') continue
+            const a = existing?.[key]
+            const b = incoming[key]
+            if (JSON.stringify(a) !== JSON.stringify(b)) return true
+    }
+    return false
+}
+
+async function syncDatabase() {
+    console.log('Starting database synchronization process...')
+    const connectionString = process.env.POSTGRES_URL
+    if (!connectionString) {
+        console.error('POSTGRES_URL missing')
+        process.exit(1)
+    }
+    const sql = postgres(connectionString, { ssl: 'require' })
 
     try {
-        console.log(`Reading main index from: ${mainIndexPath}`)
-        const mainIndexContent = await fs.readFile(mainIndexPath, 'utf-8')
-        const mainIndex = JSON.parse(mainIndexContent)
+        const tableExists = await sql`
+        SELECT EXISTS (
+            SELECT FROM pg_tables
+            WHERE schemaname = 'public' AND tablename = 'games'
+        );
+        `
+        if (!tableExists[0].exists) {
+            const schemaSql = await fs.readFile(schemaPath, 'utf-8')
+            await sql.unsafe(schemaSql.replace('DROP TABLE IF EXISTS games;', ''))
+        }
+
+        const mainIndex = JSON.parse(await fs.readFile(mainIndexPath, 'utf-8'))
         const titleIds = Object.keys(mainIndex)
-        console.log(`Found ${titleIds.length} titles.`)
 
-        console.log('Reading and processing all title details...')
-        const allRichData = []
+        const allGamesData = []
         for (const id of titleIds) {
-            const detailPath = path.join(detailsDirPath, `${id}.json`)
             try {
-                const detailContent = await fs.readFile(detailPath, 'utf-8')
-                const details = JSON.parse(detailContent)
-
+                const details = JSON.parse(await fs.readFile(path.join(detailsDirPath, `${id}.json`), 'utf-8'))
+                let performanceData = null
+                try {
+                    performanceData = JSON.parse(await fs.readFile(path.join(performanceDataPath, `${id}.json`), 'utf-8'))
+                } catch {}
                 allRichData.push({
                     id,
                     names: mainIndex[id],
-                    publisher: details.publisher || 'N/A',
-                    releaseDate: details.releaseDate || null,
-                    sizeInBytes: parseSize(details.size)
+                    publisher: details.publisher || null,
+                    release_date: details.releaseDate || null,
+                    size_in_bytes: parseSize(details.size),
+                    icon_url: details.iconUrl || null,
+                    banner_url: details.bannerUrl || null,
+                    screenshots: details.screenshots || null,
+                    performance: performanceData,
                 })
-            } catch (error) {
-                if (error.code !== 'ENOENT') {
-                    console.error(`Failed to process file for ID: ${id}`, error)
-                }
-            }
+            } catch {}
         }
-        console.log(`Successfully processed details for ${allRichData.length} titles.`)
+        console.log(`Prepared ${allGamesData.length} game entries.`)
 
+        console.log('Loading existing DB entries...')
+        const existingGames = await sql`SELECT * FROM games`
+        const existingMap = new Map(existingGames.map(g => [g.id, g]))
 
-        await fs.mkdir(namesDir, { recursive: true })
-        await fs.mkdir(publishersDir, { recursive: true })
+        const updates = allGamesData.filter(game => dataChanged(existingMap.get(game.id), game))
+        console.log(`Found ${updates.length} new or updated entries.`)
 
-        await fs.writeFile(fullIndexOutputPath, JSON.stringify(allRichData))
-        console.log(`Rich index successfully built at: ${fullIndexOutputPath}`)
-
-        for (const id of titleIds) {
-            if (mainIndex[id]) {
-                const nameFilePath = path.join(namesDir, `${id}.json`)
-                await fs.writeFile(nameFilePath, JSON.stringify({ names: mainIndex[id] }))
-            }
+        const batchSize = 500
+        for (let i = 0; i < updates.length; i += batchSize) {
+            const batch = updates.slice(i, i + batchSize)
+            await sql`
+            INSERT INTO games ${sql(batch,
+                'id', 'names', 'publisher', 'release_date',
+                'size_in_bytes', 'icon_url', 'banner_url',
+                'performance', 'screenshots'
+            )}
+            ON CONFLICT (id) DO UPDATE SET
+            names = EXCLUDED.names,
+            publisher = EXCLUDED.publisher,
+            release_date = EXCLUDED.release_date,
+            size_in_bytes = EXCLUDED.size_in_bytes,
+            icon_url = EXCLUDED.icon_url,
+            banner_url = EXCLUDED.banner_url,
+            screenshots = EXCLUDED.screenshots,
+            performance = EXCLUDED.performance,
+            last_updated = NOW()
+            `
+            console.log(`Batch ${Math.floor(i / batchSize) + 1} committed.`)
         }
-        console.log(`Generated ${titleIds.length} name files.`)
-
-        const publishersMap = new Map()
-        const yearsSet = new Set()
-
-        for (const item of allRichData) {
-            if (item.publisher && item.publisher !== 'N/A') {
-                if (!publishersMap.has(item.publisher)) {
-                    publishersMap.set(item.publisher, [])
-                }
-                publishersMap.get(item.publisher).push(item)
-            }
-            if (item.releaseDate) {
-                yearsSet.add(item.releaseDate.toString().substring(0, 4))
-            }
-        }
-
-        for (const [publisher, items] of publishersMap.entries()) {
-            const fileName = publisher.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.json'
-            const publisherFilePath = path.join(publishersDir, fileName)
-            await fs.writeFile(publisherFilePath, JSON.stringify(items))
-        }
-        console.log(`Generated ${publishersMap.size} publisher-specific index files.`)
-
-        const metadata = {
-            publishers: [...publishersMap.keys()].sort(),
-            years: [...yearsSet].sort((a, b) => b - a)
-        }
-        await fs.writeFile(metadataPath, JSON.stringify(metadata))
-        console.log(`Metadata file generated at: ${metadataPath}`)
+        console.log('Sync complete.')
 
     } catch (error) {
-        console.error('An error occurred during the build process:', error)
+        console.error('Sync failed:', error)
         process.exit(1)
+    } finally {
+        await sql.end()
     }
 }
 
-buildRichIndex()
+syncDatabase()

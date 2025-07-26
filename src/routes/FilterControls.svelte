@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher } from 'svelte'
+	import { createEventDispatcher, onMount } from 'svelte'
 
 	const dispatch = createEventDispatcher()
 
@@ -10,6 +10,27 @@
 	export let selectedMaxYear = ''
 	export let minSizeMB = ''
 	export let maxSizeMB = ''
+
+	$: validMaxYears = selectedMinYear ? years.filter(year => year >= selectedMinYear) : years;
+	$: validMinYears = selectedMaxYear ? years.filter(year => year <= selectedMaxYear) : years;
+
+	let isInitialRun = true;
+
+	onMount(() => {
+		isInitialRun = false;
+	});
+
+	$: {
+		selectedPublisher;
+		selectedMinYear;
+		selectedMaxYear;
+		minSizeMB;
+		maxSizeMB;
+
+		if (!isInitialRun) {
+			dispatch('change');
+		}
+	}
 
 	function resetFilters () {
 	  selectedPublisher = ''
@@ -57,13 +78,17 @@
 				<div class="input-wrapper">
 					<select class="custom-select" id="release-year-from" bind:value={selectedMinYear}>
 						<option value="">From</option>
-						{#each years as year}<option value={year}>{year}</option>{/each}
+						{#each years as year}
+							<option value={year} disabled={!validMinYears.includes(year)}>{year}</option>
+						{/each}
 					</select>
 				</div>
 				<div class="input-wrapper">
 					<select class="custom-select" id="release-year-to" bind:value={selectedMaxYear}>
 						<option value="">To</option>
-						{#each years as year}<option value={year}>{year}</option>{/each}
+						{#each years as year}
+							<option value={year} disabled={!validMaxYears.includes(year)}>{year}</option>
+						{/each}
 					</select>
 				</div>
 			</div>
