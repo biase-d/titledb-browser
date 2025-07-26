@@ -1,7 +1,6 @@
 name: Build and Deploy Data Index
 
 on:
-  # Runs on a schedule (e.g., every 15 minutes) to check for updates.
   schedule:
     - cron: '*/15 * * * *'
 
@@ -64,12 +63,22 @@ jobs:
           path: ./tmp/titledb_data
           fetch-depth: 1
 
+      - name: Clone community performance data
+        if: steps.check_for_changes.outputs.should_build == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: biase-d/nx-performance
+          path: ./tmp/performance_data
+          fetch-depth: 1
+
       - name: Install dependencies
         if: steps.check_for_changes.outputs.should_build == 'true'
         run: npm install
 
-      - name: Build the rich index file from local data
+      - name: Build and Sync Database
         if: steps.check_for_changes.outputs.should_build == 'true'
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
         run: npm run build:index
 
       - name: Deploy index file to GitHub Pages

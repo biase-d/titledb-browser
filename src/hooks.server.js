@@ -1,77 +1,75 @@
+import { SvelteKitAuth } from "@auth/sveltekit"
+import GitHub from "@auth/sveltekit/providers/github"
+import { GITHUB_ID, GITHUB_SECRET } from "$env/static/private"
 import { titleIdUrl, nameUrl } from '$lib/index.js';
+import { sequence } from "@sveltejs/kit/hooks";
 
-const BOT_REGEX = /bot|crawler|spider|facebook|slack|discord|whatsapp|preview|linkedin|embed|twitter|pinterest|vkShare/i;
-
-function escapeHtml(str = '') {
-    return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+const BOT_USER_AGENTS = [
+  'Twitterbot', 'facebookexternalhit', 'LinkedInBot',
+'Discordbot', 'Slackbot', 'Pinterest', 'WhatsApp'
+];
 
 /** @type {import('@sveltejs/kit').Handle} */
-export async function handle({ event, resolve }) {
-    const userAgent = event.request.headers.get('user-agent') || '';
-    const accept = event.request.headers.get('accept') || '';
+async function botMetaHandler({ event, resolve }) {
+  const userAgent = event.request.headers.get('user-agent') || '';
+  const isBot = BOT_USER_AGENTS.some(bot => userAgent.includes(bot));
+  const isTitlePage = event.url.pathname.startsWith('/title/');
 
-    const isBot = BOT_REGEX.test(userAgent);
-    const wantsHtml = accept.includes('text/html');
-    const isPreviewBot = isBot && wantsHtml;
-
-    const isTitlePage = event.url.pathname.startsWith('/title/');
-
-    if (isPreviewBot && isTitlePage) {
-        try {
-            const id = event.url.pathname.split('/')[2];
-            if (!id) return resolve(event);
-
-            const [nameRes, detailRes] = await Promise.all([
-                fetch(nameUrl(id)),
-                                                           fetch(titleIdUrl(id))
-            ]);
-
-            if (!nameRes.ok || !detailRes.ok) return resolve(event);
-
-            const nameData = await nameRes.json();
-            const titleData = await detailRes.json();
-            const name = nameData.names?.[0] || id;
-            const description = escapeHtml(titleData.description) || `Details for ${name} (${id})`;
-            const imageUrl = titleData.bannerUrl || titleData.iconUrl || '';
-
-            const response = await resolve(event);
-            let appHtml = await response.text();
-
-            const metaTags = `
-            <title>${name} - Titledb Browser</title>
-            <meta name="description" content="${description}" />
-            <meta property="og:title" content="${name} - Titledb Browser" />
-            <meta property="og:description" content="${description}" />
-            <meta property="og:image" content="${imageUrl}" />
-            <meta property="twitter:card" content="summary_large_image" />
-            `;
-
-            appHtml = appHtml
-            .replace(/<title>.*?<\/title>/, '')
-            .replace(/<meta[^>]+property="og:[^"]*"[^>]*>/g, '')
-            .replace(/<meta[^>]+name="description"[^>]*>/, '')
-            .replace(/<meta[^>]+property="twitter:[^"]*"[^>]*>/g, '');
-
-            appHtml = appHtml.replace('</head>', `${metaTags}\n</head>`);
-
-            const headers = new Headers(response.headers);
-            headers.set('content-type', 'text/html');
-
-            return new Response(appHtml, {
-                status: response.status,
-                headers
-            });
-
-        } catch (error) {
-            console.error('Error in bot meta handler:', error);
-            return resolve(event);
-        }
+  if (isBot && isTitlePage) {
+    try {
+      const id = event.url.pathname.split('/')[2];
+      if (!id) return resolve(event);
+      const [nameRes, detailRes] = await Promise.all([ fetch(nameUrl(id)), fetch(titleIdUrl(id)) ]);
+      if (!nameRes.ok || !detailRes.ok) return resolve(event);
+      const nameData = await nameRes.json();
+      const titleData = await detailRes.json();
+      const names = nameData.names || [id];
+      const name = names[0];
+      const response = await resolve(event);
+      let appHtml = await response.text();
+      const metaTags = `<title>${name} - Titledb Browser</title><meta name="description" content="${titleData.description?.replace(/"/g, '"') || `Details for ${name} (${id})`}" /><meta property="og:title" content="${name} - Titledb Browser" /><meta property="og:description" content="${titleData.description?.replace(/"/g, '"') || `Details for ${name} (${id})`}" /><meta property="og:image" content="${titleData.bannerUrl || titleData.iconUrl}" /><meta property="twitter:card" content="summary_large_image" />`;
+      appHtml = appHtml.replace(/<title>.*?<\/title>/, metaTags);
+      return new Response(appHtml, { status: response.status, headers: response.headers });
+    } catch (error) {
+      console.error('Error in handle hook:', error);
+      return resolve(event);
     }
-
-    return resolve(event);
+  }
+  return resolve(event);
 }
+
+const authHandler = SvelteKitAuth({
+  trustHost: true,
+  providers: [
+    GitHub({
+      clientId: GITHUB_ID,
+      clientSecret: GITHUB_SECRET,
+      authorization: { params: { scope: "public_repo user:email" } }
+    }),
+  ],
+  callbacks: {
+    /**
+     * @param {{ token: import('@auth/sveltekit').JWT, account: import('@auth/sveltekit').Account | null, profile: import('@auth/sveltekit/providers/github').GitHubProfile | null }} params
+     */
+    async jwt({ token, account, profile }) {
+      if (account) {
+        token.accessToken = account.access_token;
+      }
+      if (profile) {
+        token.login = profile.login;
+      }
+      return token;
+    },
+    /** @param {{session: import('@auth/sveltekit').Session, token: import('@auth/sveltekit').JWT}} params */
+    async session({ session, token }) {
+      // Pass the properties from the JWT to the session object.
+      // @ts-ignore
+      session.accessToken = token.accessToken;
+      // @ts-ignore
+      session.user.login = token.login;
+      return session;
+    },
+  },
+}).handle;
+
+export const handle = sequence(authHandler, botMetaHandler);

@@ -4,27 +4,31 @@ import { titleIndex, fullTitleIndex } from '$lib/stores'
 import { onMount } from 'svelte'
 import { getCachedIndex, setCachedIndex, getCachedFullIndex } from '$lib/db.js'
 import { mainUrl } from '$lib/index.js'
+import AuthButton from './AuthButton.svelte'
+
+export let data
 
 let isLoading = true
 
 onMount(async () => {
-  const cachedLite = await getCachedIndex()
-  if (cachedLite) {
-    $titleIndex = cachedLite
-  } else {
-    const res = await fetch(mainUrl)
-    const data = await res.json()
-    $titleIndex = data
-    await setCachedIndex(data)
-  }
+	const cachedLite = await getCachedIndex()
+	if (cachedLite) {
+		$titleIndex = cachedLite
+	} else {
+		const res = await fetch(mainUrl)
+		const data = await res.json()
+		$titleIndex = data
+		await setCachedIndex(data)
+	}
 
-  const cachedFull = await getCachedFullIndex()
-  if (cachedFull) {
-    $fullTitleIndex = cachedFull
-  }
+	const cachedFull = await getCachedFullIndex()
+	if (cachedFull) {
+		$fullTitleIndex = cachedFull
+	}
 
-  isLoading = false
+	isLoading = false
 })
+
 </script>
 
 <svelte:head>
@@ -42,10 +46,16 @@ onMount(async () => {
 
 <div class="app-container">
 	<header>
-		<a href="/">
-			<h1>Titledb Browser</h1>
+		<a href="/" class="logo">
+			<span class="logo-text">titledb-browser</span>
 		</a>
-		<p>A simple way to browse game titles.</p>
+		<nav>
+			<a href="/stats">Stats</a>
+			<a href="/favorites">Favorites</a>
+			<div class="auth-wrapper">
+				<AuthButton session={data.session} />
+			</div>
+		</nav>
 	</header>
 	<main>
 		{#if isLoading}
@@ -55,47 +65,65 @@ onMount(async () => {
 		{/if}
 	</main>
 	<footer>
-		<p class="cache-notice">
-			This site uses browser storage to cache game data for faster loads
-		</p>
 		<p>a biase-d project</p>
 	</footer>
 </div>
 
 <style>
-	.loading-message {
-		text-align: center;
-		padding: 2rem;
-		opacity: 0.8;
-	}
-
-	.app-container {
-		max-width: 900px;
-		margin: 0 auto;
-		padding: 2rem 1.5rem;
-	}
+	.loading-message { text-align: center; padding: 2rem; opacity: 0.8; }
+	.app-container { max-width: 1024px; margin: 0 auto; padding: 1.5rem; }
 
 	header {
-		margin-bottom: 3rem;
-	}
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid var(--border-color);
+	margin-bottom: 1.5rem;
+}
 
-	header h1 {
-		font-size: 2rem;
-		font-weight: 700;
-		color: var(--primary-color);
-		margin: 0;
-	}
+.logo {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	text-decoration: none;
+}
 
-	header p {
-		margin-top: 0.25rem;
-		color: var(--text-color);
-		opacity: 0.7;
-	}
+.logo-icon {
+	font-size: 1.25rem;
+}
 
-	footer {
-		text-align: center;
-		margin-top: 4rem;
-		font-size: 0.9rem;
-		opacity: 0.6;
-	}
+.logo-text {
+	font-size: 1rem;
+	font-weight: 500;
+	color: var(--text-primary);
+}
+
+nav {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+nav a {
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--text-secondary);
+	text-decoration: none;
+	padding: 0.25rem 0.5rem;
+	border-radius: 4px;
+	transition: all 0.2s ease;
+}
+
+nav a:hover {
+	color: var(--text-primary);
+	background-color: var(--input-bg);
+}
+
+.auth-wrapper {
+	border-left: 1px solid var(--border-color);
+	padding-left: 0.5rem;
+	margin-left: 0.25rem;
+}
+
 </style>

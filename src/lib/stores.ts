@@ -1,8 +1,49 @@
 import { writable } from 'svelte/store'
+import { browser } from '$app/environment'
+import { getFavorites, toggleFavorite, getAllDrafts } from '$lib/db.js'
 
-// lightweight main.json { id: [names] }
 export const titleIndex = writable({})
-
-// Rich full_index.json for filtering [{id, names, publisher,...}]
-// It starts empty. Its length will determine if filters are active.
 export const fullTitleIndex = writable([])
+export const favorites = createFavoritesStore()
+export const draftsStore = createDraftsStore()
+
+function createFavoritesStore() {
+    const { subscribe, set } = writable(new Set())
+    async function init() {
+        if (browser) {
+            const favoritesFromDB = await getFavorites()
+            set(favoritesFromDB)
+        }
+    }
+    init()
+    async function toggle(id) {
+        await toggleFavorite(id)
+        await init()
+    }
+    return { subscribe, toggle }
+}
+
+function createDraftsStore() {
+    const { subscribe, set, update } = writable([])
+
+    async function init() {
+        if (browser) {
+            const draftsFromDB = await getAllDrafts()
+            set(draftsFromDB)
+        }
+    }
+
+    init()
+
+    return {
+        subscribe,
+        save: async (id, data) => {
+            await saveDraft(id, data)
+            await init()
+        },
+        delete: async (id) => {
+            await deleteDraft(id)
+            await init()
+        }
+    }
+}
