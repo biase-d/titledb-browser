@@ -45,14 +45,41 @@
 		}
 		return text;
 	}
+
 	function formatDate(releaseDate) {
-	  if (!releaseDate) return 'N/A';
-	  const dateStr = releaseDate.toString();
-	  const year = dateStr.substring(0, 4);
-	  const month = dateStr.substring(4, 6);
-	  const day = dateStr.substring(6, 8);
-	  return `${year}-${month}-${day}`;
+		if (!releaseDate) return 'N/A';
+		const dateStr = releaseDate.toString();
+		const year = parseInt(dateStr.substring(0, 4));
+		const month = parseInt(dateStr.substring(4, 6)) - 1;
+		const day = parseInt(dateStr.substring(6, 8));
+
+		const gameDate = new Date(year, month, day);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+
+		if (gameDate > today) {
+			return `Coming Soon (${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')})`;
+		}
+
+		return gameDate.toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		});
 	}
+
+	function formatSize(bytes) {
+		if (!bytes || isNaN(bytes)) return 'N/A';
+		const size = parseInt(bytes, 10);
+		if (size < 1024 ** 2) {
+			return `${(size / 1024).toFixed(2)} KB`;
+		} else if (size < 1024 ** 3) {
+			return `${(size / 1024 ** 2).toFixed(2)} MB`;
+		} else {
+			return `${(size / 1024 ** 3).toFixed(2)} GB`;
+		}
+	}
+
 </script>
 
 <svelte:head>
@@ -88,7 +115,7 @@
 				<div class="details-grid">
 					<span><strong>Publisher:</strong> {game.publisher || 'N/A'}</span>
 					<span><strong>Release Date:</strong> {formatDate(game.release_date)}</span>
-					<span><strong>Size:</strong> {game.size_in_bytes || 'N/A'}</span>
+					<span><strong>Size:</strong> {formatSize(game.size_in_bytes) || 'N/A'}</span>
 					<span><strong>Title ID:</strong> {id}</span>
 				</div>
 			</div>
