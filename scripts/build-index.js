@@ -1,13 +1,14 @@
-import fs from 'fs/promises'
-import path from 'path'
-import postgres from 'postgres'
+import fs from 'fs/promises';
+import path from 'path';
+import postgres from 'postgres';
+import { simpleGit } from 'simple-git';
+import { schema } from './schema.js';
 
 const dataRepoPath = path.resolve(process.cwd(), 'tmp/titledb_data')
 const mainIndexPath = path.join(dataRepoPath, 'output/main.json')
 const detailsDirPath = path.join(dataRepoPath, 'output/titleid')
 const performanceRepoPath = path.resolve(process.cwd(), 'tmp/performance_data')
 const performanceDataPath = path.join(performanceRepoPath, 'data')
-const schemaPath = path.resolve(process.cwd(), 'scripts/schema.sql')
 
 function parseSize (sizeStr) {
     if (!sizeStr) return null
@@ -21,6 +22,8 @@ function parseSize (sizeStr) {
 async function syncDatabase() {
     console.log('Starting database synchronization process...')
 
+    const git = simpleGit(performanceRepoPath);
+
     const connectionString = process.env.POSTGRES_URL;
     if (!connectionString) {
         console.error("ERROR: POSTGRES_URL environment variable not found.");
@@ -29,40 +32,66 @@ async function syncDatabase() {
     const sql = postgres(connectionString, { ssl: 'require' });
 
     try {
-        console.log("Checking database schema...");
-        const tableExistsResult = await sql`
-        SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'games');
-        `;
-        const tableExists = tableExistsResult[0].exists;
+        console.log("Verifying database schema...");
+        const tableExistsResult = await sql`SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = ${schema.tableName});`;
 
-        if (!tableExists) {
-            console.log("-> Table 'games' does not exist. Creating schema from scratch...");
-            const schemaSql = await fs.readFile(schemaPath, 'utf-8');
-            await sql.unsafe(schemaSql);
-            console.log("-> Schema created successfully.");
+        if (!tableExistsResult[0].exists) {
+            console.log(`-> Table '${schema.tableName}' does not exist. Creating from scratch...`);
+            for (const extQuery of schema.extensions) {
+                await sql.unsafe(extQuery);
+            }
+            const columnDefs = schema.columns.map(c => `"${c.name}" ${c.type} ${c.constraints || ''}`).join(', ');
+            await sql.unsafe(`CREATE TABLE ${schema.tableName} (${columnDefs})`);
+            console.log("-> Table created. Applying indexes...");
+            for (const indexQuery of schema.indexes) {
+                await sql.unsafe(indexQuery);
+            }
+            console.log("-> Schema creation complete.");
         } else {
-            console.log("-> Table 'games' exists. Verifying columns...");
-            const columns = await sql`
-            SELECT column_name FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = 'games';
-            `;
-            const columnNames = columns.map(c => c.column_name);
-
-            const requiredColumns = ['id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'screenshots', 'performance', 'last_updated'];
-
-            for (const col of requiredColumns) {
-                if (!columnNames.includes(col)) {
-                    console.warn(`--> Column '${col}' is missing. Attempting to add it...`);
-                    if (col === 'screenshots') {
-                        await sql`ALTER TABLE games ADD COLUMN screenshots TEXT[]`;
-                        console.log(`---> Successfully added 'screenshots' column.`);
-                    } else {
-                        console.error(`---> Automatic migration for column '${col}' is not defined. Please update schema manually.`);
-                    }
+            console.log(`-> Table '${schema.tableName}' exists. Verifying columns...`);
+            for (const extQuery of schema.extensions) {
+                await sql.unsafe(extQuery);
+            }
+            const columnsResult = await sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${schema.tableName};`;
+            const existingColumns = new Set(columnsResult.map(c => c.column_name));
+            
+            for (const column of schema.columns) {
+                if (!existingColumns.has(column.name)) {
+                    console.warn(`--> Column '${column.name}' is missing. Attempting to add it...`);
+                    await sql.unsafe(`ALTER TABLE ${schema.tableName} ADD COLUMN "${column.name}" ${column.type} ${column.constraints || ''}`);
+                    console.log(`---> Successfully added '${column.name}' column.`);
                 }
             }
             console.log("-> Schema verification complete.");
         }
+
+        console.log('Extracting contributor information from Git history...');
+        const contributorMap = new Map();
+        try {
+            const dataFiles = await fs.readdir(performanceDataPath);
+            for (const file of dataFiles) {
+                if (file.endsWith('.json')) {
+                    const titleId = file.replace('.json', '');
+                    try {
+                        const log = await git.log({
+                            file: path.join('data', file),
+                            maxCount: 1,
+                            format: { authorEmail: '%ae' }
+                        });
+
+                        if (log.latest?.authorEmail) {
+                            const match = log.latest.authorEmail.match(/\+(.+)@users\.noreply\.github\.com$/);
+                            if (match && match[1]) {
+                                contributorMap.set(titleId, match[1]);
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }
+        } catch (e) {
+            console.warn("Could not read performance data directory. Contributor info will be missing.");
+        }
+        console.log(`-> Found contributor info for ${contributorMap.size} files.`);
 
         console.log('Reading and merging data from local files...')
         const mainIndexContent = await fs.readFile(mainIndexPath, 'utf-8')
@@ -93,6 +122,7 @@ async function syncDatabase() {
                     banner_url: details.bannerUrl || null,
                     screenshots: details.screenshots || null,
                     performance: performanceData,
+                    contributor: contributorMap.get(id) || null
                 })
             } catch (error) {
                 if (error.code !== 'ENOENT') console.error(`Failed to process file for ID: ${id}`, error)
@@ -106,11 +136,11 @@ async function syncDatabase() {
             const batch = allGamesData.slice(i, i + batchSize);
             process.stdout.write(`  -> Processing batch ${Math.floor(i / batchSize) + 1} / ${Math.ceil(allGamesData.length / batchSize)}... `);
             await sql`
-            INSERT INTO games ${sql(batch, 'id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'screenshots', 'performance')}
+            INSERT INTO games ${sql(batch, 'id', 'names', 'publisher', 'release_date', 'size_in_bytes', 'icon_url', 'banner_url', 'screenshots', 'performance', 'contributor')}
             ON CONFLICT (id) DO UPDATE SET
             names = EXCLUDED.names, publisher = EXCLUDED.publisher, release_date = EXCLUDED.release_date, size_in_bytes = EXCLUDED.size_in_bytes,
             icon_url = EXCLUDED.icon_url, banner_url = EXCLUDED.banner_url, screenshots = EXCLUDED.screenshots, 
-            performance = EXCLUDED.performance, last_updated = NOW()
+            performance = EXCLUDED.performance, contributor = EXCLUDED.contributor, last_updated = NOW()
             `
             console.log('Done.');
         }
