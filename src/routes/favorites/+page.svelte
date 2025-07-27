@@ -1,13 +1,10 @@
 <script>
-	import { favorites, titleIndex } from '$lib/stores'
+	/** @type {import('./$types').PageData} */
+	export let data;
 
-	$: favoritedGames = Array.from($favorites).map(id => {
-		const names = $titleIndex[id]
-		return {
-			id,
-			name: names ? names[0] : id
-		}
-	})
+	$: favoritedGames = data.favoritedGames || [];
+
+	console.log(data)
 </script>
 
 <svelte:head>
@@ -18,12 +15,12 @@
 	<h1 class="page-title">My Favorites</h1>
 
 	{#if favoritedGames.length > 0}
-		<p class="intro-text">Here are the games you've saved for later.</p>
+		<p class="intro-text">Here are the games you've saved for later</p>
 		<ul class="results-list">
 			{#each favoritedGames as game (game.id)}
 				<li>
 					<a href={`/title/${game.id}`}>
-						<span class="title-name">{game.name}</span>
+						<span class="title-name">{game.names[0]}</span>
 						<span class="title-id">({game.id})</span>
 					</a>
 				</li>
