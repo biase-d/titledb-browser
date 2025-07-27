@@ -127,18 +127,16 @@ function formatResolution(perfData) {
 						<div class="perf-item">
 							<p class="label">
 								Resolution
-								{#if docked.resolution_notes}<span class="tooltip-trigger">(i)<span class="tooltip-text">{docked.resolution_notes}</span></span>{/if}
 							</p>
 							<p class="value">{formatResolution(docked)}</p>
-							{#if docked.resolution_subtext}<p class="subtext">{docked.resolution_subtext}</p>{/if}
+							{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
 						</div>
 						<div class="perf-item">
 							<p class="label">
 								Framerate
-								{#if docked.fps_notes}<span class="tooltip-trigger">(i)<span class="tooltip-text">{docked.fps_notes}</span></span>{/if}
 							</p>
 							<p class="value">{formatFramerate(docked)}</p>
-							{#if docked.fps_subtext}<p class="subtext">{docked.fps_subtext}</p>{/if}
+							{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
 						</div>
 					</div>
 				</div>
@@ -152,18 +150,16 @@ function formatResolution(perfData) {
 						<div class="perf-item">
 							<p class="label">
 								Resolution
-								{#if handheld.resolution_notes}<span class="tooltip-trigger">(i)<span class="tooltip-text">{handheld.resolution_notes}</span></span>{/if}
 							</p>
 							<p class="value">{formatResolution(handheld)}</p>
-							{#if handheld.resolution_subtext}<p class="subtext">{handheld.resolution_subtext}</p>{/if}
+							{#if handheld.resolution_notes}<p class="subtext">{handheld.resolution_notes}</p>{/if}
 						</div>
 						<div class="perf-item">
 							<p class="label">
 								Framerate
-								{#if handheld.fps_notes}<span class="tooltip-trigger">(i)<span class="tooltip-text">{handheld.fps_notes}</span></span>{/if}
 							</p>
 							<p class="value">{formatFramerate(handheld)}</p>
-							{#if handheld.fps_subtext}<p class="subtext">{handheld.fps_subtext}</p>{/if}
+							{#if handheld.fps_notes}<p class="subtext">{handheld.fps_notes}</p>{/if}
 						</div>
 					</div>
 				</div>

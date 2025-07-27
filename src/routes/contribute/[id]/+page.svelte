@@ -11,8 +11,8 @@
 	const { id, name, existingData } = data;
 
 	let performanceData = existingData || {
-		docked: { resolution_type: 'Fixed', resolution: '', resolution_subtext: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_subtext: '', fps_notes: '' },
-		handheld: { resolution_type: 'Fixed', resolution: '', resolution_subtext: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_subtext: '', fps_notes: '' }
+		docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' },
+		handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' }
 	};
 
 	$: if (performanceData.docked.resolution_type !== 'Multiple Fixed') {
@@ -97,26 +97,18 @@
 							<input id="handheld-resolutions" type="text" placeholder="e.g., 1280x720, 960x540" bind:value={performanceData.handheld.resolutions} disabled={performanceData.handheld.resolution_type !== 'Multiple Fixed'} />
 						</div>
 					{/if}
-					<div class="form-group">
-						<label for="handheld-res-subtext">Resolution Subtext</label>
-						<input id="handheld-res-subtext" type="text" placeholder="e.g., Graphics settings has no impact" bind:value={performanceData.handheld.resolution_subtext} />
-					</div>
 
 					<div class="form-group">
-						<label for="handheld-res-notes">Resolution Notes (Tooltip)</label>
-						<textarea id="handheld-res-notes" placeholder="e.g., Significant visual softness..." bind:value={performanceData.handheld.resolution_notes}></textarea>
+						<label for="handheld-res-notes">Resolution Notes</label>
+						<textarea id="handheld-res-notes" placeholder="e.g. Graphics settings has no impact" bind:value={performanceData.handheld.resolution_notes}></textarea>
 					</div>
 					<div class="form-group-inline">
 						<div class="form-group"><label for="handheld-fps-behavior">FPS Behavior</label><select id="handheld-fps-behavior" bind:value={performanceData.handheld.fps_behavior}><option value="Locked">Locked</option><option value="Unlocked">Unlocked</option></select></div>
 						<div class="form-group"><label for="handheld-target-fps">Target FPS</label><input id="handheld-target-fps" type="number" placeholder="e.g., 30" bind:value={performanceData.handheld.target_fps} /></div>
 					</div>
-					<div class="form-group">
-						<label for="handheld-fps-subtext">Framerate Subtext</label>
-						<input id="handheld-fps-subtext" type="text" placeholder="e.g., More frequent dips than docked..." bind:value={performanceData.handheld.fps_subtext} />
-					</div>
 
 					<div class="form-group">
-						<label for="handheld-fps-notes">Framerate Notes (Tooltip)</label>
+						<label for="handheld-fps-notes">Framerate Notes</label>
 						<textarea id="handheld-fps-notes" placeholder="e.g., More frequent dips than docked..." bind:value={performanceData.handheld.fps_notes}></textarea>
 					</div>
 				</fieldset>
@@ -143,26 +135,18 @@
 						<input id="docked-resolutions" type="text" placeholder="e.g., 1920x1080, 1600x900" bind:value={performanceData.docked.resolutions} disabled={performanceData.docked.resolution_type !== 'Multiple Fixed'} />
 					</div>
 				{/if}
-				<div class="form-group">
-					<label for="docked-res-subtext">Resolution Subtext</label>
-					<input id="docked-res-subtext" type="text" placeholder="e.g., Graphics settings has no impact" bind:value={performanceData.docked.resolution_subtext} />
-				</div>
 
 				<div class="form-group">
-					<label for="docked-res-notes">Resolution Notes (Tooltip)</label>
+					<label for="docked-res-notes">Resolution Notes</label>
 					<textarea id="docked-res-notes" placeholder="e.g., Quality vs Performance modes, anamorphic scaling..." bind:value={performanceData.docked.resolution_notes}></textarea>
 				</div>
 					<div class="form-group-inline">
 						<div class="form-group"><label for="docked-fps-behavior">FPS Behavior</label><select id="docked-fps-behavior" bind:value={performanceData.docked.fps_behavior}><option value="Locked">Locked</option><option value="Unlocked">Unlocked</option></select></div>
 						<div class="form-group"><label for="docked-target-fps">Target FPS</label><input id="docked-target-fps" type="number" placeholder="e.g., 30" bind:value={performanceData.docked.target_fps} /></div>
 					</div>
-				<div class="form-group">
-					<label for="docked-fps-subtext">Framerate Subtext</label>
-					<input id="docked-fps-subtext" type="text" placeholder="e.g., 30 FPS is mostly stable" bind:value={performanceData.docked.fps_subtext} />
-				</div>
 
 				<div class="form-group">
-					<label for="docked-fps-notes">Framerate Notes (Tooltip)</label>
+					<label for="docked-fps-notes">Framerate Notes</label>
 					<textarea id="docked-fps-notes" placeholder="e.g., Dips in certain areas, unlocked in menus..." bind:value={performanceData.docked.fps_notes}></textarea>
 				</div>
 				</fieldset>
