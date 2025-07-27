@@ -10,7 +10,7 @@
 
 	/** @type {import('./$types').PageData} */
 	let { data } = $props();
-	
+
 	let results = $derived(data.results);
 	let meta = $derived(data.meta);
 	let pagination = $derived(data.pagination);
@@ -143,7 +143,7 @@
 		</div>
 	{/if}
 
-	{#if $draftsStore?.length > 0}
+	{#if $draftsStore?.length > 0 && data.session?.user}
 		<h2> Saved Drafts </h2>
 		<ul class="results-list">
 			{#each $draftsStore as draft (draft.id)}
