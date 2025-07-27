@@ -53,9 +53,7 @@ onMount(async () => {
 			<a href="/stats">Stats</a>
 			<a href="/favorites">Favorites</a>
 			<div class="auth-wrapper">
-			<!--
 				<AuthButton session={data.session} />
-			-->
 			</div>
 		</nav>
 	</header>

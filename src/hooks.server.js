@@ -43,8 +43,7 @@ const authHandler = SvelteKitAuth({
   providers: [
     GitHub({
       clientId: GITHUB_ID,
-      clientSecret: GITHUB_SECRET,
-      authorization: { params: { scope: "public_repo user:email" } }
+      clientSecret: GITHUB_SECRET
     }),
   ],
   callbacks: {

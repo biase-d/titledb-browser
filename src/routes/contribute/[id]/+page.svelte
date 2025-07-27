@@ -1,8 +1,8 @@
 	<script>
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { getDraft, saveDraft } from '$lib/db.js';
-	import { page } from '$app/stores';
+	import { getDraft, saveDraft, deleteDraft } from '$lib/db.js';
+	import { page } from '$app/state';
 
 	export let data;
 	/** @type {import('./$types').ActionData} */
@@ -83,7 +83,14 @@
 			<div class="mode-grid">
 				<fieldset>
 					<legend>Handheld Mode</legend>
-					<div class="form-group"><label for="handheld-res-type">Resolution Type</label><select id="handheld-res-type" bind:value={performanceData.handheld.resolution_type}><option value="Fixed">Fixed</option><option value="Dynamic">Dynamic</option><option value="Multiple Fixed">Multiple Fixed</option></select></div>
+					<div class="form-group">
+						<label for="handheld-res-type">Resolution Type</label>
+						<select id="handheld-res-type" bind:value={performanceData.handheld.resolution_type}>
+							<option value="Fixed">Fixed</option>
+							<option value="Dynamic">Dynamic</option>
+							<option value="Multiple Fixed">Multiple Fixed</option>
+						</select>
+					</div>
 					{#if performanceData.handheld.resolution_type === 'Fixed'}
 						<div class="form-group"><label for="handheld-res">Resolution</label><input id="handheld-res" type="text" placeholder="e.g., 720p" bind:value={performanceData.handheld.resolution} /></div>
 					{:else if performanceData.handheld.resolution_type === 'Dynamic'}
