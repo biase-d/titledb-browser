@@ -3,7 +3,7 @@ export const schema = {
     tableName: 'games',
     extensions: [
         'CREATE EXTENSION IF NOT EXISTS pg_trgm;'
-    ]
+    ],
     columns: [
         { name: 'id', type: 'TEXT', constraints: 'PRIMARY KEY' },
         { name: 'names', type: 'TEXT[]' },
