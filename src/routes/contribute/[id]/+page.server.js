@@ -3,21 +3,21 @@ import { Octokit } from '@octokit/rest'
 import { dataRepo } from '$lib/index.js'
 
 /** @type {import('./$types').PageServerLoad} */
-export async function load ({ locals, params, parent }) {
+export async function load ({ locals, params, parent, fetch }) {
   const session = await locals.auth()
   if (!session?.accessToken) {
     throw redirect(302, '/')
   }
 
   const { id } = params
-  const { titleIndex } = await parent()
-  const gameNames = titleIndex[id]
+  
+  const gameData = await (await fetch(`/api/v1/games/${id}`)).json()
 
-  if (!gameNames) {
+  if (!gameData.names) {
     throw error(404, 'Game not found in title index')
   }
 
-  const name = gameNames[0]
+  const name = gameData.names[0]
   let existingData = null
   let existingSha = null
 
@@ -26,7 +26,7 @@ export async function load ({ locals, params, parent }) {
     const { data } = await octokit.repos.getContent({
       owner: dataRepo.owner,
       repo: dataRepo.repo,
-      path: `data/performance/${id}.json`
+      path: `data/${id}.json`
     })
 
     if ('content' in data) {
@@ -98,7 +98,7 @@ export const actions = {
       await octokit.repos.createOrUpdateFileContents({
         owner,
         repo,
-        path: `data/performance/${titleId}.json`,
+        path: `data/${titleId}.json`,
         message: commitMessage,
         content: Buffer.from(JSON.stringify(JSON.parse(performanceData), null, 2)).toString(
           'base64'

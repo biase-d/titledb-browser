@@ -5,7 +5,7 @@
 	export let data;
 
 	const { game, session } = data;
-	const { id, names, performance: performanceData } = game;
+	const { id, names } = game;
 	const name = names[0];
 	const alternateNames = names.slice(1);
 
@@ -83,14 +83,20 @@
 </script>
 
 <svelte:head>
-	<title>{name || 'Loading...'} - Titledb Browser</title>
-	{#if game}
-		<meta name="description" content={game.description || `Details for ${name} (${id})`} />
-	{/if}
+	<title>{ name } - Titledb Browser</title>
+	<meta name="description" content="Check out the raw data for { name }" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="{ name } - Titledb Browser" />
+	<meta property="og:description" content="Check out the raw data for { name }" />
+	<meta property="og:image" content="/social-preview.png" />
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:title" content="Titledb Browser" />
+	<meta property="twitter:description" content="A fast browser for the Titledb database." />
+	<meta property="twitter:image" content="/social-preview.png" />
 </svelte:head>
 
 {#if game}
-	<div class="page-container" in:fade={{ duration: 300 }}>
+	<div class="page-container" in:fade={{ duration: 500 }}>
 		<div class="page-header">
 			<a href="/" class="back-button">← Back to Search</a>
 			<button class="favorite-button" on:click={() => favorites.toggle(id)} title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}>
@@ -103,8 +109,8 @@
 		</div>
 
 		<div class="title-card">
-			{#if game.iconUrl}<figure class="title-icon"><img src={game.iconUrl} alt="Icon" /></figure>{/if}
-			<div class="title-info">
+			{#if game.icon_url}<figure class="title-icon"><img src={game.icon_url} alt="Icon" /></figure>{/if}
+			<div class='title-info'>
 				<h1>{name}</h1>
 				{#if alternateNames.length > 0}
 					<div class="alternate-titles">
@@ -121,12 +127,11 @@
 			</div>
 		</div>
 
-		{#if game.banner_url}<img class="title-banner" src={game.banner_url} alt="Banner" />{/if}
+		<!--{#if game.banner_url}<img class="title-banner" src={game.banner_url} alt="Banner" />{/if}-->
 
-		{#if !game.performance}
 		<div class="section-header">
 			<h2 class="section-title">Performance Profile</h2>
-			{#if data.session?.user}
+			{#if session?.user}
 				<a href={`/contribute/${id}`} class="contribute-button">
 					{#if game.performance}
 						Suggest an Edit
@@ -136,11 +141,9 @@
 				</a>
 			{/if}
 		</div>
-		{/if}
 
 	{#if game.performance}
-		<h2 class="section-title">Performance Profile</h2>
-		<div class="perf-container">
+		<div class="perf-container perf-card">
 
 			{#if game.performance.docked}
 				{@const docked = game.performance.docked}
@@ -187,6 +190,12 @@
 					</div>
 				</div>
 			{/if}
+
+			{#if game.performance?.contributor}
+				<div class='contributor-info'>
+					Submitted by <a href={`/profile/${game.performance.contributor.name}`} target="_blank" rel="noopener noreferrer">{game.performance.contributor.name}</a>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -217,6 +226,16 @@
 {/if}
 
 <style>
+	.contributor-info {
+		text-align: right;
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		margin-top: 1rem;
+	}
+	.contributor-info a {
+		color: var(--primary-color);
+		text-decoration: underline;
+	}
   	.page-container { max-width: 800px; margin: 0 auto; }
 	.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 	.section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; margin-top: 3rem; }
@@ -227,24 +246,25 @@
     flex-wrap: wrap;
     gap: 1rem;
     margin-top: 2.5rem;
-    border-bottom: 2px solid var(--border-color);
     padding-bottom: 0.5rem;
   }
 
   .title-card {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
     background-color: var(--surface-color);
-    padding: 2rem;
+    padding: 1rem;
     border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
   }
 
   @media (min-width: 768px) {
     .title-card {
       flex-direction: row;
     }
+  }
+  
+  .title-info {
+	flex-shrink: 1;
   }
 
   .title-info h1 {
@@ -297,8 +317,8 @@
   .perf-card {
     background-color: var(--surface-color);
     border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
     padding: 1.5rem 2rem;
+	border: var(--border-color) solid 0.5px
   }
 
   .perf-mode-title {
@@ -307,6 +327,7 @@
     color: var(--text-primary);
     margin-bottom: 1rem;
   }
+
 .perf-container {
 		background-color: var(--input-bg);
 		border-radius: 0.75rem; /* 12px */
@@ -409,8 +430,9 @@
   }
 
   .title-icon img {
-    width: 150px;
-    height: 150px;
+    min-width: 180px;
+    max-height: 180px;
+	aspect-ratio: square;
     border-radius: var(--border-radius);
     flex-shrink: 0;
   }

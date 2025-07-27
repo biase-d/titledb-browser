@@ -80,6 +80,19 @@
 	let activeFilterCount = $derived((selectedPublisher ? 1 : 0) + (selectedMinYear ? 1 : 0) + (selectedMaxYear ? 1 : 0) + (minSizeMB ? 1 : 0) + (maxSizeMB ? 1 : 0));
 </script>
 
+<svelte:head>
+	<title>Titledb Browser</title>
+	<meta name="description" content="A fast browser for the Titledb database." />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Titledb Browser" />
+	<meta property="og:description" content="A fast browser for the Titledb database." />
+	<meta property="og:image" content="/social-preview.png" />
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:title" content="Titledb Browser" />
+	<meta property="twitter:description" content="A fast browser for the Titledb database." />
+	<meta property="twitter:image" content="/social-preview.png" />
+</svelte:head>
+
 <div class="search-container">
 	<div class="search-input-wrapper">
 		<input bind:value={search} on:input={() => updateData({ resetPage: true })} type="text" placeholder="Search the entire database..." class="search-input"/>

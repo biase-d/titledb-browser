@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { getDraft, saveDraft, deleteDraft } from '$lib/db.js';
 	import { page } from '$app/state';
+	import { browser } from '$app/environment'
 
 	export let data;
 	/** @type {import('./$types').ActionData} */
@@ -22,14 +23,12 @@
 		performanceData.handheld.resolutions = '';
 	}
 
-
-
 	let debounceTimer;
 
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
 		if (savedDraft) {
-			const fromDrafts = $page.url.searchParams.get('from_draft') === 'true';
+			const fromDrafts = page.url.searchParams.get('from_draft') === 'true';
 
 			if (fromDrafts) {
 				performanceData = savedDraft;
@@ -41,7 +40,7 @@
 		}
 	});
 
-	$: if (performanceData) {
+	$: if (browser && performanceData) {
 		clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
 			saveDraft(id, performanceData);

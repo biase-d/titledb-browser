@@ -1,48 +1,9 @@
 <script>
-import '../app.css'
-import { titleIndex, fullTitleIndex } from '$lib/stores'
-import { onMount } from 'svelte'
-import { getCachedIndex, setCachedIndex, getCachedFullIndex } from '$lib/db.js'
-import { mainUrl } from '$lib/index.js'
-import AuthButton from './AuthButton.svelte'
+	import '../app.css'
+	import AuthButton from './AuthButton.svelte'
 
-export let data
-
-let isLoading = true
-
-onMount(async () => {
-	const cachedLite = await getCachedIndex()
-	if (cachedLite) {
-		$titleIndex = cachedLite
-	} else {
-		const res = await fetch(mainUrl)
-		const data = await res.json()
-		$titleIndex = data
-		await setCachedIndex(data)
-	}
-
-	const cachedFull = await getCachedFullIndex()
-	if (cachedFull) {
-		$fullTitleIndex = cachedFull
-	}
-
-	isLoading = false
-})
-
+	export let data
 </script>
-
-<svelte:head>
-	<title>Titledb Browser</title>
-	<meta name="description" content="A fast browser for the Titledb database." />
-	<meta property="og:type" content="website" />
-	<meta property="og:title" content="Titledb Browser" />
-	<meta property="og:description" content="A fast browser for the Titledb database." />
-	<meta property="og:image" content="/social-preview.png" />
-	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:title" content="Titledb Browser" />
-	<meta property="twitter:description" content="A fast browser for the Titledb database." />
-	<meta property="twitter:image" content="/social-preview.png" />
-</svelte:head>
 
 <div class="app-container">
 	<header>
@@ -58,11 +19,7 @@ onMount(async () => {
 		</nav>
 	</header>
 	<main>
-		{#if isLoading}
-			<p class="loading-message">Loading title database...</p>
-		{:else}
-			<slot />
-		{/if}
+		<slot />
 	</main>
 	<footer>
 		<p>a biase-d project</p>
@@ -70,10 +27,11 @@ onMount(async () => {
 </div>
 
 <style>
-	.loading-message { text-align: center; padding: 2rem; opacity: 0.8; }
-	.app-container { max-width: 1024px; margin: 0 auto; padding: 1.5rem; }
+.app-container { 
+	max-width: 1024px; margin: 0 auto; padding: 1.5rem; 
+}
 
-	header {
+header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -87,10 +45,6 @@ onMount(async () => {
 	align-items: center;
 	gap: 0.5rem;
 	text-decoration: none;
-}
-
-.logo-icon {
-	font-size: 1.25rem;
 }
 
 .logo-text {
