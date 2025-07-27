@@ -14,28 +14,24 @@
 	let lightboxImage = null;
 	let isRawDataOpen = false;
 
-function formatResolution(perfData) {
+	function formatResolution(perfData) {
 		if (!perfData) return 'N/A';
 
-		const getPNumber = (res) => (res?.split('x')[1] || '?') + 'p';
+		const getVerticalRes = (res) => res?.trim().split('x')[1] || '?';
 
 		switch (perfData.resolution_type) {
 			case 'Fixed':
-				return getPNumber(perfData.resolution);
+				return `Fixed at ${getVerticalRes(perfData.resolution)}p`;
 			case 'Dynamic':
-				const min = getPNumber(perfData.min_res);
-				const max = getPNumber(perfData.max_res);
-				return `${min} ~ ${max}`;
+				const min = getVerticalRes(perfData.min_res);
+				const max = getVerticalRes(perfData.max_res);
+				return `Dynamic ${min}p ~ ${max}p`;
 			case 'Multiple Fixed':
-				if (typeof perfData.resolutions !== 'string' || !perfData.resolutions) {
-					return 'Multiple';
+				if (typeof perfData.resolutions !== 'string' || !perfData.resolutions.trim()) {
+					return 'Multiple Options';
 				}
-				const allRes = perfData.resolutions.split(',');
-				if (allRes.length === 0 || !allRes[0]) return 'Multiple';
-				if (allRes.length > 2) {
-					return `${getPNumber(allRes[0])} ... ${getPNumber(allRes[allRes.length - 1])}`;
-				}
-				return allRes.map(res => getPNumber(res)).join(', ');
+				const resolutions = perfData.resolutions.split(',').map(r => `${getVerticalRes(r)}p`).join(', ');
+				return `Multiple: ${resolutions}`;
 			default:
 				return perfData.resolution_type || 'N/A';
 		}
