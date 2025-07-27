@@ -16,6 +16,7 @@
 		"lint:fix": "standard \"src/**/*.{js,ts,svelte}\" --fix"
 	},
 	"devDependencies": {
+		"@iconify/svelte": "^5.0.1",
 		"@sveltejs/adapter-vercel": "^5.8.1",
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
@@ -23,6 +24,7 @@
 		"dotenv": "^17.2.1",
 		"eslint": "^8.57.1",
 		"eslint-plugin-svelte": "^3.11.0",
+		"simple-git": "^3.28.0",
 		"standard": "^17.1.2",
 		"svelte": "^5.0.0",
 		"svelte-check": "^4.0.0",

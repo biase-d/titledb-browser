@@ -1,5 +1,6 @@
 <script>
 	import { fade } from 'svelte/transition';
+	import Icon from "@iconify/svelte";
 	import { favorites } from '$lib/stores';
 
 	export let data;
@@ -17,10 +18,13 @@
 	let lightboxImage = '';
 	let isRawDataOpen = false;
 
+	/**
+     * @param {{ resolution_type: any; resolution: any; min_res: any; max_res: any; resolutions: string; }} perfData
+     */
 	function formatResolution(perfData) {
 		if (!perfData) return 'N/A';
 
-		const getVerticalRes = (res) => res?.trim().split('x')[1] || '?';
+		const getVerticalRes = (/** @type {string} */ res) => res?.trim().split('x')[1] || '?';
 
 		switch (perfData.resolution_type) {
 			case 'Fixed':
@@ -40,6 +44,9 @@
 		}
 	}
 
+	/**
+     * @param {{ target_fps: any; fps_behavior: string; }} perfData
+     */
 	function formatFramerate(perfData) {
 		if (!perfData || !perfData.target_fps) return 'N/A';
 		let text = `${perfData.target_fps} FPS`;
@@ -49,6 +56,9 @@
 		return text;
 	}
 
+	/**
+     * @param {{ toString: () => any; }} releaseDate
+     */
 	function formatDate(releaseDate) {
 		if (!releaseDate) return 'N/A';
 		const dateStr = releaseDate.toString();
@@ -101,12 +111,12 @@
 {#if game}
 	<div class="page-container" in:fade={{ duration: 500 }}>
 		<div class="page-header">
-			<a href="/" class="back-button">← Back to Search</a>
+			<a href="/">← Back to Search</a>
 			<button class="favorite-button" on:click={() => favorites.toggle(id)} title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}>
 				{#if isFavorited}
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279L12 19.182l-7.416 4.231 1.48-8.279-6.064-5.828 8.332-1.151z"/></svg>
+					<Icon icon="clarity:favorite-solid" width="24" height="24" />
 				{:else}
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.1l2.351 4.788 5.293.753-3.832 3.687.904 5.222L12 14.247l-4.716 2.303.904-5.222-3.832-3.687 5.293-.753L12 2.1zm0 2.544l-1.928 3.921-.428.871-4.32.617 3.127 3.003-.739 4.267L12 15.34l3.86 1.977-.739-4.267 3.127-3.003-4.32-.617-.428-.871L12 4.644z"/></svg>
+					<Icon icon="clarity:favorite-line" width="24" height="24" />
 				{/if}
 			</button>
 		</div>
@@ -200,6 +210,8 @@
 				</div>
 			{/if}
 		</div>
+	{:else}
+	<p> No performance data has been submitted yet </p>
 	{/if}
 
 		<h2 class="section-title">Official screenshots</h2>
@@ -224,7 +236,7 @@
 
 {#if !(lightboxImage == '')}
 	<div class="lightbox" on:click={() => (lightboxImage = null)} transition:fade>
-		<img src={lightboxImage} alt="Lightbox screenshot" />
+		<img src={lightboxImage} alt="{name} screenshot" />
 	</div>
 {/if}
 
@@ -276,7 +288,6 @@
   }
 
   .contribute-button,
-  .back-button,
   .raw-data-section button {
     background-color: var(--input-bg);
     border: 1px solid var(--border-color);
@@ -289,8 +300,7 @@
     font-size: 0.9rem;
   }
 
-  .contribute-button:hover,
-  .back-button:hover {
+  .contribute-button:hover {
     color: var(--primary-color);
     border-color: var(--primary-color);
     background-color: var(--surface-color);
