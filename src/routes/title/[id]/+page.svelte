@@ -11,7 +11,10 @@
 
 	$: isFavorited = $favorites.has(id);
 
-	let lightboxImage = null;
+	/**
+     * @type {string}
+     */
+	let lightboxImage = '';
 	let isRawDataOpen = false;
 
 	function formatResolution(perfData) {
@@ -84,15 +87,15 @@
 
 <svelte:head>
 	<title>{ name } - Titledb Browser</title>
-	<meta name="description" content="Check out the raw data for { name }" />
+	<meta name="description" content="Performance info of { name }" />
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="{ name } - Titledb Browser" />
-	<meta property="og:description" content="Check out the raw data for { name }" />
-	<meta property="og:image" content="/social-preview.png" />
-	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:title" content="Titledb Browser" />
-	<meta property="twitter:description" content="A fast browser for the Titledb database." />
-	<meta property="twitter:image" content="/social-preview.png" />
+	<meta property="og:description" content="Performance info of { name } />
+	<meta property="og:image" content="{game.banner_url}" />
+	<meta property="twitter:card" content="{game.banner_url}" />
+	<meta property="twitter:title" content="{ name } - Titledb Browser" />
+	<meta property="twitter:description" content="Performance info of { name }" />
+	<meta property="twitter:image" content="{game.icon_url}" />
 </svelte:head>
 
 {#if game}
@@ -199,7 +202,7 @@
 		</div>
 	{/if}
 
-		<h2 class="section-title">Screenshots</h2>
+		<h2 class="section-title">Official screenshots</h2>
 		<div class="screenshots-grid">
 			{#if game.screenshots && game.screenshots.length > 0}
 				{#each game.screenshots as screenshot}
@@ -219,7 +222,7 @@
 	<p class="loading-message">Loading title details...</p>
 {/if}
 
-{#if lightboxImage}
+{#if !(lightboxImage == '')}
 	<div class="lightbox" on:click={() => (lightboxImage = null)} transition:fade>
 		<img src={lightboxImage} alt="Lightbox screenshot" />
 	</div>
@@ -310,10 +313,6 @@
     background-color: var(--input-bg);
   }
 
-  .performance-section {
-    margin-top: 1.5rem;
-  }
-
   .perf-card {
     background-color: var(--surface-color);
     border-radius: var(--border-radius);
@@ -328,7 +327,7 @@
     margin-bottom: 1rem;
   }
 
-.perf-container {
+	.perf-container {
 		background-color: var(--input-bg);
 		border-radius: 0.75rem; /* 12px */
 		padding: 1.5rem;
@@ -360,7 +359,7 @@
 		.perf-item {
 			padding-right: 2rem;
 			padding-bottom: 0;
-			border-right: 1px solid var(--border-color);
+			/*border-right: 1px solid var(--border-color);*/
 			border-bottom: none;
 		}
 		.perf-grid > .perf-item:last-child {
@@ -389,45 +388,6 @@
 		padding-top: 1.5rem;
 		border-top: 1px solid var(--border-color);
 	}
-
-
-  .perf-card hr {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 1.5rem 0;
-  }
-
-  /* Tooltips */
-  .tooltip-trigger {
-    position: relative;
-    cursor: help;
-    border-bottom: 1px dotted var(--text-secondary);
-    display: inline-block;
-  }
-
-  .tooltip-text {
-    visibility: hidden;
-    width: 250px;
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 10px;
-    position: absolute;
-    z-index: 1;
-    bottom: 150%;
-    left: 50%;
-    margin-left: -125px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-style: normal;
-    font-weight: 400;
-  }
-
-  .tooltip-trigger:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
-  }
 
   .title-icon img {
     min-width: 180px;
@@ -476,11 +436,13 @@
     }
   }
 
+  /*
   .title-banner {
     margin-top: 2rem;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
   }
+	*/
 
   .screenshots-grid {
     display: grid;
