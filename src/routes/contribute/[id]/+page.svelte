@@ -68,9 +68,7 @@
 		</div>
 	{:else}
 		<form method="POST" use:enhance={() => {
-			// This function runs after the form action completes.
 			return async ({ update }) => {
-				// We MUST delete the draft *before* SvelteKit updates the page.
 				await deleteDraft(id);
 				await update();
 			};
@@ -79,6 +77,7 @@
 			<input type="hidden" name="titleId" value={id} />
 			<input type="hidden" name="gameName" value={name} />
 			<input type="hidden" name="performanceData" value={JSON.stringify(performanceData)} />
+			<input type="hidden" name="sha" value={data.existingSha ?? ''} />
 
 			<div class="mode-grid">
 				<fieldset>

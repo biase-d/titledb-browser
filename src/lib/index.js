@@ -6,7 +6,10 @@ export const metadataUrl = `${githubPagesUrl}/metadata.json`
 export const publisherUrl = `${githubPagesUrl}/publishers`
 export const nameUrl = (id) => `${githubPagesUrl}/names/${id}.json`
 
-export const dataRepo = 'biase-d/nx-performance'
+export const dataRepo = {
+  owner: 'biase-d',
+  repo: 'nx-performance'
+}
 
 export function titleIdUrl (id) {
   return `https://raw.githubusercontent.com/masagrator/titledb_filtered/refs/heads/main/output/titleid/${id}.json`
