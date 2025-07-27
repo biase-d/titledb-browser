@@ -90,7 +90,7 @@
 	<meta name="description" content="Performance info of { name }" />
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="{ name } - Titledb Browser" />
-	<meta property="og:description" content="Performance info of { name } />
+	<meta property="og:description" content="Performance info of { name }" />
 	<meta property="og:image" content="{game.banner_url}" />
 	<meta property="twitter:card" content="{game.banner_url}" />
 	<meta property="twitter:title" content="{ name } - Titledb Browser" />
