@@ -1,5 +1,6 @@
 <script>
 	import { fade } from 'svelte/transition';
+	import Icon from "@iconify/svelte";
 	import { favorites } from '$lib/stores';
 
 	export let data;
@@ -11,13 +12,19 @@
 
 	$: isFavorited = $favorites.has(id);
 
-	let lightboxImage = null;
+	/**
+     * @type {string}
+     */
+	let lightboxImage = '';
 	let isRawDataOpen = false;
 
+	/**
+     * @param {{ resolution_type: any; resolution: any; min_res: any; max_res: any; resolutions: string; }} perfData
+     */
 	function formatResolution(perfData) {
 		if (!perfData) return 'N/A';
 
-		const getVerticalRes = (res) => res?.trim().split('x')[1] || '?';
+		const getVerticalRes = (/** @type {string} */ res) => res?.trim().split('x')[1] || '?';
 
 		switch (perfData.resolution_type) {
 			case 'Fixed':
@@ -37,6 +44,9 @@
 		}
 	}
 
+	/**
+     * @param {{ target_fps: any; fps_behavior: string; }} perfData
+     */
 	function formatFramerate(perfData) {
 		if (!perfData || !perfData.target_fps) return 'N/A';
 		let text = `${perfData.target_fps} FPS`;
@@ -46,6 +56,9 @@
 		return text;
 	}
 
+	/**
+     * @param {{ toString: () => any; }} releaseDate
+     */
 	function formatDate(releaseDate) {
 		if (!releaseDate) return 'N/A';
 		const dateStr = releaseDate.toString();
@@ -84,26 +97,26 @@
 
 <svelte:head>
 	<title>{ name } - Titledb Browser</title>
-	<meta name="description" content="Check out the raw data for { name }" />
+	<meta name="description" content="Performance info of { name }" />
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="{ name } - Titledb Browser" />
-	<meta property="og:description" content="Check out the raw data for { name }" />
-	<meta property="og:image" content="/social-preview.png" />
-	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:title" content="Titledb Browser" />
-	<meta property="twitter:description" content="A fast browser for the Titledb database." />
-	<meta property="twitter:image" content="/social-preview.png" />
+	<meta property="og:description" content="Performance info of { name }" />
+	<meta property="og:image" content="{game.banner_url}" />
+	<meta property="twitter:card" content="{game.banner_url}" />
+	<meta property="twitter:title" content="{ name } - Titledb Browser" />
+	<meta property="twitter:description" content="Performance info of { name }" />
+	<meta property="twitter:image" content="{game.icon_url}" />
 </svelte:head>
 
 {#if game}
 	<div class="page-container" in:fade={{ duration: 500 }}>
 		<div class="page-header">
-			<a href="/" class="back-button">← Back to Search</a>
+			<a href="/">← Back to Search</a>
 			<button class="favorite-button" on:click={() => favorites.toggle(id)} title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}>
 				{#if isFavorited}
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279L12 19.182l-7.416 4.231 1.48-8.279-6.064-5.828 8.332-1.151z"/></svg>
+					<Icon icon="clarity:favorite-solid" width="24" height="24" />
 				{:else}
-					<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.1l2.351 4.788 5.293.753-3.832 3.687.904 5.222L12 14.247l-4.716 2.303.904-5.222-3.832-3.687 5.293-.753L12 2.1zm0 2.544l-1.928 3.921-.428.871-4.32.617 3.127 3.003-.739 4.267L12 15.34l3.86 1.977-.739-4.267 3.127-3.003-4.32-.617-.428-.871L12 4.644z"/></svg>
+					<Icon icon="clarity:favorite-line" width="24" height="24" />
 				{/if}
 			</button>
 		</div>
@@ -197,9 +210,11 @@
 				</div>
 			{/if}
 		</div>
+	{:else}
+	<p> No performance data has been submitted yet </p>
 	{/if}
 
-		<h2 class="section-title">Screenshots</h2>
+		<h2 class="section-title">Official screenshots</h2>
 		<div class="screenshots-grid">
 			{#if game.screenshots && game.screenshots.length > 0}
 				{#each game.screenshots as screenshot}
@@ -219,9 +234,9 @@
 	<p class="loading-message">Loading title details...</p>
 {/if}
 
-{#if lightboxImage}
+{#if !(lightboxImage == '')}
 	<div class="lightbox" on:click={() => (lightboxImage = null)} transition:fade>
-		<img src={lightboxImage} alt="Lightbox screenshot" />
+		<img src={lightboxImage} alt="{name} screenshot" />
 	</div>
 {/if}
 
@@ -273,7 +288,6 @@
   }
 
   .contribute-button,
-  .back-button,
   .raw-data-section button {
     background-color: var(--input-bg);
     border: 1px solid var(--border-color);
@@ -286,8 +300,7 @@
     font-size: 0.9rem;
   }
 
-  .contribute-button:hover,
-  .back-button:hover {
+  .contribute-button:hover {
     color: var(--primary-color);
     border-color: var(--primary-color);
     background-color: var(--surface-color);
@@ -310,10 +323,6 @@
     background-color: var(--input-bg);
   }
 
-  .performance-section {
-    margin-top: 1.5rem;
-  }
-
   .perf-card {
     background-color: var(--surface-color);
     border-radius: var(--border-radius);
@@ -328,7 +337,7 @@
     margin-bottom: 1rem;
   }
 
-.perf-container {
+	.perf-container {
 		background-color: var(--input-bg);
 		border-radius: 0.75rem; /* 12px */
 		padding: 1.5rem;
@@ -360,7 +369,7 @@
 		.perf-item {
 			padding-right: 2rem;
 			padding-bottom: 0;
-			border-right: 1px solid var(--border-color);
+			/*border-right: 1px solid var(--border-color);*/
 			border-bottom: none;
 		}
 		.perf-grid > .perf-item:last-child {
@@ -389,45 +398,6 @@
 		padding-top: 1.5rem;
 		border-top: 1px solid var(--border-color);
 	}
-
-
-  .perf-card hr {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 1.5rem 0;
-  }
-
-  /* Tooltips */
-  .tooltip-trigger {
-    position: relative;
-    cursor: help;
-    border-bottom: 1px dotted var(--text-secondary);
-    display: inline-block;
-  }
-
-  .tooltip-text {
-    visibility: hidden;
-    width: 250px;
-    background-color: #333;
-    color: #fff;
-    text-align: center;
-    border-radius: 6px;
-    padding: 10px;
-    position: absolute;
-    z-index: 1;
-    bottom: 150%;
-    left: 50%;
-    margin-left: -125px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-style: normal;
-    font-weight: 400;
-  }
-
-  .tooltip-trigger:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
-  }
 
   .title-icon img {
     min-width: 180px;
@@ -476,11 +446,13 @@
     }
   }
 
+  /*
   .title-banner {
     margin-top: 2rem;
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
   }
+	*/
 
   .screenshots-grid {
     display: grid;

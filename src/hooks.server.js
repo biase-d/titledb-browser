@@ -9,29 +9,29 @@ const authHandler = SvelteKitAuth({
   providers: [
     GitHub({
       clientId: GITHUB_ID,
-      clientSecret: GITHUB_SECRET
+      clientSecret: GITHUB_SECRET,
+      authorization: {
+        params: {
+          scope: ""
+        }
+      }
     }),
   ],
   callbacks: {
-    /**
-     * @param {{ token: import('@auth/sveltekit').JWT, account: import('@auth/sveltekit').Account | null, profile: import('@auth/sveltekit/providers/github').GitHubProfile | null }} params
-     */
-    async jwt({ token, account, profile }) {
-      if (account) {
-        token.accessToken = account.access_token;
-      }
+    async jwt({ token, profile }) {
       if (profile) {
+        // @ts-ignore
         token.login = profile.login;
+        // @ts-ignore
+        token.id = profile.id; // Save the user's numeric ID
       }
       return token;
     },
-    /** @param {{session: import('@auth/sveltekit').Session, token: import('@auth/sveltekit').JWT}} params */
     async session({ session, token }) {
-      // Pass the properties from the JWT to the session object.
-      // @ts-ignore
-      session.accessToken = token.accessToken;
       // @ts-ignore
       session.user.login = token.login;
+      // @ts-ignore
+      session.user.id = token.id; // Pass the ID to the session
       return session;
     },
   },

@@ -1,7 +1,7 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'title-db-cache'
-const DB_VERSION = 4
+const DB_VERSION = 5
 const INDEX_STORE_NAME = 'title-index'
 const FULL_INDEX_STORE_NAME = 'full-title-index'
 const DETAILS_STORE_NAME = 'title-details'
@@ -26,9 +26,8 @@ async function getDB () {
       if (!db.objectStoreNames.contains(FAVORITES_STORE_NAME)) {
         db.createObjectStore(FAVORITES_STORE_NAME)
       }
-      // Create the new drafts store
       if (!db.objectStoreNames.contains(DRAFTS_STORE_NAME)) {
-        db.createObjectStore(DRAFTS_STORE_NAME) // Title ID will be the key
+        db.createObjectStore(DRAFTS_STORE_NAME) 
       }
     }
   })
@@ -101,11 +100,12 @@ export async function toggleFavorite (id) {
 /**
  * Saves a performance data draft to the database.
  * @param {string} id The title ID.
+ * @param {string} name The Game name
  * @param {object} data The performance data object.
  */
-export async function saveDraft (id, data) {
+export async function saveDraft (id, name, data) {
   const db = await getDB()
-  return db.put(DRAFTS_STORE_NAME, data, id)
+  return db.put(DRAFTS_STORE_NAME, data, name, id,)
 }
 
 /**

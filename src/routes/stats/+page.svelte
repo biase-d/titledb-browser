@@ -3,11 +3,11 @@
 	import BarChart from './BarChart.svelte';
 	import LineChart from './LineChart.svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { browser } from '$app/environment'
 
 	/** @type {import('./$types').PageData} */
-	let { data } = $props();
+	let data = $props();
 
 	let stats = $derived(data.stats);
 
@@ -26,7 +26,7 @@
 	});
 
 	$effect(() => {
-		const url = new URL($page.url);
+		const url = new URL(page.url);
 
 		const updateParam = (key, value) => {
 			if (value) url.searchParams.set(key, value);
@@ -37,7 +37,7 @@
 		updateParam('year', filters.year);
 		updateParam('sizeBucket', filters.sizeBucket);
 
-		if (url.href !== $page.url.href) {
+		if (url.href !== page.url.href) {
 			goto(url.href, { keepData: false, noScroll: true, replaceState: true });
 		}
 	});
@@ -114,13 +114,13 @@
 				<div class="active-filters">
 					<span>Active Filters:</span>
 					{#if filters.publisher}
-						<span class="filter-tag">{filters.publisher} <button on:click={() => clearFilter('publisher')}>×</button></span>
+						<span class="filter-tag">{filters.publisher} <button onclick={() => clearFilter('publisher')}>×</button></span>
 					{/if}
 					{#if filters.year}
-						<span class="filter-tag">Year: {filters.year} <button on:click={() => clearFilter('year')}>×</button></span>
+						<span class="filter-tag">Year: {filters.year} <button onclick={() => clearFilter('year')}>×</button></span>
 					{/if}
 					{#if filters.sizeBucket}
-						<span class="filter-tag">Size: {filters.sizeBucket} <button on:click={() => clearFilter('sizeBucket')}>×</button></span>
+						<span class="filter-tag">Size: {filters.sizeBucket} <button onclick={() => clearFilter('sizeBucket')}>×</button></span>
 					{/if}
 				</div>
 				<a href={createHomeUrl()} class="view-results-btn">View Results</a>
