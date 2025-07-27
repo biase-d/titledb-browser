@@ -23,7 +23,6 @@
 		performanceData.handheld.resolutions = '';
 	}
 
-	let debounceTimer;
 
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
@@ -41,9 +40,10 @@
 	});
 
 	$: if (browser && performanceData) {
+		let debounceTimer;
 		clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {
-			saveDraft(id, performanceData);
+			saveDraft(id, name, performanceData);
 		}, 500);
 	}
 
@@ -56,7 +56,7 @@
 <div class="form-container">
 	<a href={`/title/${id}`} class="back-link">← Back to Game Page</a>
 	<h1>Contribute Performance Data</h1>
-	<p class="subtitle">You are adding data for: <strong>{name}</strong> ({id})</p>
+	<p class="subtitle">You are adding data for <strong class='game-name'>{name}</strong> ({id})</p>
 
 	{#if form?.success}
 		<div class="success-message">
@@ -90,11 +90,11 @@
 						</select>
 					</div>
 					{#if performanceData.handheld.resolution_type === 'Fixed'}
-						<div class="form-group"><label for="handheld-res">Resolution</label><input id="handheld-res" type="text" placeholder="e.g., 720p" bind:value={performanceData.handheld.resolution} /></div>
+						<div class="form-group"><label for="handheld-res">Resolution</label><input id="handheld-res" type="text" placeholder="e.g., 1280x720" bind:value={performanceData.handheld.resolution} /></div>
 					{:else if performanceData.handheld.resolution_type === 'Dynamic'}
 						<div class="form-group-inline">
-							<div class="form-group"><label for="handheld-min-res">Min Resolution</label><input id="handheld-min-res" type="text" placeholder="e.g., 540p" bind:value={performanceData.handheld.min_res} /></div>
-							<div class="form-group"><label for="handheld-max-res">Max Resolution</label><input id="handheld-max-res" type="text" placeholder="e.g., 720p" bind:value={performanceData.handheld.max_res} /></div>
+							<div class="form-group"><label for="handheld-min-res">Min Resolution</label><input id="handheld-min-res" type="text" placeholder="e.g., 640x360" bind:value={performanceData.handheld.min_res} /></div>
+							<div class="form-group"><label for="handheld-max-res">Max Resolution</label><input id="handheld-max-res" type="text" placeholder="e.g., 1280x720" bind:value={performanceData.handheld.max_res} /></div>
 						</div>
 					{:else if performanceData.handheld.resolution_type === 'Multiple Fixed'}
 						<div class="form-group">
@@ -128,11 +128,11 @@
 						</select>
 					</div>
 					{#if performanceData.docked.resolution_type === 'Fixed'}
-						<div class="form-group"><label for="docked-res">Resolution</label><input id="docked-res" type="text" placeholder="e.g., 1080p" bind:value={performanceData.docked.resolution} /></div>
+						<div class="form-group"><label for="docked-res">Resolution</label><input id="docked-res" type="text" placeholder="e.g., 1920x1080" bind:value={performanceData.docked.resolution} /></div>
 					{:else if performanceData.docked.resolution_type === 'Dynamic'}
 						<div class="form-group-inline">
-							<div class="form-group"><label for="docked-min-res">Min Resolution</label><input id="docked-min-res" type="text" placeholder="e.g., 672p" bind:value={performanceData.docked.min_res} /></div>
-							<div class="form-group"><label for="docked-max-res">Max Resolution</label><input id="docked-max-res" type="text" placeholder="e.g., 900p" bind:value={performanceData.docked.max_res} /></div>
+							<div class="form-group"><label for="docked-min-res">Min Resolution</label><input id="docked-min-res" type="text" placeholder="e.g., 1192x672" bind:value={performanceData.docked.min_res} /></div>
+							<div class="form-group"><label for="docked-max-res">Max Resolution</label><input id="docked-max-res" type="text" placeholder="e.g., 1600x900" bind:value={performanceData.docked.max_res} /></div>
 						</div>
 				{:else if performanceData.docked.resolution_type === 'Multiple Fixed'}
 					<div class="form-group">
@@ -166,6 +166,9 @@
 </div>
 
 <style>
+	.game-name {
+		color: var(--primary-color)
+	}
 	.success-message {
 		background-color: #dcfce7;
 		color: #166534;
@@ -278,29 +281,34 @@
 	}
 
 	label {
-		margin-bottom: 0.5rem;
 		font-weight: 500;
+		margin-bottom: 0.5rem;
 		font-size: 0.9rem;
+		color: var(--text-secondary);
 	}
-
-	input,
-	select,
-	textarea {
+	input, select, textarea {
 		width: 100%;
-		padding: 10px 12px;
-		font-size: 1rem;
-		color: var(--text-primary);
 		background-color: var(--input-bg);
+		color: var(--text-primary);
 		border: 1px solid var(--border-color);
 		border-radius: 6px;
+		padding: 10px 12px;
+		font-size: 1rem;
 		box-sizing: border-box;
+		transition: border-color 0.2s, box-shadow 0.2s;
 	}
-
+	input:focus, select:focus, textarea:focus {
+		outline: none;
+		border-color: var(--primary-color);
+		box-shadow: 0 0 0 2px var(--primary-color);
+	}
 	textarea {
 		min-height: 80px;
 		resize: vertical;
 	}
-
+	:global(body.dark) select {
+		color: var(--text-primary);
+	}
 	.form-footer {
 		margin-top: 2rem;
 		padding-top: 1.5rem;

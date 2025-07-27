@@ -1,14 +1,16 @@
 <script>
 	import { slide } from 'svelte/transition';
 	import FilterControls from './FilterControls.svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { draftsStore } from '$lib/stores';
+    import Icon from '@iconify/svelte';
 
 	/** @type {import('./$types').PageData} */
 	let { data } = $props();
-
+	
 	let results = $derived(data.results);
 	let meta = $derived(data.meta);
 	let pagination = $derived(data.pagination);
@@ -23,17 +25,23 @@
 	let showFilters = $state(false);
 	let currentPage = $state(1);
 
+	/**
+     * @type {number}
+     */
 	let debounceTimer;
 
 	onMount(() => {
-		const { searchParams } = $page.url;
+		const { searchParams } = page.url;
 		search = searchParams.get('q') || '';
 		selectedPublisher = searchParams.get('publisher') || '';
 		selectedMinYear = searchParams.get('minYear') || '';
 		selectedMaxYear = searchParams.get('maxYear') || '';
 		minSizeMB = searchParams.get('minSizeMB') || '';
 		maxSizeMB = searchParams.get('maxSizeMB') || '';
-		selectedSort = searchParams.get('sort') || 'date-desc';
+		
+		selectedSort = searchParams.get('sort') || (search ? 'relevance-desc' : 'date-desc');
+
+		// @ts-ignore
 		currentPage = parseInt(searchParams.get('page'), 10) || 1;
 
 		if (selectedPublisher || selectedMinYear || selectedMaxYear || minSizeMB || maxSizeMB) {
@@ -72,6 +80,9 @@
 		}, 350);
 	}
 
+	/**
+     * @param {number} newPage
+     */
 	function changePage(newPage) {
 		currentPage = newPage;
 		updateData({ resetPage: false });
@@ -94,21 +105,22 @@
 </svelte:head>
 
 <div class="search-container">
-	<div class="search-input-wrapper">
-		<input bind:value={search} on:input={() => updateData({ resetPage: true })} type="text" placeholder="Search the entire database..." class="search-input"/>
-		{#if search}<button class="clear-button" on:click={() => { search = ''; updateData({ resetPage: true }); }} title="Clear search">×</button>{/if}
+<div class="search-input-wrapper">
+		<input bind:value={search} oninput={() => updateData({ resetPage: true })} type="text" placeholder="Search the entire database..." class="search-input"/>
+		{#if search}<button class="clear-button" onclick={() => { search = ''; updateData({ resetPage: true }); }} title="Clear search">×</button>{/if}
 	</div>
 
 	<div class="controls-bar">
-		<button class="filter-button" on:click={() => (showFilters = !showFilters)} disabled={!meta?.publishers?.length}>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1.5A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z"/></svg>
+		<button class="filter-button" onclick={() => (showFilters = !showFilters)} disabled={!meta?.publishers?.length}>
+			<Icon icon='mdi:filter' ></Icon>
 			<span>Filters</span>
 			{#if activeFilterCount > 0}
 				<span class="filter-badge">{activeFilterCount}</span>
 			{/if}
 		</button>
-
-		<select class="sort-select" bind:value={selectedSort} on:change={() => updateData({ resetPage: true })}>
+		
+		<select class="sort-select" bind:value={selectedSort} onchange={() => updateData({ resetPage: true })}>
+			<option value="relevance-desc">Sort: By Relevance</option>
 			<option value="date-desc">Sort: Newest First</option>
 			<option value="size-desc">Sort: Largest First</option>
 			<option value="name-asc">Sort: Name (A-Z)</option>
@@ -130,6 +142,23 @@
 			/>
 		</div>
 	{/if}
+
+	{#if $draftsStore?.length > 0}
+		<h2> Saved Drafts </h2>
+		<ul class="results-list">
+			{#each $draftsStore as draft (draft.id)}
+				<li class='draft-item'>
+					<a href={`/contribute/${draft.id}?from_draft=true`} class="draft-link">
+						<span class="title-name">{draft.name || draft.id}</span>
+						<br>
+						<span class="continue-editing">Continue Editing →</span> 
+					</a>
+					<button class='draft-delete' onclick={()=> {draftsStore.delete(draft.id)}}> <Icon icon='mdi:delete' height='24px' width='24px'/> </button>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
 
 	<h2 class="list-header">
 		{#if search || activeFilterCount > 0}
@@ -154,11 +183,11 @@
 
 	{#if pagination?.totalPages > 1}
 		<div class="pagination">
-			<button disabled={pagination.currentPage <= 1} on:click={() => changePage(pagination.currentPage - 1)}>
+			<button disabled={pagination.currentPage <= 1} onclick={() => changePage(pagination.currentPage - 1)}>
 				← Previous
 			</button>
 			<span>Page {pagination.currentPage} of {pagination.totalPages}</span>
-			<button disabled={pagination.currentPage >= pagination.totalPages} on:click={() => changePage(pagination.currentPage + 1)}>
+			<button disabled={pagination.currentPage >= pagination.totalPages} onclick={() => changePage(pagination.currentPage + 1)}>
 				Next →
 			</button>
 		</div>
@@ -166,21 +195,33 @@
 </div>
 
 <style>
-	.drafts-section {
-		margin-top: 2.5rem;
+	.draft-item {
+		display: flex;
+
+	}
+	.draft-delete {
+		display: flex;
+		justify-items: center;
+		align-items: center;
+		margin-left: auto;
+		border: none;
+		padding: 0.5rem;
+		padding-left: 1rem;
+		padding-right: 1rem;
+		cursor: pointer;
+		color: red;
 	}
 	.draft-link {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		width: 100%;
 	}
 	.continue-editing {
 		font-size: 0.8rem;
 		font-weight: 500;
-		color: var(--secondary-color);
+		color: var(--primary-color);
 	}
-
-
 	.search-container {
 		max-width: 800px;
 		margin: 0 auto;
