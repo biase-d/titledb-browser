@@ -7,7 +7,7 @@
 	import { browser } from '$app/environment'
 
 	/** @type {import('./$types').PageData} */
-	let data = $props();
+	let { data } = $props();
 
 	let stats = $derived(data.stats);
 
@@ -108,7 +108,7 @@
 {#if stats}
 <div class="stats-container">
 	<div class="header-container">
-		<h1 class="page-title">Titledb Dashboard</h1>
+		<h1 class="page-title">Statistics</h1>
 		{#if filters.publisher || filters.year || filters.sizeBucket}
 			<div class="filter-status">
 				<div class="active-filters">
@@ -161,7 +161,7 @@
 	</div>
 </div>
 {:else}
-	<p class="loading-message">Loading statistics...</p>
+	<p class="loading-message">Looking for the stats...</p>
 {/if}
 
 <style>
