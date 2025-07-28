@@ -3,20 +3,25 @@
 	import Icon from "@iconify/svelte";
 	import { favorites } from '$lib/stores';
 
-	export let data;
+	const { data } = $props();
 
-	const { game, session } = data;
-	const { id, names } = game;
-	const name = names[0];
-	const alternateNames = names.slice(1);
+	let game = $derived(data.game);
+	let session = $derived(data.session)
 
-	$: isFavorited = $favorites.has(id);
+	let { id } = $derived(game)
+	let name = $derived(game?.names?.[0] || 'Loading...');
+	let alternateNames = $derived(game?.names?.slice(1) || []);
+
+	let isFavorited = $state(false);
+	$effect(() => {
+		isFavorited = $favorites.has(game.id);
+	});
 
 	/**
      * @type {string}
      */
-	let lightboxImage = '';
-	let isRawDataOpen = false;
+	let lightboxImage = $state('');
+	let isRawDataOpen = $state(false);
 
 	/**
      * @param {{ resolution_type: any; resolution: any; min_res: any; max_res: any; resolutions: string; }} perfData
