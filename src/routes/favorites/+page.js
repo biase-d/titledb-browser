@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
-import { getFavorites } from '$lib/db.js';
+import { getFavorites } from '$lib/db/idb';
 
 /** @type {import('./$types').PageLoad} */
 export async function load({ fetch }) {

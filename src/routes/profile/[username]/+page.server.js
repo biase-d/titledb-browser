@@ -1,8 +1,6 @@
 import { error } from '@sveltejs/kit';
 import postgres from 'postgres';
-import { POSTGRES_URL } from '$env/static/private';
-
-const sql = postgres(POSTGRES_URL, { ssl: 'require' });
+import { sql } from '$lib/db/postgres'
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load({ params, locals }) {
