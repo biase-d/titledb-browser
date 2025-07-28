@@ -206,7 +206,7 @@
 
 			{#if game.performance?.contributor}
 				<div class='contributor-info'>
-					Submitted by <a href={`/profile/${game.performance.contributor.name}`} target="_blank" rel="noopener noreferrer">{game.performance.contributor.name}</a>
+					Submitted by <a href={`/profile/${game.contributor}`} target="_blank" rel="noopener noreferrer">{game.contributor}</a>
 				</div>
 			{/if}
 		</div>
