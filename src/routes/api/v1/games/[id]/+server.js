@@ -1,10 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import postgres from 'postgres';
-import { Octokit } from '@octokit/rest';
-import { POSTGRES_URL } from '$env/static/private';
-import { dataRepo } from '$lib/index.js';
-
-const sql = postgres(POSTGRES_URL, { ssl: 'require' });
+import { sql } from '$lib/db/postgres'
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ params }) {
