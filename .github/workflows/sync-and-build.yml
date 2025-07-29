@@ -1,4 +1,4 @@
-name: Sync & Build
+name: Sync And Build
 
 on:
   repository_dispatch:
