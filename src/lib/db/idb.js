@@ -55,7 +55,7 @@ export async function toggleFavorite (id) {
  */
 export async function saveDraft (id, data) {
   const db = await getDB()
-  return db.put(DRAFTS_STORE_NAME, data, id)
+  return await db.put(DRAFTS_STORE_NAME, data, id)
 }
 
 /**
@@ -65,7 +65,7 @@ export async function saveDraft (id, data) {
  */
 export async function getDraft (id) {
   const db = await getDB()
-  return db.get(DRAFTS_STORE_NAME, id)
+  return await db.get(DRAFTS_STORE_NAME, id)
 }
 
 /**

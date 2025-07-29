@@ -15,6 +15,13 @@
       "when": 1753784138739,
       "tag": "0001_thin_cammi",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1753820676756,
+      "tag": "0002_pale_wild_child",
+      "breakpoints": true
     }
   ]
 }
