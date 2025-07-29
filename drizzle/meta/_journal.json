@@ -8,6 +8,13 @@
       "when": 1753743706340,
       "tag": "0000_kind_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1753784138739,
+      "tag": "0001_thin_cammi",
+      "breakpoints": true
     }
   ]
 }
