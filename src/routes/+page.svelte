@@ -110,6 +110,7 @@
 		{#if search}<button class="clear-button" onclick={() => { search = ''; updateData({ resetPage: true }); }} title="Clear search">×</button>{/if}
 	</div>
 
+	<!--
 	<div class="controls-bar">
 		<button class="filter-button" onclick={() => (showFilters = !showFilters)} disabled={!meta?.publishers?.length}>
 			<Icon icon='mdi:filter' ></Icon>
@@ -126,6 +127,7 @@
 			<option value="name-asc">Sort: Name (A-Z)</option>
 		</select>
 	</div>
+-->
 
 	{#if showFilters}
 		<div class="filter-panel" transition:slide={{ duration: 250 }}>
@@ -146,19 +148,20 @@
 	{#if $draftsStore?.length > 0 && data.session?.user}
 		<h2> Saved Drafts </h2>
 		<ul class="results-list">
-			{#each $draftsStore as draft (draft.id)}
+			{#each $draftsStore as draft}
 				<li class='draft-item'>
-					<a href={`/contribute/${draft.id}?from_draft=true`} class="draft-link">
-						<span class="title-name">{draft.name || draft.id}</span>
+					<a href={`/contribute/${draft.name}?from_draft=true`} class="draft-link">
+						<span class="title-name">{draft.name || 'Draft'}</span>
 						<br>
-						<span class="continue-editing">Continue Editing →</span> 
+						<span class="continue-editing">Continue Editing → ({draft.id})</span>
 					</a>
-					<button class='draft-delete' onclick={()=> {draftsStore.delete(draft.id)}}> <Icon icon='mdi:delete' height='24px' width='24px'/> </button>
+					<button class='draft-delete' onclick={() => draftsStore.delete(draft.id)} title="Delete draft">
+						<Icon icon='mdi:delete' height='24px' width='24px'/>
+					</button>
 				</li>
 			{/each}
 		</ul>
 	{/if}
-
 
 	<h2 class="list-header">
 		{#if search || activeFilterCount > 0}

@@ -1,27 +1,25 @@
-import { json, error } from '@sveltejs/kit';
-import { sql } from '$lib/db/postgres'
+import { json, error } from '@sveltejs/kit'
+import { getGameDetails } from '$lib/game-details'
 
-/** @type {import('./$types').RequestHandler} */
-export async function GET({ params }) {
-    const { id } = params;
-
+export const GET = async ({ params }) => {
+  try {
+    const { id } = params
     if (!id) {
-        throw error(400, 'A game ID is required.');
+      throw error(400, 'Game ID is required')
     }
 
-    try {
-        const game = await sql`
-        SELECT * FROM games WHERE id = ${id}
-        `.then(rows => rows[0]);
+    const { game } = await getGameDetails(id)
+
     if (!game) {
-        throw error(404, `Game with ID ${id} not found.`);
+      throw error(404, 'Game not found')
     }
 
-    return json(game);
-
-} catch (e) {
-    if (e.status) throw e;
-        console.error('Database query failed:', e);
-        throw error(500, 'Failed to retrieve game data from the database.');
+    return json(game)
+  } catch (err) {
+    if (err.status) {
+      throw err
     }
+    console.error(`API Error in /api/v1/games/${params.id}:`, err)
+    throw error(500, 'An internal server error occurred.')
+  }
 }

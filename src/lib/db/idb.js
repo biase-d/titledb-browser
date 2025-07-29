@@ -51,12 +51,11 @@ export async function toggleFavorite (id) {
 /**
  * Saves a performance data draft to the database.
  * @param {string} id The title ID.
- * @param {string} name The Game name
  * @param {object} data The performance data object.
  */
-export async function saveDraft (id, name, data) {
+export async function saveDraft (id, data) {
   const db = await getDB()
-  return db.put(DRAFTS_STORE_NAME, data, name, id,)
+  return db.put(DRAFTS_STORE_NAME, data, id)
 }
 
 /**

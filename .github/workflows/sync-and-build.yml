@@ -1,0 +1,30 @@
+name: Sync And Build
+
+on:
+  repository_dispatch:
+    types: [nx-performance-updated]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run build script to sync database
+        run: node scripts/build.js
+        env:
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
