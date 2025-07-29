@@ -2,12 +2,15 @@
 	import { fade } from 'svelte/transition';
 	import Icon from "@iconify/svelte";
 	import { favorites } from '$lib/stores';
+	import GraphicsDetail from './GraphicsDetail.svelte';
+	import YoutubeEmbeds from './YoutubeEmbeds.svelte';
 
 	const { data } = $props();
 	
 	let game = $derived(data.game);
 	let session = $derived(data.session)
 	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
+	let youtubeLinks = $derived(data.youtubeLinks || []);
 
 	let { id } = $derived(game)
 	let name = $derived(game?.names?.[0] || 'Loading...');
@@ -221,17 +224,26 @@
 						</div>
 					</div>
 				</div>
-	{/if}
+			{/if}
 
 			{#if game.contributor}
 				<div class='contributor-info'>
 					<span>Submitted by <a href={`/profile/${game.contributor}`} rel="noopener noreferrer">{game.contributor}</a></span>
+					<!--
 					{#if game.sourcePrUrl}
-						<a href={game.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(View Source)</a>
+						<a href={game.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
 					{/if}
+					-->
 				</div>
 			{/if}
 		</div>
+		{#if game.graphics}
+			<GraphicsDetail settings={game.graphics} />
+		{/if}
+
+		{#if youtubeLinks.length > 0}
+			<YoutubeEmbeds links={youtubeLinks} />
+		{/if}
 	{:else}
 	<p> No performance data has been submitted yet </p>
 	{/if}

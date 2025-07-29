@@ -1,5 +1,5 @@
 import { db } from '$lib/db'
-import { games, performanceProfiles } from '$lib/db/schema'
+import { games, graphicsSettings, performanceProfiles, youtubeLinks } from '$lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 export async function getGameDetails (id) {
@@ -17,10 +17,12 @@ export async function getGameDetails (id) {
       contributor: performanceProfiles.contributor,
       lastUpdated: games.lastUpdated,
       performance: performanceProfiles.profiles,
-      sourcePrUrl: performanceProfiles.sourcePrUrl
+      sourcePrUrl: performanceProfiles.sourcePrUrl,
+      graphics: graphicsSettings.settings
     })
     .from(games)
     .leftJoin(performanceProfiles, eq(games.groupId, performanceProfiles.groupId))
+    .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
     .where(eq(games.id, id))
     .limit(1)
 
@@ -29,13 +31,16 @@ export async function getGameDetails (id) {
   const game = gameResult[0]
 
   if (!game) {
-    return { game: null, allTitlesInGroup: [] }
+    return { game: null, allTitlesInGroup: [], youtubeLinks: [] }
   }
 
-  const allTitlesInGroup = await db.select({
-    id: games.id,
-    name: sql`"names"[1]`
-  }).from(games).where(eq(games.groupId, game.groupId))
+  const [allTitlesInGroup, links] = await Promise.all([
+    db.select({
+      id: games.id,
+      name: sql`"names"[1]`
+    }).from(games).where(eq(games.groupId, game.groupId)),
+    db.select({ url: youtubeLinks.url }).from(youtubeLinks).where(eq(youtubeLinks.groupId, game.groupId))
+  ])
 
-  return { game, allTitlesInGroup }
+  return { game, allTitlesInGroup, youtubeLinks: links }
 }

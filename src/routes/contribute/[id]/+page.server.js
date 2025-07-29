@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit'
 import { db } from '$lib/db'
-import { games, performanceProfiles } from '$lib/db/schema'
+import { games, graphicsSettings, performanceProfiles, youtubeLinks } from '$lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { GITHUB_BOT_TOKEN } from '$env/static/private'
 import { Octokit } from '@octokit/rest'
@@ -22,16 +22,16 @@ export const load = async ({ params, parent }) => {
     throw error(400, 'Game ID is required')
   }
 
-  console.log(session)
-
   const result = await db
     .select({
       name: sql`"names"[1]`,
       groupId: games.groupId,
-      existingData: performanceProfiles.profiles
+      existingPerformance: performanceProfiles.profiles,
+      existingGraphics: graphicsSettings.settings
     })
     .from(games)
     .leftJoin(performanceProfiles, eq(games.groupId, performanceProfiles.groupId))
+    .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
     .where(eq(games.id, id))
     .limit(1)
 
@@ -41,35 +41,53 @@ export const load = async ({ params, parent }) => {
     throw error(404, 'Game not found')
   }
 
-  const allTitlesInGroup = await db.select({
-    id: games.id,
-    name: sql`"names"[1]`
-  }).from(games).where(eq(games.groupId, game.groupId))
+  const [allTitlesInGroup, existingYoutubeLinks] = await Promise.all([
+    db.select({
+      id: games.id,
+      name: sql`"names"[1]`
+    }).from(games).where(eq(games.groupId, game.groupId)),
+    db.select({ url: youtubeLinks.url }).from(youtubeLinks).where(eq(youtubeLinks.groupId, game.groupId))
+  ])
 
-  let existingSha = null
-  try {
-    const { data: file } = await octokit.repos.getContent({
-      owner: REPO_OWNER,
-      repo: REPO_NAME,
-      path: `${REPO_PATH}/${game.groupId}.json`
-    })
-    if (file && 'sha' in file) {
-      existingSha = file.sha
-    }
-  } catch (e) {
-    // A 404 is expected if the file doesn't exist, so we can ignore it.
-    if (e.status !== 404) {
-      console.error('GitHub API error getting file SHA:', e)
-      throw error(500, 'Could not communicate with GitHub to check for existing data.')
-    }
+  const shas = {
+    performance: null,
+    graphics: null,
+    videos: null
   }
+
+  const fileTypes = ['performance', 'graphics', 'videos']
+  const filePaths = {
+    performance: `profiles/${game.groupId}.json`,
+    graphics: `graphics/${game.groupId}.json`,
+    videos: `videos/${game.groupId}.json`
+  }
+
+  await Promise.all(fileTypes.map(async (type) => {
+    try {
+      const { data: file } = await octokit.repos.getContent({
+        owner: REPO_OWNER,
+        repo: REPO_NAME,
+        path: filePaths[type]
+      })
+      if (file && 'sha' in file) {
+        shas[type] = file.sha
+      }
+    } catch (e) {
+      if (e.status !== 404) {
+        console.error(`GitHub API error getting SHA for ${type}:`, e)
+        throw error(500, `Could not get SHA for ${type} data.`)
+      }
+    }
+  }))
 
   return {
     id,
     name: game.name,
     allTitlesInGroup,
-    existingData: game.existingData,
-    existingSha
+    existingData: game.existingPerformance,
+    existingGraphics: game.existingGraphics,
+    existingYoutubeLinks: existingYoutubeLinks.map(l => l.url),
+    shas
   }
 }
 
@@ -89,11 +107,14 @@ export const actions = {
     const titleId = formData.get('titleId')?.toString()
     const gameName = formData.get('gameName')?.toString()
     const performanceDataString = formData.get('performanceData')?.toString()
-    const sha = formData.get('sha')?.toString() || null
+    const graphicsDataString = formData.get('graphicsData')?.toString()
+    const youtubeLinksString = formData.get('youtubeLinks')?.toString()
+    const shasString = formData.get('shas')?.toString()
+    const shas = shasString ? JSON.parse(shasString) : {}
     const updatedGroupDataString = formData.get('updatedGroupData')?.toString()
     const originalGroupDataString = formData.get('originalGroupData')?.toString()
 
-    if (!titleId || !gameName || !performanceDataString || !updatedGroupDataString || !originalGroupDataString) {
+    if (!titleId || !gameName || !performanceDataString || !graphicsDataString || !youtubeLinksString || !updatedGroupDataString || !originalGroupDataString) {
       return { error: 'Missing required form data.', success: false }
     }
 
@@ -112,13 +133,14 @@ export const actions = {
     let prBody = `Performance data contribution for **${gameName}** (${titleId}) by @${session.user.login}.`
 
     const performanceContent = Buffer.from(JSON.stringify(JSON.parse(performanceDataString), null, 2)).toString('base64')
-    const branchName = `contrib/${session.user.name.toLowerCase().replace(/[^a-z0-9-]/g, '')}-${groupId}`
+    const timestamp = Date.now();
+    const branchName = `contrib/${coAuthorName.toLowerCase().replace(/[^a-z0-9-]/g, '')}-${groupId}-${timestamp}`
     const performanceFilePath = `${REPO_PATH}/${groupId}.json`
-    const commitMessage = `feat: ${sha ? 'update' : 'add'} performance data for ${gameName} (${titleId})`
+    const commitMessage = `feat: ${shas.performance ? 'update' : 'add'} performance data for ${gameName} (${titleId})`
     const prTitle = `[Contribution] ${gameName}`
 
     try {
-      const { data: mainRef } = await octokit.git.getRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: 'heads/main' })
+      const { data: mainRef } = await octokit.git.getRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: 'heads/v1' })
 
       try {
         await octokit.git.createRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `refs/heads/${branchName}`, sha: mainRef.object.sha })
@@ -128,10 +150,39 @@ export const actions = {
 
       const fileCommits = [{
         path: performanceFilePath,
-        message: `${commitMessage}\n\nCo-authored-by: ${session.user.name} <${session.user.email}>`,
+        message: `${commitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
         content: performanceContent,
-        sha
+        sha: shas.performance
       }]
+
+      if (graphicsDataString && graphicsDataString !== '{}') {
+        const graphicsContent = Buffer.from(JSON.stringify(JSON.parse(graphicsDataString), null, 2)).toString('base64')
+        const graphicsFilePath = `graphics/${groupId}.json`
+        const graphicsCommitMessage = `feat: add/update graphics settings for ${gameName} (${groupId})`
+
+        fileCommits.push({
+          path: graphicsFilePath,
+          message: `${graphicsCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
+          content: graphicsContent,
+          sha: shas.graphics
+        })
+        prBody += `\n\nThis PR also includes graphics settings`
+      }
+
+      const youtubeLinks = JSON.parse(youtubeLinksString)
+      if (Array.isArray(youtubeLinks) && youtubeLinks.length > 0) {
+        const linksContent = Buffer.from(JSON.stringify(youtubeLinks.filter(Boolean), null, 2)).toString('base64')
+        const linksFilePath = `videos/${groupId}.json`
+        const linksCommitMessage = `feat: add/update YouTube links for ${gameName} (${groupId})`
+
+        fileCommits.push({
+          path: linksFilePath,
+          message: `${linksCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
+          content: linksContent,
+          sha: shas.videos
+        })
+        prBody += `\n\nThis PR also includes YouTube links.`
+      }
 
       if (hasGroupChanged) {
         const groupContent = Buffer.from(JSON.stringify(updatedGroup.map(t => t.id), null, 2)).toString('base64')
@@ -143,7 +194,7 @@ export const actions = {
           message: `${groupCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
           content: groupContent
         })
-        prBody += `\n\nThis PR also includes grouping changes for the associated titles.`
+        prBody += `\n\nThis PR also includes grouping changes for the associated titles`
       }
 
       for (const file of fileCommits) {
@@ -163,7 +214,7 @@ export const actions = {
         repo: REPO_NAME,
         title: prTitle,
         head: branchName,
-        base: 'main',
+        base: 'v1',
         body: prBody,
         maintainer_can_modify: true
       })

@@ -7,7 +7,7 @@ export const load = async ({ params, parent }) => {
     throw error(400, 'Game ID is required')
   }
 
-  const [{ game, allTitlesInGroup }, { session }] = await Promise.all([
+  const [{ game, allTitlesInGroup, youtubeLinks }, { session }] = await Promise.all([
     getGameDetails(id),
     parent()
   ])
@@ -16,5 +16,5 @@ export const load = async ({ params, parent }) => {
     throw error(404, 'Game not found')
   }
 
-  return { game, session, allTitlesInGroup }
+  return { game, session, allTitlesInGroup, youtubeLinks }
 }

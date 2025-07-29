@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { sql,  } from 'drizzle-orm'
 import postgres from 'postgres'
 import simpleGit from 'simple-git'
-import { games, performanceProfiles } from '../src/lib/db/schema.js'
+import { games,  graphicsSettings, performanceProfiles, youtubeLinks } from '../src/lib/db/schema.js'
 
 const DATA_DIR = 'data'
 const REPOS = {
@@ -197,6 +197,54 @@ async function syncDatabase () {
           lastUpdated: sql`excluded."lastUpdated"`
         }
       })
+  }
+
+  const graphicsDir = path.join(DATA_DIR, 'nx-performance', 'graphics')
+  const graphicsFiles = await fs.readdir(graphicsDir).catch(() => [])
+  const graphicsToUpsert = []
+  for (const file of graphicsFiles) {
+    if (path.extname(file) === '.json') {
+      const groupId = path.basename(file, '.json')
+      const filePath = path.join(graphicsDir, file)
+      const content = await fs.readFile(filePath, 'utf-8')
+      graphicsToUpsert.push({
+        groupId,
+        settings: JSON.parse(content),
+        lastUpdated: new Date()
+      })
+    }
+  }
+
+  console.log(`Processing ${graphicsToUpsert.length} graphics settings files...`)
+  if (graphicsToUpsert.length > 0) {
+    await db.insert(graphicsSettings)
+      .values(graphicsToUpsert)
+      .onConflictDoUpdate({
+        target: graphicsSettings.groupId,
+        set: {
+          settings: sql`excluded.settings`,
+          lastUpdated: sql`excluded."lastUpdated"`
+        }
+      })
+  }
+
+  const videosDir = path.join(DATA_DIR, 'nx-performance', 'videos')
+  const videoFiles = await fs.readdir(videosDir).catch(() => [])
+  const linksToUpsert = []
+  for (const file of videoFiles) {
+    if (path.extname(file) === '.json') {
+      const groupId = path.basename(file, '.json')
+      const filePath = path.join(videosDir, file)
+      const urls = JSON.parse(await fs.readFile(filePath, 'utf-8'))
+      for (const url of urls) {
+        linksToUpsert.push({ groupId, url })
+      }
+    }
+  }
+  console.log(`Processing ${linksToUpsert.length} YouTube links...`)
+  if (linksToUpsert.length > 0) {
+    await db.delete(youtubeLinks)
+    await db.insert(youtubeLinks).values(linksToUpsert)
   }
 
   console.log('Reading and merging base game data...')
