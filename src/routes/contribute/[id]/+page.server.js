@@ -140,20 +140,18 @@ export const actions = {
 
         fileCommits.push({
           path: groupFilePath,
-          message: `${groupCommitMessage}\n\nCo-authored-by: ${session.user.name} <${session.user.email}>`,
+          message: `${groupCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
           content: groupContent
         })
         prBody += `\n\nThis PR also includes grouping changes for the associated titles.`
       }
-
-      const coAuthorTrailer = `\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`
 
       for (const file of fileCommits) {
         await octokit.repos.createOrUpdateFileContents({
           owner: REPO_OWNER,
           repo: REPO_NAME,
           path: file.path,
-          message: file.message + coAuthorTrailer,
+          message: file.message,
           content: file.content,
           branch: branchName,
           sha: file.sha || null
