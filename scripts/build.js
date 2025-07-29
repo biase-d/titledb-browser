@@ -1,6 +1,4 @@
 import fs from 'node:fs/promises'
-import { exec } from 'node:child_process'
-import { promisify } from 'node:util'
 import path from 'node:path'
 import { Octokit } from '@octokit/rest'
 import { drizzle } from 'drizzle-orm/postgres-js'
@@ -8,8 +6,6 @@ import { sql,  } from 'drizzle-orm'
 import postgres from 'postgres'
 import simpleGit from 'simple-git'
 import { games, performanceProfiles } from '../src/lib/db/schema.js'
-
-const execAsync = promisify(exec)
 
 const DATA_DIR = 'data'
 const REPOS = {
@@ -145,15 +141,7 @@ async function syncDatabase () {
     await db.select().from(performanceProfiles).limit(1)
     console.log('Database schema assumed to be up to date.')
   } catch (e) {
-    try {
-      const { stdout, stderr } = await execAsync('npm run db:push -- --force')
-      console.log('Successfully pushed schema to database.')
-      if (stdout) console.log('stdout:', stdout)
-      if (stderr) console.warn('stderr:', stderr)
-    } catch (pushError) {
-      console.error('Failed to push schema to database:', pushError.message)
-      process.exit(1)
-    }
+    console.error('Database schema is not up to date. Please apply migrations.')
   }
 
   const customGroupMap = new Map()
