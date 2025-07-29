@@ -15,7 +15,7 @@ const REPOS = {
 
 const git = simpleGit()
 const octokit = new Octokit({ auth: process.env.ACCESS_TOKEN })
-const client = postgres(process.env.POSTGRES_URL, { ssl: process.env.POSTGRES_URL.includes('?sslmode=requre') ? 'require' : undefined })
+const client = postgres(process.env.POSTGRES_URL, { ssl: 'require' })
 const db = drizzle(client)
 
 /**
