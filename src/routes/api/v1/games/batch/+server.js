@@ -1,1 +1,0 @@
-// todo:delete - cant do it from mobile
