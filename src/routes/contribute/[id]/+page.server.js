@@ -9,7 +9,7 @@ const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN })
 
 const REPO_OWNER = 'biase-d'
 const REPO_NAME = 'nx-performance'
-const REPO_PATH = 'data'
+const REPO_PATH = 'profiles'
 
 export const load = async ({ params, parent }) => {
   const { session } = await parent()

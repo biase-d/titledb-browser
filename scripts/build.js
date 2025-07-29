@@ -14,8 +14,9 @@ const REPOS = {
 }
 
 const git = simpleGit()
-const octokit = new Octokit({ auth: process.env.GITHUB_BOT_TOKEN })
-const db = drizzle(postgres(process.env.POSTGRES_URL, { ssl: process.env.POSTGRES_URL.includes('?sslmode=requre') ? 'require' : undefined }))
+const octokit = new Octokit({ auth: process.env.ACCESS_TOKEN })
+const client = postgres(process.env.POSTGRES_URL, { ssl: process.env.POSTGRES_URL.includes('?sslmode=requre') ? 'require' : undefined })
+const db = drizzle(client)
 
 /**
  * Clones a repository if it doesnt exist or pulls the latest changes if it does.
@@ -278,6 +279,7 @@ async function syncDatabase () {
     console.error('An unexpected error occurred:', error)
     process.exit(1)
  } finally {
+    await client.end()
     console.log('Database connection closed.')
   }
 })()
