@@ -145,13 +145,14 @@
 		</div>
 	{/if}
 
+	<!--
 	{#if $draftsStore?.length > 0 && data.session?.user}
 		<h2> Saved Drafts </h2>
 		<ul class="results-list">
-			{#each $draftsStore as draft}
+			{#each $draftsStore as draft (draft.id)}
 				<li class='draft-item'>
-					<a href={`/contribute/${draft.name}?from_draft=true`} class="draft-link">
-						<span class="title-name">{draft.name || 'Draft'}</span>
+					<a href={`/contribute/${draft.id}?from_draft=true`} class="draft-link">
+						<span class="title-name">{draft.data.name || 'Draft'}</span>
 						<br>
 						<span class="continue-editing">Continue Editing → ({draft.id})</span>
 					</a>
@@ -162,6 +163,7 @@
 			{/each}
 		</ul>
 	{/if}
+	-->
 
 	<h2 class="list-header">
 		{#if search || activeFilterCount > 0}
