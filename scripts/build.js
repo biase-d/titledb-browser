@@ -165,7 +165,7 @@ async function syncDatabase () {
 
   const contributorMap = await buildContributorMap()
 
-  const performanceDir = path.join(DATA_DIR, 'nx-performance', 'data')
+  const performanceDir = path.join(DATA_DIR, 'nx-performance', 'profiles')
   const performanceFiles = await fs.readdir(performanceDir)
   const profilesToUpsert = []
   for (const file of performanceFiles) {
