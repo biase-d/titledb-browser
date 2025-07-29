@@ -4,13 +4,15 @@
 	import { favorites } from '$lib/stores';
 
 	const { data } = $props();
-
+	
 	let game = $derived(data.game);
 	let session = $derived(data.session)
+	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
 
 	let { id } = $derived(game)
 	let name = $derived(game?.names?.[0] || 'Loading...');
 	let alternateNames = $derived(game?.names?.slice(1) || []);
+	let otherTitlesInGroup = $derived(allTitlesInGroup.filter(t => t.id !== id));
 
 	let isFavorited = $state(false);
 	$effect(() => {
@@ -106,11 +108,11 @@
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="{ name } - Titledb Browser" />
 	<meta property="og:description" content="Performance info of { name }" />
-	<meta property="og:image" content="{game.banner_url}" />
-	<meta property="twitter:card" content="{game.banner_url}" />
+	<meta property="og:image" content="{game.bannerUrl}" />
+	<meta property="twitter:card" content="{game.bannerUrl}" />
 	<meta property="twitter:title" content="{ name } - Titledb Browser" />
 	<meta property="twitter:description" content="Performance info of { name }" />
-	<meta property="twitter:image" content="{game.icon_url}" />
+	<meta property="twitter:image" content="{game.iconUrl}" />
 </svelte:head>
 
 {#if game}
@@ -127,7 +129,7 @@
 		</div>
 
 		<div class="title-card">
-			{#if game.icon_url}<figure class="title-icon"><img src={game.icon_url} alt="Icon" /></figure>{/if}
+			{#if game.iconUrl}<figure class="title-icon"><img src={game.iconUrl} alt="Icon" /></figure>{/if}
 			<div class='title-info'>
 				<h1>{name}</h1>
 				{#if alternateNames.length > 0}
@@ -136,16 +138,28 @@
 						<div class="names-list">{#each alternateNames as altName}<span class="alt-name-tag">{altName}</span>{/each}</div>
 					</div>
 				{/if}
+
+				{#if otherTitlesInGroup.length > 0}
+					<div class="other-versions">
+						<strong>Other known versions:</strong>
+						<ul>
+							{#each otherTitlesInGroup as title}
+								<li><a href={`/title/${title.id}`}>{title.name} ({title.id})</a></li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+
 				<div class="details-grid">
 					<span><strong>Publisher:</strong> {game.publisher || 'N/A'}</span>
-					<span><strong>Release Date:</strong> {formatDate(game.release_date)}</span>
-					<span><strong>Size:</strong> {formatSize(game.size_in_bytes) || 'N/A'}</span>
+					<span><strong>Release Date:</strong> {formatDate(game.releaseDate)}</span>
+					<span><strong>Size:</strong> {formatSize(game.sizeInBytes) || 'N/A'}</span>
 					<span><strong>Title ID:</strong> {id}</span>
 				</div>
 			</div>
 		</div>
 
-		<!--{#if game.banner_url}<img class="title-banner" src={game.banner_url} alt="Banner" />{/if}-->
+		<!--{#if game.bannerUrl}<img class="title-banner" src={game.bannerUrl} alt="Banner" />{/if}-->
 
 		<div class="section-header">
 			<h2 class="section-title">Performance Profile</h2>
@@ -207,11 +221,14 @@
 						</div>
 					</div>
 				</div>
-			{/if}
+	{/if}
 
 			{#if game.contributor}
 				<div class='contributor-info'>
-					Submitted by <a href={`/profile/${game.contributor}`} target="_blank" rel="noopener noreferrer">{game.contributor}</a>
+					<span>Submitted by <a href={`/profile/${game.contributor}`} rel="noopener noreferrer">{game.contributor}</a></span>
+					{#if game.sourcePrUrl}
+						<a href={game.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(View Source)</a>
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -240,14 +257,17 @@
 {/if}
 
 {#if !(lightboxImage == '')}
-	<div class="lightbox" on:click={() => (lightboxImage = null)} transition:fade>
-		<img src={lightboxImage} alt="{name} screenshot" />
+	<div class="lightbox" on:click={() => (lightboxImage = '')} transition:fade>
+		<img src={lightboxImage} alt="{name} screenshot" on:click|stopPropagation />
 	</div>
 {/if}
 
 <style>
 	.contributor-info {
-		text-align: right;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+		gap: 0.5rem;
 		font-size: 0.8rem;
 		color: var(--text-secondary);
 		margin-top: 1rem;
@@ -256,7 +276,7 @@
 		color: var(--primary-color);
 		text-decoration: underline;
 	}
-  	.page-container { max-width: 800px; margin: 0 auto; }
+	.page-container { max-width: 800px; margin: 0 auto; }
 	.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 	.section-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; margin-top: 3rem; }
   .section-header {
@@ -412,11 +432,24 @@
     flex-shrink: 0;
   }
 
-  .alternate-titles {
+  .alternate-titles, .other-versions {
     margin: 1.5rem 0;
   }
 
-  .alternate-titles strong {
+  .other-versions ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	font-size: 0.9rem;
+  }
+  .other-versions li {
+	margin-bottom: 0.25rem;
+  }
+  .other-versions a {
+	color: var(--primary-color);
+  }
+
+  .alternate-titles strong, .other-versions strong {
     display: block;
     margin-bottom: 0.75rem;
     font-weight: 600;

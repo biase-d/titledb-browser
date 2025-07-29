@@ -1,52 +1,72 @@
-	<script>
+<script>
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { getDraft, saveDraft, deleteDraft } from '$lib/db/idb.js';
+	import { getDraft, saveDraft, deleteDraft } from '$lib/db/idb';
+	import { draftsStore } from '$lib/stores';
 	import { page } from '$app/state';
-	import { browser } from '$app/environment'
+	import { browser } from '$app/environment';
+	import GroupingControls from './GroupingControls.svelte';
 
-	export let data;
-	/** @type {import('./$types').ActionData} */
-	export let form;
+	let { data, form } = $props();
 
-	const { id, name, existingData } = data;
+	let { id, name, existingData, allTitlesInGroup } = $derived(data);
+	let updatedGroup = $state([...allTitlesInGroup]);
 
-	let performanceData = existingData || {
+	let performanceData = $state(existingData || {
 		docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' },
 		handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' }
-	};
+	});
 
-	$: if (performanceData.docked.resolution_type !== 'Multiple Fixed') {
-		performanceData.docked.resolutions = '';
-	}
-	$: if (performanceData.handheld.resolution_type !== 'Multiple Fixed') {
-		performanceData.handheld.resolutions = '';
-	}
-
+	$effect(() => {
+		if (performanceData.docked.resolution_type !== 'Multiple Fixed') {
+			performanceData.docked.resolutions = '';
+		}
+		if (performanceData.handheld.resolution_type !== 'Multiple Fixed') {
+			performanceData.handheld.resolutions = '';
+		}
+	});
 
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
 		if (savedDraft) {
-			const fromDrafts = page.url.searchParams.get('from_draft') === 'true';
+			const restoreDraft = () => {
+				if (savedDraft.performance) {
+					performanceData = savedDraft.performance;
+					if (savedDraft.group) {
+						updatedGroup = savedDraft.group;
+					}
+				} else {
+					performanceData = savedDraft;
+				}
+			};
 
+			const fromDrafts = page.url.searchParams.get('from_draft') === 'true';
 			if (fromDrafts) {
-				performanceData = savedDraft;
+				restoreDraft();
 			} else {
 				if (confirm('You have a saved draft for this game. Would you like to restore it?')) {
-					performanceData = savedDraft;
+					restoreDraft();
 				}
 			}
 		}
 	});
 
-	$: if (browser && performanceData) {
-		let debounceTimer;
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			saveDraft(id, name, performanceData);
-		}, 500);
-	}
+	$effect(() => {
+		if (!browser) return;
 
+		const dataToSave = {
+			name: name,
+			performance: performanceData,
+			group: updatedGroup
+		};
+
+		const debounceTimer = setTimeout(() => {
+			const plainObjectToSave = JSON.parse(JSON.stringify(dataToSave));
+			draftsStore.save(id, plainObjectToSave);
+		}, 500);
+
+		return () => clearTimeout(debounceTimer);
+	});
 </script>
 
 <svelte:head>
@@ -57,6 +77,8 @@
 	<a href={`/title/${id}`} class="back-link">← Back to Game Page</a>
 	<h1>Contribute Performance Data</h1>
 	<p class="subtitle">You are adding data for <strong class='game-name'>{name}</strong> ({id})</p>
+
+	<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(newGroup) => { updatedGroup = newGroup; }} />
 
 	{#if form?.success}
 		<div class="success-message">
@@ -76,6 +98,8 @@
 			<input type="hidden" name="titleId" value={id} />
 			<input type="hidden" name="gameName" value={name} />
 			<input type="hidden" name="performanceData" value={JSON.stringify(performanceData)} />
+			<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
+			<input type="hidden" name="originalGroupData" value={JSON.stringify(allTitlesInGroup)} />
 			<input type="hidden" name="sha" value={data.existingSha ?? ''} />
 
 			<div class="mode-grid">
@@ -166,6 +190,32 @@
 </div>
 
 <style>
+	.group-info-box {
+		background-color: var(--input-bg);
+		border: 1px solid var(--border-color);
+		border-left: 4px solid var(--primary-color);
+		padding: 1rem 1.5rem;
+		margin-bottom: 2rem;
+		border-radius: var(--border-radius);
+	}
+
+	.group-info-box p {
+		margin-top: 0;
+		margin-bottom: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.group-info-box ul {
+		margin: 0;
+		padding-left: 1.5rem;
+		color: var(--text-primary);
+		font-size: 0.9rem;
+	}
+
+	.group-info-box li {
+		margin-bottom: 0.25rem;
+	}
+
 	.game-name {
 		color: var(--primary-color)
 	}

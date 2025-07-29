@@ -149,7 +149,7 @@
         font-weight: 600;
         text-shadow: 0 1px 1px rgba(0,0,0,0.2);
     }
-    .badge-icon {
+    :global(.badge-icon) {
         width: 1rem;
         height: 1rem;
         filter: brightness(1.2);
