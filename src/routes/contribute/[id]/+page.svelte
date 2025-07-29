@@ -78,8 +78,6 @@
 	<h1>Contribute Performance Data</h1>
 	<p class="subtitle">You are adding data for <strong class='game-name'>{name}</strong> ({id})</p>
 
-	<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(newGroup) => { updatedGroup = newGroup; }} />
-
 	{#if form?.success}
 		<div class="success-message">
 			<h2>Submission Successful!</h2>
@@ -88,6 +86,7 @@
 			<a href="/" class="back-link-main">Return to Home</a>
 		</div>
 	{:else}
+		<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(newGroup) => { updatedGroup = newGroup; }} />
 		<form method="POST" use:enhance={() => {
 			return async ({ update }) => {
 				await deleteDraft(id);
