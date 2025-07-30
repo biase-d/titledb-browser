@@ -57,6 +57,9 @@
 
 {#if game}
 	<div class="page-container" in:fade={{ duration: 300 }}>
+		<div class="page-nav">
+			<button class="back-button" onclick={() => history.back()}>← Back</button>
+		</div>
 		<div class="banner-header">
 			<div class="banner-image" style="background-image: url({game.bannerUrl});"></div>
 			<div class="banner-overlay"></div>
@@ -136,7 +139,7 @@
 
 {#if lightboxImage}
 	<div class="lightbox" onclick={() => (lightboxImage = '')} transition:fade={{ duration: 150 }}>
-		<img {src} alt="{name} screenshot" onclick={(e) => e.stopPropagation()} />
+		<img src={lightboxImage} alt="{name} screenshot" onclick={(e) => e.stopPropagation()} />
 	</div>
 {/if}
 
@@ -144,11 +147,24 @@
 	.page-container {
 		max-width: 900px;
 		margin: 0 auto;
+		padding: 1rem;
 	}
 	@media (min-width: 640px) {
 		.page-container {
 			padding: 2rem;
 		}
+	}
+	.page-nav {
+		margin-bottom: 1.5rem;
+	}
+	.back-button {
+		background: none;
+		border: none;
+		padding: 0;
+		font-size: inherit;
+		color: var(--text-secondary);
+		text-decoration: none;
+		cursor: pointer;
 	}
 	.banner-header {
 		position: relative;
