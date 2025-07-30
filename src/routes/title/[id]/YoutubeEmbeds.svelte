@@ -11,10 +11,10 @@
 	}
 </script>
 
-<div class="youtube-container">
-	<h2>Gameplay & Performance Videos</h2>
+<div class="section-container">
+	<h2 class="section-title">Gameplay & Performance Videos</h2>
 	{#if links.length === 0}
-		<p>No videos have been submitted for this title yet.</p>
+		<p class="no-data-message">No videos have been submitted for this title yet.</p>
 	{:else}
 		<div class="videos-grid">
 			{#each links as link}
@@ -25,8 +25,7 @@
 							src="https://www.youtube.com/embed/{videoId}"
 							title="YouTube video player"
 							frameborder="0"
-							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-							allowfullscreen
+							allow="fullscreen"
 						></iframe>
 					</div>
 				{/if}
@@ -36,23 +35,30 @@
 </div>
 
 <style>
-	.youtube-container {
-		margin-top: 2rem;
-		padding: 1.5rem;
-		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
+	.section-container {
+	margin-top: 3rem;
 	}
-	h2 {
-		margin-top: 0;
-		font-size: 1.5rem;
-		border-bottom: 2px solid var(--primary-color);
-		padding-bottom: 0.5rem;
-		margin-bottom: 1.5rem;
+	.section-title {
+	font-size: 1.5rem;
+	font-weight: 700;
+	margin-bottom: 1rem;
+	}
+	.no-data-message {
+	padding: 2rem;
+	text-align: center;
+	background-color: var(--surface-color);
+	border-radius: var(--border-radius);
+	border: 1px solid var(--border-color);
 	}
 	.videos-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 		gap: 1.5rem;
+	}
+	@media (min-width: 768px) {
+		.videos-grid {
+			grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+		}
 	}
 	.video-wrapper {
 		position: relative;
