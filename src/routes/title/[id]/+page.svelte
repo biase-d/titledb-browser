@@ -16,6 +16,7 @@
 
 	let id = $derived(game?.id);
 	let name = $derived(game?.names?.[0] || 'Loading...');
+	let otherTitlesInGroup = $derived(allTitlesInGroup.filter((t) => t.id !== id));
 
 	let isFavorited = $state(false);
 	$effect(() => {
@@ -63,6 +64,18 @@
 				<img src={game.iconUrl} alt="{name} icon" class="game-icon" />
 				<div class="title-info">
 					<h1>{name}</h1>
+
+					{#if otherTitlesInGroup.length > 0}
+						<div class="other-versions">
+							<strong>Other known versions:</strong>
+							<ul>
+								{#each otherTitlesInGroup as title}
+									<li><a href={`/title/${title.id}`}>{title.name} ({title.id})</a></li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+
 					<div class="details-grid">
 						<span><strong>Publisher:</strong> {game.publisher || 'N/A'}</span>
 						<span><strong>Release Date:</strong> {formatDate(game.releaseDate)}</span>
@@ -198,6 +211,34 @@
 		gap: 0.5rem;
 		font-size: 0.9rem;
 		opacity: 0.9;
+	}
+	.other-versions {
+		margin-bottom: 1.5rem;
+	}
+	.other-versions strong {
+		font-weight: 600;
+		color: var(--text-secondary);
+		font-size: 0.9rem;
+	}
+	.other-versions ul {
+		list-style: none;
+		padding: 0;
+		margin: 0.5rem 0 0;
+		font-size: 0.9rem;
+	}
+	.other-versions li {
+		margin-bottom: 0.25rem;
+	}
+	.other-versions a {
+		color: var(--primary-color);
+		text-decoration: underline;
+	}
+	.details-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.75rem;
+		font-size: 0.9rem;
+		margin-top: auto;
 	}
 	@media (min-width: 500px) {
 		.details-grid {
