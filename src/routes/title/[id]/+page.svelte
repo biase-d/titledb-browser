@@ -147,7 +147,6 @@
 	.page-container {
 		max-width: 900px;
 		margin: 0 auto;
-		padding: 1rem;
 	}
 	@media (min-width: 640px) {
 		.page-container {
