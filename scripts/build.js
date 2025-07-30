@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { sql,  } from 'drizzle-orm'
 import postgres from 'postgres'
 import simpleGit from 'simple-git'
-import { games,  graphicsSettings, performanceProfiles, youtubeLinks } from '../src/lib/db/schema.js'
+import { games,  graphics_settings, performance_profiles, youtube_links } from '../src/lib/db/schema.js'
 
 const DATA_DIR = 'data'
 const REPOS = {
@@ -40,7 +40,7 @@ async function cloneOrPull (repoPath, repoUrl) {
 async function buildContributorMap () {
   console.log('Building contributor map from biase-d/nx-performance PR history...')
   const contributorMap = {}
-  const coAuthorRegex = /Co-authored-by: .+ <(?:\d+\+)?(.+?)@users\.noreply\.github\.com>/
+  const coAuthorRegex = /Co-authored-by: .*<(?:\d+\+)?([\w-]+)@users\.noreply\.github\.com>/
 
   try {
     const prs = await octokit.paginate(octokit.pulls.list, {
@@ -56,7 +56,7 @@ async function buildContributorMap () {
       if (!pr.merged_at) continue
 
       const branchName = pr.head.ref
-      const groupIdMatch = branchName.match(/([A-F0-9]{16})$/i)
+      const groupIdMatch = branchName.match(/([A-F0-9]{16})(?:-\d+)?$/i)
       if (!groupIdMatch) continue
 
       const groupId = groupIdMatch[1].toUpperCase()
@@ -175,26 +175,26 @@ async function syncDatabase () {
       const content = await fs.readFile(filePath, 'utf-8')
       const contributionInfo = contributorMap[groupId] || {}
       profilesToUpsert.push({
-        groupId,
+        group_id: groupId,
         profiles: JSON.parse(content),
         contributor: contributionInfo.contributor || null,
-        sourcePrUrl: contributionInfo.sourcePrUrl || null,
-        lastUpdated: new Date()
+        source_pr_url: contributionInfo.sourcePrUrl || null,
+        last_updated: new Date()
       })
     }
   }
   console.log(`Processing ${profilesToUpsert.length} performance data files...`)
 
   if (profilesToUpsert.length > 0) {
-    await db.insert(performanceProfiles)
+await db.insert(performance_profiles)
       .values(profilesToUpsert)
       .onConflictDoUpdate({
-        target: performanceProfiles.groupId,
+        target: performance_profiles.group_id,
         set: {
           profiles: sql`excluded.profiles`,
           contributor: sql`excluded.contributor`,
-          sourcePrUrl: sql`excluded."sourcePrUrl"`,
-          lastUpdated: sql`excluded."lastUpdated"`
+          source_pr_url: sql`excluded.source_pr_url`,
+          last_updated: sql`excluded.last_updated`
         }
       })
   }
@@ -208,22 +208,22 @@ async function syncDatabase () {
       const filePath = path.join(graphicsDir, file)
       const content = await fs.readFile(filePath, 'utf-8')
       graphicsToUpsert.push({
-        groupId,
+        group_id: groupId,
         settings: JSON.parse(content),
-        lastUpdated: new Date()
+        last_updated: new Date()
       })
     }
   }
 
   console.log(`Processing ${graphicsToUpsert.length} graphics settings files...`)
   if (graphicsToUpsert.length > 0) {
-    await db.insert(graphicsSettings)
+    await db.insert(graphics_settings)
       .values(graphicsToUpsert)
       .onConflictDoUpdate({
-        target: graphicsSettings.groupId,
+        target: graphics_settings.group_id,
         set: {
           settings: sql`excluded.settings`,
-          lastUpdated: sql`excluded."lastUpdated"`
+          last_updated: sql`excluded.last_updated`
         }
       })
   }
@@ -237,14 +237,14 @@ async function syncDatabase () {
       const filePath = path.join(videosDir, file)
       const urls = JSON.parse(await fs.readFile(filePath, 'utf-8'))
       for (const url of urls) {
-        linksToUpsert.push({ groupId, url })
+        linksToUpsert.push({ group_id: groupId, url })
       }
     }
   }
   console.log(`Processing ${linksToUpsert.length} YouTube links...`)
   if (linksToUpsert.length > 0) {
-    await db.delete(youtubeLinks)
-    await db.insert(youtubeLinks).values(linksToUpsert)
+    await db.delete(youtube_links)
+    await db.insert(youtube_links).values(linksToUpsert)
   }
 
   console.log('Reading and merging base game data...')
@@ -273,16 +273,15 @@ async function syncDatabase () {
 
     gamesToUpsert.push({
       id,
-      groupId,
+      group_id: groupId,
       names,
       publisher: details.publisher,
-      releaseDate: details.releaseDate,
-      sizeInBytes: parseSizeToBytes(details.size),
-      iconUrl: details.iconUrl,
-      bannerUrl: details.bannerUrl,
+      release_date: details.releaseDate,
+      size_in_bytes: parseSizeToBytes(details.size),
+      icon_url: details.iconUrl,
+      banner_url: details.bannerUrl,
       screenshots: details.screenshots,
-      description: details.description,
-      lastUpdated: new Date()
+      last_updated: new Date()
     })
   }
 
@@ -294,18 +293,18 @@ async function syncDatabase () {
     try {
       await db.insert(games)
         .values(batch)
-        .onConflictDoUpdate({
+.onConflictDoUpdate({
           target: games.id,
           set: {
             names: sql`excluded.names`,
             publisher: sql`excluded.publisher`,
-            releaseDate: sql`excluded."releaseDate"`,
-            sizeInBytes: sql`excluded."sizeInBytes"`,
-            iconUrl: sql`excluded."iconUrl"`,
-            bannerUrl: sql`excluded."bannerUrl"`,
+            release_date: sql`excluded.release_date`,
+            size_in_bytes: sql`excluded.size_in_bytes`,
+            icon_url: sql`excluded.icon_url`,
+            banner_url: sql`excluded.banner_url`,
             screenshots: sql`excluded.screenshots`,
-            groupId: sql`excluded."groupId"`, 
-            lastUpdated: sql`excluded."lastUpdated"`
+            group_id: sql`excluded.group_id`,
+            last_updated: sql`excluded.last_updated`
           }
         })
     } catch (err) {

@@ -1,6 +1,6 @@
 import { db } from '$lib/db'
-import { games, performanceProfiles } from '$lib/db/schema'
-import { and, asc, count, desc, ilike, or, sql } from 'drizzle-orm'
+import { games, performance_profiles } from '$lib/db/schema'
+import { and, asc, countDistinct, desc, ilike, or, sql } from 'drizzle-orm'
 
 const PAGE_SIZE = 50
 
@@ -35,21 +35,21 @@ export async function getGames (searchParams) {
   }
 
   if (minYear) {
-    whereConditions.push(sql`"releaseDate" >= ${Number(minYear) * 10000}`)
+    whereConditions.push(sql`"release_date" >= ${Number(minYear) * 10000}`)
   }
   if (maxYear) {
-    whereConditions.push(sql`"releaseDate" <= ${Number(maxYear) * 10000 + 1231}`)
+    whereConditions.push(sql`"release_date" <= ${Number(maxYear) * 10000 + 1231}`)
   }
 
   if (minSizeMB) {
-    whereConditions.push(sql`"sizeInBytes" >= ${Number(minSizeMB) * 1024 * 1024}`)
+    whereConditions.push(sql`"size_in_bytes" >= ${Number(minSizeMB) * 1024 * 1024}`)
   }
   if (maxSizeMB) {
-    whereConditions.push(sql`"sizeInBytes" <= ${Number(maxSizeMB) * 1024 * 1024}`)
+    whereConditions.push(sql`"size_in_bytes" <= ${Number(maxSizeMB) * 1024 * 1024}`)
   }
 
   if (!q && !publisher && !minYear && !maxYear && !minSizeMB && !maxSizeMB) {
-    whereConditions.push(sql`EXISTS (SELECT 1 FROM ${performanceProfiles} WHERE ${performanceProfiles.groupId} = ${games.groupId})`)
+    whereConditions.push(sql`EXISTS (SELECT 1 FROM ${performance_profiles} WHERE ${performance_profiles.group_id} = ${games.group_id})`)
   }
 
   const combinedWheres = and(...whereConditions)
@@ -59,22 +59,22 @@ export async function getGames (searchParams) {
       case 'name-asc':
         return [asc(sql`"names"[1]`)]
       case 'size-desc':
-        return [desc(games.sizeInBytes)]
+        return [desc(games.size_in_bytes)]
       case 'relevance-desc':
         if (q) {
           return [desc(sql`word_similarity(${q}, "names"[1])`)]
         }
-        return [desc(games.lastUpdated)]
+        return [desc(games.last_updated)]
       case 'date-desc':
       default:
-        return [desc(games.releaseDate)]
+        return [desc(games.release_date)]
     }
   }
 
   const orderBy = getSortOptions()
 
   const resultsQuery = db
-    .select({
+    .selectDistinctOn([games.group_id], {
       id: games.id,
       names: games.names
     })
@@ -82,16 +82,16 @@ export async function getGames (searchParams) {
     .where(combinedWheres)
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE)
-    .orderBy(...orderBy)
+    .orderBy(games.group_id, ...orderBy)
 
   const countQuery = db
-    .select({ total: count() })
+    .select({ total: countDistinct(games.group_id) })
     .from(games)
     .where(combinedWheres)
 
   const publishersQuery = db.selectDistinct({ publisher: games.publisher }).from(games).where(sql`${games.publisher} IS NOT NULL`).orderBy(asc(games.publisher))
 
-  const yearsQuery = db.selectDistinct({ year: sql`CAST(FLOOR("releaseDate" / 10000) AS INTEGER)`.as('year') }).from(games).where(sql`${games.releaseDate} IS NOT NULL`).orderBy(desc(sql`CAST(FLOOR("releaseDate" / 10000) AS INTEGER)`))
+  const yearsQuery = db.selectDistinct({ year: sql`CAST(FLOOR("release_date" / 10000) AS INTEGER)`.as('year') }).from(games).where(sql`${games.release_date} IS NOT NULL`).orderBy(desc(sql`CAST(FLOOR("release_date" / 10000) AS INTEGER)`))
 
   const [results, totalResult, availablePublishers, availableYears] = await Promise.all([
     resultsQuery,

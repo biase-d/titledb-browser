@@ -1,28 +1,28 @@
 import { db } from '$lib/db'
-import { games, graphicsSettings, performanceProfiles, youtubeLinks } from '$lib/db/schema'
+import { games, graphics_settings, performance_profiles, youtube_links } from '$lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 export async function getGameDetails (id) {
   const gamePromise = db
     .select({
       id: games.id,
-      groupId: games.groupId,
+      groupId: games.group_id,
       names: games.names,
       publisher: games.publisher,
-      releaseDate: games.releaseDate,
-      sizeInBytes: games.sizeInBytes,
-      iconUrl: games.iconUrl,
-      bannerUrl: games.bannerUrl,
+      releaseDate: games.release_date,
+      sizeInBytes: games.size_in_bytes,
+      iconUrl: games.icon_url,
+      bannerUrl: games.banner_url,
       screenshots: games.screenshots,
-      contributor: performanceProfiles.contributor,
-      lastUpdated: games.lastUpdated,
-      performance: performanceProfiles.profiles,
-      sourcePrUrl: performanceProfiles.sourcePrUrl,
-      graphics: graphicsSettings.settings
+      contributor: performance_profiles.contributor,
+      lastUpdated: games.last_updated,
+      performance: performance_profiles.profiles,
+      sourcePrUrl: performance_profiles.source_pr_url,
+      graphics: graphics_settings.settings
     })
     .from(games)
-    .leftJoin(performanceProfiles, eq(games.groupId, performanceProfiles.groupId))
-    .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+    .leftJoin(performance_profiles, eq(games.group_id, performance_profiles.group_id))
+    .leftJoin(graphics_settings, eq(games.group_id, graphics_settings.group_id))
     .where(eq(games.id, id))
     .limit(1)
 
@@ -38,8 +38,8 @@ export async function getGameDetails (id) {
     db.select({
       id: games.id,
       name: sql`"names"[1]`
-    }).from(games).where(eq(games.groupId, game.groupId)),
-    db.select({ url: youtubeLinks.url }).from(youtubeLinks).where(eq(youtubeLinks.groupId, game.groupId))
+    }).from(games).where(eq(games.group_id, game.groupId)),
+    db.select({ url: youtube_links.url }).from(youtube_links).where(eq(youtube_links.group_id, game.groupId))
   ])
 
   return { game, allTitlesInGroup, youtubeLinks: links }

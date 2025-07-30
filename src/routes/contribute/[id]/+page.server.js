@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit'
 import { db } from '$lib/db'
-import { games, graphicsSettings, performanceProfiles, youtubeLinks } from '$lib/db/schema'
+import { games, graphics_settings, performance_profiles, youtube_links } from '$lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { GITHUB_BOT_TOKEN } from '$env/static/private'
 import { Octokit } from '@octokit/rest'
@@ -10,6 +10,7 @@ const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN })
 const REPO_OWNER = 'biase-d'
 const REPO_NAME = 'nx-performance'
 const REPO_PATH = 'profiles'
+const REPO_BRANCH = 'v2'
 
 export const load = async ({ params, parent }) => {
   const { session } = await parent()
@@ -25,13 +26,13 @@ export const load = async ({ params, parent }) => {
   const result = await db
     .select({
       name: sql`"names"[1]`,
-      groupId: games.groupId,
-      existingPerformance: performanceProfiles.profiles,
-      existingGraphics: graphicsSettings.settings
+      groupId: games.group_id,
+      existingPerformance: performance_profiles.profiles,
+      existingGraphics: graphics_settings.settings
     })
     .from(games)
-    .leftJoin(performanceProfiles, eq(games.groupId, performanceProfiles.groupId))
-    .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+    .leftJoin(performance_profiles, eq(games.group_id, performance_profiles.group_id))
+    .leftJoin(graphics_settings, eq(games.group_id, graphics_settings.group_id))
     .where(eq(games.id, id))
     .limit(1)
 
@@ -45,21 +46,23 @@ export const load = async ({ params, parent }) => {
     db.select({
       id: games.id,
       name: sql`"names"[1]`
-    }).from(games).where(eq(games.groupId, game.groupId)),
-    db.select({ url: youtubeLinks.url }).from(youtubeLinks).where(eq(youtubeLinks.groupId, game.groupId))
+    }).from(games).where(eq(games.group_id, game.groupId)),
+    db.select({ url: youtube_links.url }).from(youtube_links).where(eq(youtube_links.group_id, game.groupId))
   ])
 
   const shas = {
     performance: null,
     graphics: null,
-    videos: null
+    videos: null,
+    groups: null
   }
 
-  const fileTypes = ['performance', 'graphics', 'videos']
+  const fileTypes = ['performance', 'graphics', 'videos', 'groups']
   const filePaths = {
     performance: `profiles/${game.groupId}.json`,
     graphics: `graphics/${game.groupId}.json`,
-    videos: `videos/${game.groupId}.json`
+    videos: `videos/${game.groupId}.json`,
+    groups: `groups/${game.groupId}.json`
   }
 
   await Promise.all(fileTypes.map(async (type) => {
@@ -118,7 +121,7 @@ export const actions = {
       return { error: 'Missing required form data.', success: false }
     }
 
-    const gameResult = await db.select({ groupId: games.groupId }).from(games).where(eq(games.id, titleId)).limit(1)
+    const gameResult = await db.select({ groupId: games.group_id }).from(games).where(eq(games.id, titleId)).limit(1)
     const groupId = gameResult[0]?.groupId
     if (!groupId) {
       return { error: `Could not find a group ID for game ${titleId}`, success: false }
@@ -140,7 +143,7 @@ export const actions = {
     const prTitle = `[Contribution] ${gameName}`
 
     try {
-      const { data: mainRef } = await octokit.git.getRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: 'heads/v1' })
+      const { data: mainRef } = await octokit.git.getRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${REPO_BRANCH}` })
 
       try {
         await octokit.git.createRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `refs/heads/${branchName}`, sha: mainRef.object.sha })
@@ -155,18 +158,21 @@ export const actions = {
         sha: shas.performance
       }]
 
-      if (graphicsDataString && graphicsDataString !== '{}') {
-        const graphicsContent = Buffer.from(JSON.stringify(JSON.parse(graphicsDataString), null, 2)).toString('base64')
-        const graphicsFilePath = `graphics/${groupId}.json`
-        const graphicsCommitMessage = `feat: add/update graphics settings for ${gameName} (${groupId})`
+      const graphicsData = JSON.parse(graphicsDataString);
+      const hasGraphicsData = Object.values(graphicsData).some(section => Object.keys(section).length > 0 && (Object.keys(section)[0] !== '' || Object.values(section)[0] !== ''));
+
+      if (hasGraphicsData) {
+        const graphicsContent = Buffer.from(JSON.stringify(graphicsData, null, 2)).toString('base64');
+        const graphicsFilePath = `graphics/${groupId}.json`;
+        const graphicsCommitMessage = `feat: add/update graphics settings for ${gameName} (${groupId})`;
 
         fileCommits.push({
           path: graphicsFilePath,
-          message: `${graphicsCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
+          message: graphicsCommitMessage,
           content: graphicsContent,
           sha: shas.graphics
-        })
-        prBody += `\n\nThis PR also includes graphics settings`
+        });
+        prBody += `\n\nThis PR also includes graphics settings.`;
       }
 
       const youtubeLinks = JSON.parse(youtubeLinksString)
@@ -192,7 +198,8 @@ export const actions = {
         fileCommits.push({
           path: groupFilePath,
           message: `${groupCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
-          content: groupContent
+          content: groupContent,
+          sha: shas.groups
         })
         prBody += `\n\nThis PR also includes grouping changes for the associated titles`
       }
@@ -214,7 +221,7 @@ export const actions = {
         repo: REPO_NAME,
         title: prTitle,
         head: branchName,
-        base: 'v1',
+        base: REPO_BRANCH,
         body: prBody,
         maintainer_can_modify: true
       })

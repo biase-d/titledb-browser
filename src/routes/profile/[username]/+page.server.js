@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit'
 import { db } from '$lib/db'
-import { games, performanceProfiles } from '$lib/db/schema'
+import { games, performance_profiles } from '$lib/db/schema'
 import { eq, ilike, sql } from 'drizzle-orm'
 
 export const load = async ({ params, parent }) => {
@@ -14,8 +14,8 @@ export const load = async ({ params, parent }) => {
         title: sql`"names"[1]`
       })
       .from(games)
-      .innerJoin(performanceProfiles, eq(games.groupId, performanceProfiles.groupId))
-      .where(ilike(performanceProfiles.contributor, username))
+      .innerJoin(performance_profiles, eq(games.group_id, performance_profiles.group_id))
+      .where(ilike(performance_profiles.contributor, username))
 
     const mergedPullRequests = contributions.map(game => ({
       title: game.title,
