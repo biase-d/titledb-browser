@@ -1,120 +1,145 @@
 <script>
 	import Icon from '@iconify/svelte';
+	import ResolutionSettingsControls from './ResolutionSettingsControls.svelte';
+	import FpsSettingsControls from './FpsSettingsControls.svelte';
 
 	let {
 		initialSettings = null,
-		onUpdate = (/** @type {Record<string, Record<string, string>>} */ settings) => {}
+		onUpdate = (/** @type {any} */ settings) => {}
 	} = $props();
 
-	let settings = $state(initialSettings || {});
+	let resolutionSettings = $state(initialSettings?.Resolution || {});
+	let fpsSettings = $state(initialSettings?.Framerate || {});
+	let customSettings = $state(omit(initialSettings, ['Resolution', 'Framerate']));
+	
 	let newSectionName = $state('');
+	let isVisible = $state(Object.keys(initialSettings || {}).length > 0);
 
-	function addInitialSection() {
-		if (Object.keys(settings).length === 0) {
-			settings['Default'] = { '': '' };
-			onUpdate(settings);
+	function omit(obj, keys) {
+		const newObj = {};
+		for (const key in obj) {
+			if (!keys.includes(key)) {
+				newObj[key] = obj[key];
+			}
 		}
+		return newObj;
+	}
+
+	$effect(() => {
+		const allSettings = {
+			...(Object.keys(resolutionSettings).length > 0 && { Resolution: resolutionSettings }),
+			...(Object.keys(fpsSettings).length > 0 && { Framerate: fpsSettings }),
+			...customSettings
+		};
+		onUpdate(allSettings);
+	});
+	
+	function addInitialSection() {
+		isVisible = true;
 	}
 
 	function addSection() {
-		if (newSectionName && !settings[newSectionName]) {
-			settings[newSectionName] = { '': '' };
+		if (newSectionName && !customSettings[newSectionName]) {
+			customSettings[newSectionName] = { '': '' };
 			newSectionName = '';
-			onUpdate(settings);
 		}
 	}
 
-	/**
-     * @param {string} sectionName
-     */
 	function removeSection(sectionName) {
-		delete settings[sectionName];
-		onUpdate(settings);
+		delete customSettings[sectionName];
 	}
 
-	/**
-     * @param {string} sectionName
-     */
 	function addField(sectionName) {
-		settings[sectionName][''] = '';
-		onUpdate(settings);
+		customSettings[sectionName][''] = '';
 	}
 
-	/**
-     * @param {string} sectionName
-     * @param {string} oldKey
-     * @param {string} newKey
-     */
 	function updateKey(sectionName, oldKey, newKey) {
 		if (oldKey === newKey || newKey === '') return;
-		const value = settings[sectionName][oldKey];
-		delete settings[sectionName][oldKey];
-		settings[sectionName][newKey] = value;
-		onUpdate(settings);
+		const value = customSettings[sectionName][oldKey];
+		delete customSettings[sectionName][oldKey];
+		customSettings[sectionName][newKey] = value;
 	}
 
-	/**
-     * @param {string} sectionName
-     * @param {string} key
-     */
 	function removeField(sectionName, key) {
-		delete settings[sectionName][key];
-		if (Object.keys(settings[sectionName]).length === 0) {
-			delete settings[sectionName];
+		delete customSettings[sectionName][key];
+		if (Object.keys(customSettings[sectionName]).length === 0) {
+			delete customSettings[sectionName];
 		}
-		onUpdate(settings);
 	}
 </script>
 
 <div class="graphics-controls-container">
-	<h3>Graphics Settings</h3>
-	<p>Add sections and fields to detail the game's graphical options. This data is for what the game offers, not necessarily what it achieves</p>
-
-	{#if Object.keys(settings).length === 0}
+	<div class="header">
+		<h3>Graphics Settings</h3>
+		{#if isVisible}
+			<button type="button" class="toggle-visibility-btn" onclick={() => isVisible = false}>
+				Hide
+			</button>
+		{/if}
+	</div>
+	
+	{#if !isVisible}
 		<button type="button" class="add-initial-btn" onclick={addInitialSection}>
 			<Icon icon="mdi:plus" /> Add Graphics Settings
 		</button>
 	{:else}
-		{#each Object.entries(settings) as [sectionName, fields] (sectionName)}
+		<p>Detail the game's graphical options. This data is for what the game *offers*, not necessarily what it achieves.</p>
+		
+		<fieldset class="section-fieldset">
+			<legend>Resolution</legend>
+			<div class="structured-grid">
+				<ResolutionSettingsControls bind:settingsData={resolutionSettings} />
+			</div>
+		</fieldset>
+
+		<fieldset class="section-fieldset">
+			<legend>Framerate</legend>
+			<div class="structured-grid">
+				<FpsSettingsControls bind:settingsData={fpsSettings} />
+			</div>
+		</fieldset>
+
+		<div class="custom-settings-header">
+			<h4>Custom Settings</h4>
+		</div>
+
+		{#each Object.entries(customSettings) as [sectionName, fields] (sectionName)}
 			<fieldset class="section-fieldset">
 				<legend>
-				{sectionName}
-				{#if sectionName !== 'Default'}
-					<button class="remove-btn" onclick={() => removeSection(sectionName)} title="Remove Section">
+					{sectionName}
+					<button type="button" class="remove-btn" onclick={() => removeSection(sectionName)} title="Remove Section">
 						<Icon icon="mdi:close-circle-outline" />
 					</button>
-				{/if}
-			</legend>
-
-			{#each Object.entries(fields) as [key, value] (`${sectionName}-${key}`)}
-				<div class="field-row">
-					<input
-						type="text"
-						placeholder="Setting Name (e.g., V-Sync)"
-						value={key}
-						onchange={(e) => updateKey(sectionName, key, e.currentTarget.value)}
-						class="key-input"
-					/>
-					<input
-						type="text"
-						placeholder="Value (e.g., Double-Buffered)"
-						bind:value={settings[sectionName][key]}
-						oninput={() => onUpdate(settings)}
-						class="value-input"
-					/>
-					<button class="remove-btn" onclick={() => removeField(sectionName, key)} title="Remove Field">
-						<Icon icon="mdi:minus-circle" />
-					</button>
-				</div>
-			{/each}
-			<button type="button" class="add-field-btn" onclick={() => addField(sectionName)}>
-				<Icon icon="mdi:plus-circle" /> Add Field
-			</button>
-		</fieldset>
-	{/each}
+				</legend>
+				
+				{#each Object.entries(fields) as [key, value] (`${sectionName}-${key}`)}
+					<div class="field-row">
+						<input
+							type="text"
+							placeholder="Setting Name (e.g., V-Sync)"
+							value={key}
+							onchange={(e) => updateKey(sectionName, key, e.currentTarget.value)}
+							class="key-input"
+						/>
+						<input
+							type="text"
+							placeholder="Value (e.g., Double-Buffered)"
+							bind:value={customSettings[sectionName][key]}
+							class="value-input"
+						/>
+						<button type="button" class="remove-btn" onclick={() => removeField(sectionName, key)} title="Remove Field">
+							<Icon icon="mdi:minus-circle" />
+						</button>
+					</div>
+				{/each}
+				<button type="button" class="add-field-btn" onclick={() => addField(sectionName)}>
+					<Icon icon="mdi:plus-circle" /> Add Field
+				</button>
+			</fieldset>
+		{/each}
 
 		<div class="add-section-form">
-			<input type="text" bind:value={newSectionName} placeholder="New Section Name" />
+			<input type="text" bind:value={newSectionName} placeholder="New Custom Section" />
 			<button type="button" onclick={addSection}>Add Section</button>
 		</div>
 	{/if}
@@ -126,10 +151,24 @@
 		padding-top: 1.5rem;
 		border-top: 1px solid var(--border-color);
 	}
-	.graphics-controls-container h3 {
-		margin-top: 0;
+	.header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
-	.graphics-controls-container p {
+	.header h3 {
+		margin: 0;
+	}
+	.toggle-visibility-btn {
+		background: none;
+		border: 1px solid var(--border-color);
+		color: var(--text-secondary);
+		padding: 4px 12px;
+		border-radius: var(--border-radius);
+		font-weight: 500;
+		cursor: pointer;
+	}
+	p {
 		font-size: 0.9rem;
 		color: var(--text-secondary);
 		margin-bottom: 1.5rem;
@@ -148,6 +187,11 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	.structured-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem 1.5rem;
 	}
 	.field-row {
 		display: grid;
@@ -225,5 +269,16 @@
 		border-radius: var(--border-radius);
 		cursor: pointer;
 		font-weight: 600;
+	}
+	.custom-settings-header {
+		margin-top: 2rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid var(--border-color);
+		margin-bottom: 1.5rem;
+	}
+	.custom-settings-header h4 {
+		margin: 0;
+		font-size: 1rem;
+		color: var(--text-secondary);
 	}
 </style>

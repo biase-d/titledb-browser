@@ -6,6 +6,8 @@
 		onUpdate = (/** @type {{ id: string; name: string; }[]} */ group) => {}
 	} = $props()
 
+	let isVisible = $state(false);
+
 	let searchInput = $state('')
 	let searchResults = $state([])
 	let searchLoading = $state(false)
@@ -64,13 +66,21 @@
 </script>
 
 <div class="grouping-controls-container">
-	<p>Your submission will apply to all of the following titles. Add or remove titles to change the grouping for this entry.</p>
+	<div class="header">
+		<h3>Game Grouping</h3>
+		<button type="button" class="toggle-visibility-btn" onclick={() => isVisible = !isVisible}>
+			{isVisible ? 'Hide' : 'Show'}
+		</button>
+	</div>
 
-	<div class="current-group-list">
+	{#if isVisible}
+		<p>Link different regional versions or editions of a game together. Future performance and graphics submissions for any game in this group will apply to all of them.</p>
+
+		<div class="current-group-list">
 		{#each currentGroup as title (title.id)}
 			<div class="group-item">
 				<span>{title.name} ({title.id})</span>
-				<button type="button" on:click={() => removeFromGroup(title.id)} title="Remove from group">
+				<button type="button" onclick={() => removeFromGroup(title.id)} title="Remove from group">
 					<Icon icon="mdi:close" />
 				</button>
 			</div>
@@ -84,7 +94,7 @@
 				id="group-search"
 				type="text"
 				bind:value={searchInput}
-				on:input={handleSearchInput}
+				oninput={handleSearchInput}
 				placeholder="Search by name or Title ID..."
 			/>
 			{#if searchLoading}
@@ -95,18 +105,21 @@
 		{#if searchResults.length > 0}
 			<ul class="search-results">
 				{#each searchResults as result}
-					<li>
+					<li class:in-group={isAlreadyInGroup(result)}>
+						<div class="result-info">
+							<span class="result-name">{result.name}</span>
+							<span class="result-id">{result.id}</span>
+						</div>
 						<button
 							type="button"
-							on:click={() => addToGroup(result)}
+							class="add-button"
+							onclick={() => addToGroup(result)}
 							disabled={isAlreadyInGroup(result)}
 						>
-							<div class="result-info">
-								<span class="result-name">{result.name}</span>
-								<span class="result-id">{result.id}</span>
-							</div>
 							{#if isAlreadyInGroup(result)}
-								<span>(In Group)</span>
+								<Icon icon="mdi:check" /> Added
+							{:else}
+								<Icon icon="mdi:plus" /> Add
 							{/if}
 						</button>
 					</li>
@@ -114,6 +127,7 @@
 			</ul>
 		{/if}
 	</div>
+	{/if}
 </div>
 
 <style>
@@ -125,9 +139,27 @@
 		margin-bottom: 2rem;
 		border-radius: var(--border-radius);
 	}
-	p {
-		margin-top: 0;
+	.header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+	.header h3 {
+		margin: 0;
+	}
+	.toggle-visibility-btn {
+		background: none;
+		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
+		padding: 4px 12px;
+		border-radius: var(--border-radius);
+		font-weight: 500;
+		cursor: pointer;
+	}
+	p {
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		margin-bottom: 1.5rem;
 	}
 	.current-group-list {
 		display: flex;
@@ -204,28 +236,18 @@
 		overflow-y: auto;
 		background-color: var(--surface-color);
 	}
-	.search-results li button {
+	.search-results li {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		width: 100%;
 		padding: 0.75rem 1rem;
-		background: none;
-		border: none;
 		border-bottom: 1px solid var(--border-color);
-		text-align: left;
-		cursor: pointer;
-		color: var(--text-primary);
 	}
-	.search-results li:last-child button {
+	.search-results li:last-child {
 		border-bottom: none;
 	}
-	.search-results li button:hover:not(:disabled) {
-		background-color: var(--input-bg);
-	}
-	.search-results li button:disabled {
+	.search-results li.in-group .result-name {
 		opacity: 0.6;
-		cursor: not-allowed;
 	}
 	.result-info {
 		display: flex;
@@ -237,5 +259,23 @@
 	.result-id {
 		font-size: 0.8rem;
 		color: var(--text-secondary);
+	}
+	.add-button {
+		background-color: var(--button-bg);
+		color: var(--button-text);
+		border: none;
+		padding: 0.5rem 1rem;
+		border-radius: var(--border-radius);
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+	.add-button:disabled {
+		background-color: var(--input-bg);
+		color: var(--text-secondary);
+		cursor: not-allowed;
 	}
 </style>
