@@ -2,40 +2,38 @@ import { pgTable, text, integer, bigint, timestamp, pgEnum, jsonb, serial } from
 
 export const games = pgTable('games', {
   id: text('id').primaryKey().notNull(),
-  groupId: text('groupId').notNull(),
+  group_id: text('group_id').notNull(),
   names: text('names').array().notNull(),
   publisher: text('publisher'),
-  releaseDate: integer('releaseDate'),
-  sizeInBytes: bigint('sizeInBytes', { mode: 'number' }),
-  iconUrl: text('iconUrl'),
-  bannerUrl: text('bannerUrl'),
+  release_date: integer('release_date'),
+  size_in_bytes: bigint('size_in_bytes', { mode: 'number' }),
+  icon_url: text('icon_url'),
+  banner_url: text('banner_url'),
   screenshots: text('screenshots').array(),
-
-  lastUpdated: timestamp('lastUpdated', { withTimezone: true }).defaultNow()
+  last_updated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-export const performanceProfiles = pgTable('performance_profiles', {
-  groupId: text('groupId').primaryKey().notNull(),
+export const performance_profiles = pgTable('performance_profiles', {
+  group_id: text('group_id').primaryKey().notNull(),
   profiles: jsonb('profiles').notNull(),
   contributor: text('contributor'),
-  sourcePrUrl: text('sourcePrUrl'),
-  lastUpdated: timestamp('lastUpdated', { withTimezone: true }).defaultNow()
+  source_pr_url: text('source_pr_url'),
+  last_updated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-export const graphicsSettings = pgTable('graphics_settings', {
-  groupId: text('groupId').primaryKey().references(() => performanceProfiles.groupId),
+export const graphics_settings = pgTable('graphics_settings', {
+  group_id: text('group_id').primaryKey().references(() => performance_profiles.group_id),
   settings: jsonb('settings').notNull(),
-  lastUpdated: timestamp('lastUpdated', { withTimezone: true }).defaultNow()
+  last_updated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-export const youtubeLinks = pgTable('youtube_links', {
+export const youtube_links = pgTable('youtube_links', {
   id: serial('id').primaryKey(),
-  groupId: text('groupId').notNull().references(() => performanceProfiles.groupId),
+  group_id: text('group_id').notNull().references(() => performance_profiles.group_id),
   url: text('url').notNull(),
-  description: text('description'),
-  submittedBy: text('submittedBy'),
-  submittedAt: timestamp('submittedAt', { withTimezone: true }).defaultNow()
+  submitted_by: text('submitted_by'),
+  submitted_at: timestamp('submitted_at', { withTimezone: true }).defaultNow()
 })
 
-export const fpsBehavior = pgEnum('fps_behavior', ['Locked', 'Unlocked'])
-export const resolutionType = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed'])
+export const fps_behavior = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unstable', 'Very Unstable'])
+export const resolution_type = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed'])
