@@ -1,5 +1,5 @@
-import { db } from '$lib/server/db'
-import { games } from '$lib/server/db/schema'
+import { db } from '$lib/db'
+import { games } from '$lib/db/schema'
 import { and, count, countDistinct, desc, eq, gte, lt, sql } from 'drizzle-orm'
 
 export async function getStats (searchParams) {
