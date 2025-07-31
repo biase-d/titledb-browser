@@ -5,11 +5,13 @@
 	let targetFps = $state(settingsData.targetFps || '');
 	let customLockDetails = $state(settingsData.customLockDetails || '');
 
+	// Effect to sync state back to the parent object
 	$effect(() => {
 		settingsData.lockType = lockType;
 		settingsData.targetFps = targetFps;
 		settingsData.customLockDetails = customLockDetails;
 
+		// Clean up fields that aren't relevant
 		if (lockType === 'Unlocked') {
 			settingsData.targetFps = '';
 			settingsData.customLockDetails = '';
@@ -40,6 +42,13 @@
 	<div class="form-group form-group-full">
 		<label for="custom_lock_details">Custom Lock Details</label>
 		<textarea id="custom_lock_details" bind:value={customLockDetails} placeholder="Details about the custom lock method..."></textarea>
+	</div>
+{/if}
+
+{#if lockType === 'Custom' || lockType === 'API'}
+	<div class="form-group form-group-full">
+		<label for="custom_lock_details">Notes</label>
+		<textarea id="custom_lock_details" bind:value={customLockDetails} placeholder="Any details about the FPS lock..."></textarea>
 	</div>
 {/if}
 
