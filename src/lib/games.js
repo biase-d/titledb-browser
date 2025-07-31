@@ -19,31 +19,27 @@ export async function getGames (searchParams) {
     const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q);
 
     if (isTitleIdSearch) {
+      // If the query is a valid Title ID, perform an exact match search
       whereConditions.push(ilike(games.id, q));
     } else {
-      const searchWords = q.split(' ').filter(Boolean);
+      const searchWords = q.split(' ').filter(Boolean); // Split query into words
       const textSearchConditions = [];
 
       for (const word of searchWords) {
         textSearchConditions.push(
           or(
+            // Check if the word appears in any of the names in the array
             sql`${`%${word}%`} ILIKE ANY (${games.names})`,
+            // Also include a similarity check for fuzzy matching
             sql`word_similarity(${word}, "names"[1]) > 0.2`
           )
         );
       }
       
+      // All words must be present so we join them with AND
       if (textSearchConditions.length > 0) {
         whereConditions.push(and(...textSearchConditions));
       }
-    }
-  }else {
-      whereConditions.push(
-        or(
-          ilike(games.id, `%${q}%`),
-          sql`${`%${q}%`} ILIKE ANY (${games.names})`
-        )
-      )
     }
   }
 
