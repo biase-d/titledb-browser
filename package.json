@@ -15,7 +15,8 @@
 		"lint": "standard \"src/**/*.{js,ts,svelte}\"",
 		"lint:fix": "standard \"src/**/*.{js,ts,svelte}\" --fix",
 		"db:generate": "drizzle-kit generate",
-		"db:push": "drizzle-kit push"
+		"db:migrate": "drizzle-kit migrate",
+		"db:studio": "drizzle-kit studio"
 	},
 	"devDependencies": {
 		"@iconify/svelte": "^5.0.1",

@@ -107,6 +107,15 @@
 			<GraphicsDetail settings={game.graphics} />
 		{/if}
 
+		<div class="contributor-info">
+			{#if game.contributor}
+				<span>Submitted by <a href={`/profile/${game.contributor}`} rel="noopener noreferrer">{game.contributor}</a></span>
+				{#if game.sourcePrUrl}
+					<a href={game.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
+				{/if}
+			{/if}
+		</div>
+
 		{#if youtubeLinks.length > 0}
 			<YoutubeEmbeds links={youtubeLinks} />
 		{/if}
@@ -124,14 +133,6 @@
 			</div>
 		{/if}
 
-		<div class="contributor-info">
-			{#if game.contributor}
-				<span>Submitted by <a href={`/profile/${game.contributor}`} rel="noopener noreferrer">{game.contributor}</a></span>
-				{#if game.sourcePrUrl}
-					<a href={game.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
-				{/if}
-			{/if}
-		</div>
 	</div>
 {:else}
 	<p class="loading-message">Loading title details...</p>
