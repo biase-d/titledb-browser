@@ -8,158 +8,178 @@
 		onUpdate = (/** @type {any} */ settings) => {}
 	} = $props();
 
-	let resolutionSettings = $state(initialSettings?.Resolution || {});
-	let fpsSettings = $state(initialSettings?.Framerate || {});
-	let customSettings = $state(omit(initialSettings, ['Resolution', 'Framerate']));
-	
-	let newSectionName = $state('');
+	// State is structured by mode with dedicated keys for structured and custom data
+	let settings = $state({
+		docked: {
+			resolution: initialSettings?.docked?.resolution || {},
+			framerate: initialSettings?.docked?.framerate || {},
+			custom: initialSettings?.docked?.custom || {}
+		},
+		handheld: {
+			resolution: initialSettings?.handheld?.resolution || {},
+			framerate: initialSettings?.handheld?.framerate || {},
+			custom: initialSettings?.handheld?.custom || {}
+		},
+		shared: initialSettings?.shared || {}
+	});
+
 	let isVisible = $state(Object.keys(initialSettings || {}).length > 0);
 
-	function omit(obj, keys) {
-		const newObj = {};
-		for (const key in obj) {
-			if (!keys.includes(key)) {
-				newObj[key] = obj[key];
-			}
-		}
-		return newObj;
-	}
-
 	$effect(() => {
-		const allSettings = {
-			...(Object.keys(resolutionSettings).length > 0 && { Resolution: resolutionSettings }),
-			...(Object.keys(fpsSettings).length > 0 && { Framerate: fpsSettings }),
-			...customSettings
-		};
-		onUpdate(allSettings);
+		onUpdate(settings);
 	});
-	
-	function addInitialSection() {
-		isVisible = true;
-	}
 
-	function addSection() {
-		if (newSectionName && !customSettings[newSectionName]) {
-			customSettings[newSectionName] = { '': '' };
-			newSectionName = '';
-		}
+	function addField(section) {
+		settings[section][''] = '';
 	}
-
-	function removeSection(sectionName) {
-		delete customSettings[sectionName];
-	}
-
-	function addField(sectionName) {
-		customSettings[sectionName][''] = '';
-	}
-
-	function updateKey(sectionName, oldKey, newKey) {
+	function updateKey(section, oldKey, newKey) {
 		if (oldKey === newKey || newKey === '') return;
-		const value = customSettings[sectionName][oldKey];
-		delete customSettings[sectionName][oldKey];
-		customSettings[sectionName][newKey] = value;
+		const value = settings[section][oldKey];
+		delete settings[section][oldKey];
+		settings[section][newKey] = value;
+	}
+	function removeField(section, key) {
+		delete settings[section][key];
 	}
 
-	function removeField(sectionName, key) {
-		delete customSettings[sectionName][key];
-		if (Object.keys(customSettings[sectionName]).length === 0) {
-			delete customSettings[sectionName];
-		}
+	function addCustomField(mode) {
+		settings[mode].custom[''] = '';
+	}
+	function updateCustomKey(mode, oldKey, newKey) {
+		if (oldKey === newKey || newKey === '') return;
+		const value = settings[mode].custom[oldKey];
+		delete settings[mode].custom[oldKey];
+		settings[mode].custom[newKey] = value;
+	}
+	function removeCustomField(mode, key) {
+		delete settings[mode].custom[key];
 	}
 </script>
 
-<div class="graphics-controls-container">
+<div class="container">
 	<div class="header">
 		<h3>Graphics Settings</h3>
 		{#if isVisible}
-			<button type="button" class="toggle-visibility-btn" onclick={() => isVisible = false}>
-				Hide
-			</button>
+			<button type="button" class="toggle-btn" onclick={() => isVisible = false}>Hide</button>
 		{/if}
 	</div>
-	
+
 	{#if !isVisible}
-		<button type="button" class="add-initial-btn" onclick={addInitialSection}>
+		<button type="button" class="add-initial-btn" onclick={() => isVisible = true}>
 			<Icon icon="mdi:plus" /> Add Graphics Settings
 		</button>
 	{:else}
-		<p>Detail the game's graphical options. This data is for what the game *offers*, not necessarily what it achieves.</p>
+		<p>Detail the game's graphical options. Add settings that apply to both modes, or mode-specific ones.</p>
 		
-		<fieldset class="section-fieldset">
-			<legend>Resolution</legend>
-			<div class="structured-grid">
-				<ResolutionSettingsControls bind:settingsData={resolutionSettings} />
-			</div>
-		</fieldset>
-
-		<fieldset class="section-fieldset">
-			<legend>Framerate</legend>
-			<div class="structured-grid">
-				<FpsSettingsControls bind:settingsData={fpsSettings} />
-			</div>
-		</fieldset>
-
-		<div class="custom-settings-header">
-			<h4>Custom Settings</h4>
-		</div>
-
-		{#each Object.entries(customSettings) as [sectionName, fields] (sectionName)}
-			<fieldset class="section-fieldset">
-				<legend>
-					{sectionName}
-					<button type="button" class="remove-btn" onclick={() => removeSection(sectionName)} title="Remove Section">
-						<Icon icon="mdi:close-circle-outline" />
-					</button>
-				</legend>
-				
-				{#each Object.entries(fields) as [key, value] (`${sectionName}-${key}`)}
+		<div class="settings-sections">
+			<!-- Docked Mode -->
+			<fieldset>
+				<legend>Docked Mode</legend>
+				<div class="structured-grid">
+					<ResolutionSettingsControls bind:settingsData={settings.docked.resolution} />
+				</div>
+				<hr />
+				<div class="structured-grid">
+					<FpsSettingsControls bind:settingsData={settings.docked.framerate} />
+				</div>
+				{#each Object.entries(settings.docked.custom) as [key, value]}
 					<div class="field-row">
-						<input
-							type="text"
-							placeholder="Setting Name (e.g., V-Sync)"
-							value={key}
-							onchange={(e) => updateKey(sectionName, key, e.currentTarget.value)}
-							class="key-input"
-						/>
-						<input
-							type="text"
-							placeholder="Value (e.g., Double-Buffered)"
-							bind:value={customSettings[sectionName][key]}
-							class="value-input"
-						/>
-						<button type="button" class="remove-btn" onclick={() => removeField(sectionName, key)} title="Remove Field">
-							<Icon icon="mdi:minus-circle" />
-						</button>
+						<input type="text" placeholder="Custom Setting" value={key} on:change={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
+						<input type="text" placeholder="Value" bind:value={settings.docked.custom[key]} />
+						<button type="button" class="remove-btn" onclick={() => removeCustomField('docked', key)}><Icon icon="mdi:minus-circle" /></button>
 					</div>
 				{/each}
-				<button type="button" class="add-field-btn" onclick={() => addField(sectionName)}>
-					<Icon icon="mdi:plus-circle" /> Add Field
-				</button>
+				<button type="button" class="add-btn" onclick={() => addCustomField('docked')}><Icon icon="mdi:plus" /> Add Custom Docked Setting</button>
 			</fieldset>
-		{/each}
 
-		<div class="add-section-form">
-			<input type="text" bind:value={newSectionName} placeholder="New Custom Section" />
-			<button type="button" onclick={addSection}>Add Section</button>
+			<!-- Handheld Mode -->
+			<fieldset>
+				<legend>Handheld Mode</legend>
+				<div class="structured-grid">
+					<ResolutionSettingsControls bind:settingsData={settings.handheld.resolution} />
+				</div>
+				<hr />
+				<div class="structured-grid">
+					<FpsSettingsControls bind:settingsData={settings.handheld.framerate} />
+				</div>
+				{#each Object.entries(settings.handheld.custom) as [key, value]}
+					<div class="field-row">
+						<input type="text" placeholder="Custom Setting" value={key} on:change={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
+						<input type="text" placeholder="Value" bind:value={settings.handheld.custom[key]} />
+						<button type="button" class="remove-btn" onclick={() => removeCustomField('handheld', key)}><Icon icon="mdi:minus-circle" /></button>
+					</div>
+				{/each}
+				<button type="button" class="add-btn" onclick={() => addCustomField('handheld')}><Icon icon="mdi:plus" /> Add Custom Handheld Setting</button>
+			</fieldset>
+
+			<!-- Shared Settings -->
+			<fieldset>
+				<legend>Shared (Applies to Both)</legend>
+				{#each Object.entries(settings.shared) as [key, value]}
+					<div class="field-row">
+						<input type="text" placeholder="Shared Setting" value={key} on:change={(e) => updateKey('shared', key, e.currentTarget.value)} />
+						<input type="text" placeholder="Value" bind:value={settings.shared[key]} />
+						<button type="button" class="remove-btn" onclick={() => removeField('shared', key)}><Icon icon="mdi:minus-circle" /></button>
+					</div>
+				{/each}
+				<button type="button" class="add-btn" onclick={() => addField('shared')}><Icon icon="mdi:plus" /> Add Shared Setting</button>
+			</fieldset>
 		</div>
 	{/if}
 </div>
 
 <style>
-	.graphics-controls-container {
+	.container {
 		margin-top: 2rem;
 		padding-top: 1.5rem;
 		border-top: 1px solid var(--border-color);
 	}
+
+	.settings-sections {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 1.5rem;
+	}
+
+	.structured-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem 1.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.field-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr auto;
+		gap: 1rem;
+		align-items: center;
+		margin-bottom: 1rem;
+	}
+
+	/* Header */
 	.header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 	}
+
 	.header h3 {
 		margin: 0;
 	}
-	.toggle-visibility-btn {
+
+	p {
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		margin-bottom: 1.5rem;
+	}
+
+	legend {
+		font-weight: 600;
+		padding: 0 0.5rem;
+		color: var(--primary-color);
+	}
+
+	.toggle-btn {
 		background: none;
 		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
@@ -168,58 +188,8 @@
 		font-weight: 500;
 		cursor: pointer;
 	}
-	p {
-		font-size: 0.9rem;
-		color: var(--text-secondary);
-		margin-bottom: 1.5rem;
-	}
-	.section-fieldset {
-		border: 1px solid var(--border-color);
-		border-radius: var(--border-radius);
-		padding: 1rem 1.5rem 1.5rem;
-		margin-bottom: 1.5rem;
-		background-color: var(--input-bg);
-	}
-	legend {
-		font-weight: 600;
-		padding: 0 0.5rem;
-		color: var(--primary-color);
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.structured-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 1rem 1.5rem;
-	}
-	.field-row {
-		display: grid;
-		grid-template-columns: 1fr 1fr auto;
-		gap: 1rem;
-		align-items: center;
-		margin-bottom: 0.75rem;
-	}
-	.key-input, .value-input {
-		width: 100%;
-		padding: 10px 12px;
-		background-color: var(--surface-color);
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-		color: var(--text-primary);
-	}
-	.remove-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--text-secondary);
-		padding: 0.25rem;
-		line-height: 1;
-	}
-	.remove-btn:hover {
-		color: #e53e3e;
-	}
-	.add-field-btn {
+
+	.add-btn {
 		background-color: transparent;
 		color: var(--primary-color);
 		border: 1px solid var(--primary-color);
@@ -229,13 +199,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin-top: 0.5rem;
 		font-weight: 500;
+		margin-top: 1rem;
 	}
-	.add-field-btn:hover {
-		background-color: var(--primary-color);
-		color: white;
-	}
+
 	.add-initial-btn {
 		background-color: var(--button-bg);
 		color: var(--button-text);
@@ -248,37 +215,33 @@
 		align-items: center;
 		gap: 0.5rem;
 	}
-	.add-section-form {
-		display: flex;
-		gap: 1rem;
-		margin-top: 1.5rem;
+
+	.remove-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-secondary);
 	}
-	.add-section-form input {
-		flex-grow: 1;
+
+	input {
+		width: 100%;
 		padding: 10px 12px;
 		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
 		border-radius: 6px;
 		color: var(--text-primary);
 	}
-	.add-section-form button {
-		background-color: var(--button-bg);
-		color: var(--button-text);
-		border: none;
-		padding: 0.75rem 1.5rem;
+
+	fieldset {
+		border: 1px solid var(--border-color);
 		border-radius: var(--border-radius);
-		cursor: pointer;
-		font-weight: 600;
+		padding: 1.5rem;
+		background-color: var(--input-bg);
 	}
-	.custom-settings-header {
-		margin-top: 2rem;
-		padding-bottom: 0.5rem;
-		border-bottom: 1px solid var(--border-color);
-		margin-bottom: 1.5rem;
-	}
-	.custom-settings-header h4 {
-		margin: 0;
-		font-size: 1rem;
-		color: var(--text-secondary);
+
+	hr {
+		border: none;
+		border-top: 1px solid var(--border-color);
+		margin: 1.5rem 0;
 	}
 </style>
