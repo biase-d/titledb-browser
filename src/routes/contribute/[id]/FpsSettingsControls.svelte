@@ -3,21 +3,29 @@
 
 	let lockType = $state(settingsData.lockType || 'Unlocked');
 	let targetFps = $state(settingsData.targetFps || '');
-	let customLockDetails = $state(settingsData.customLockDetails || '');
+	let apiBuffering = $state(settingsData.apiBuffering || 'Double');
+	let notes = $state(settingsData.notes || '');
 
 	// Effect to sync state back to the parent object
 	$effect(() => {
 		settingsData.lockType = lockType;
 		settingsData.targetFps = targetFps;
-		settingsData.customLockDetails = customLockDetails;
+		settingsData.apiBuffering = apiBuffering;
+		settingsData.notes = notes;
 
-		// Clean up fields that aren't relevant
+		// Clean up fields that are not relevant
 		if (lockType === 'Unlocked') {
 			settingsData.targetFps = '';
-			settingsData.customLockDetails = '';
+			settingsData.notes = '';
+			settingsData.apiBuffering = '';
 		}
-		if (lockType !== 'Custom') {
-			settingsData.customLockDetails = '';
+		if (lockType !== 'API') {
+			settingsData.apiBuffering = '';
+		}
+		if (lockType === 'API' && settingsData.notes) {
+			// Retain notes if switching between API and Custom
+		} else if (lockType !== 'Custom' && lockType !== 'API') {
+			settingsData.notes = '';
 		}
 	});
 </script>
@@ -38,17 +46,22 @@
 	</div>
 {/if}
 
-{#if lockType === 'Custom'}
-	<div class="form-group form-group-full">
-		<label for="custom_lock_details">Custom Lock Details</label>
-		<textarea id="custom_lock_details" bind:value={customLockDetails} placeholder="Details about the custom lock method..."></textarea>
+{#if lockType === 'API'}
+	<div class="form-group">
+		<label for="api_buffering">Buffering Type</label>
+		<select id="api_buffering" bind:value={apiBuffering}>
+			<option value="Double">Double</option>
+			<option value="Double (Reversed)">Double (Reversed)</option>
+			<option value="Triple">Triple</option>
+			<option value="Quadruple">Quadruple</option>
+		</select>
 	</div>
 {/if}
 
 {#if lockType === 'Custom' || lockType === 'API'}
 	<div class="form-group form-group-full">
-		<label for="custom_lock_details">Notes</label>
-		<textarea id="custom_lock_details" bind:value={customLockDetails} placeholder="Any details about the FPS lock..."></textarea>
+		<label for="fps_notes">Notes</label>
+		<textarea id="fps_notes" bind:value={notes} placeholder="Any details about the FPS lock (e.g., custom methods, specific behaviors)..."></textarea>
 	</div>
 {/if}
 

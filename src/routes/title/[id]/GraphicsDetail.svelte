@@ -1,9 +1,9 @@
 <script>
 	let { settings } = $props();
 
-	let resolutionSettings = $derived(settings?.Resolution || null);
-	let framerateSettings = $derived(settings?.Framerate || null);
-	let customSettings = $derived(omit(settings, ['Resolution', 'Framerate']));
+	let dockedSettings = $derived(settings?.docked || {});
+	let handheldSettings = $derived(settings?.handheld || {});
+	let sharedSettings = $derived(settings?.shared || {});
 
 	function omit(obj, keys) {
 		if (!obj) return {};
@@ -36,9 +36,10 @@
 			case 'Unlocked':
 				return 'Unlocked';
 			case 'API':
-				return `Locked to ${fpsData.targetFps} FPS (API)`;
+				const buffering = fpsData.apiBuffering ? ` (${fpsData.apiBuffering})` : '';
+				return `API Locked to ${fpsData.targetFps} FPS${buffering}`;
 			case 'Custom':
-				return `Locked to ${fpsData.targetFps} FPS (Custom)`;
+				return `Custom Lock to ${fpsData.targetFps} FPS`;
 			default:
 				return 'N/A';
 		}
@@ -52,39 +53,75 @@
 		<p class="no-data-message">No graphics settings have been submitted for this title yet.</p>
 	{:else}
 		<div class="card">
+			<!-- Docked -->
 			<div class="setting-section">
+				<h3 class="setting-section-title">Docked</h3>
 				<div class="fields-grid">
-					{#if resolutionSettings}
+					{#if dockedSettings.resolution}
 						<div class="field">
 							<span class="field-key">Resolution</span>
-							<span class="field-value">{formatResolution(resolutionSettings)}</span>
+							<span class="field-value">{formatResolution(dockedSettings.resolution)}</span>
 						</div>
 					{/if}
-					{#if framerateSettings}
+					{#if dockedSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
-							<span class="field-value">{formatFramerate(framerateSettings)}</span>
-							{#if framerateSettings.customLockDetails}
-								<span class="field-note">{framerateSettings.customLockDetails}</span>
-							{/if}
+							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>
+							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
 						</div>
 					{/if}
+					{#each Object.entries(dockedSettings.custom || {}) as [key, fieldData]}
+						<div class="field">
+							<span class="field-key">{key}</span>
+							<span class="field-value">{fieldData.value}</span>
+							{#if fieldData.notes}<span class="field-note">{fieldData.notes}</span>{/if}
+						</div>
+					{/each}
 				</div>
 			</div>
 
-			{#each Object.entries(customSettings) as [sectionName, fields]}
+			<!-- Handheld -->
+			<div class="setting-section">
+				<h3 class="setting-section-title">Handheld</h3>
+				<div class="fields-grid">
+					{#if handheldSettings.resolution}
+						<div class="field">
+							<span class="field-key">Resolution</span>
+							<span class="field-value">{formatResolution(handheldSettings.resolution)}</span>
+						</div>
+					{/if}
+					{#if handheldSettings.framerate}
+						<div class="field">
+							<span class="field-key">Framerate</span>
+							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>
+							{#if handheldSettings.framerate.notes}<span class="field-note">{handheldSettings.framerate.notes}</span>{/if}
+						</div>
+					{/if}
+					{#each Object.entries(handheldSettings.custom || {}) as [key, fieldData]}
+						<div class="field">
+							<span class="field-key">{key}</span>
+							<span class="field-value">{fieldData.value}</span>
+							{#if fieldData.notes}<span class="field-note">{fieldData.notes}</span>{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Shared -->
+			{#if Object.keys(sharedSettings).length > 0}
 				<div class="setting-section">
-					<h3 class="setting-section-title">{sectionName}</h3>
+					<h3 class="setting-section-title">Shared</h3>
 					<div class="fields-grid">
-						{#each Object.entries(fields) as [key, value]}
+						{#each Object.entries(sharedSettings) as [key, fieldData]}
 							<div class="field">
 								<span class="field-key">{key}</span>
-								<span class="field-value">{value}</span>
+								<span class="field-value">{fieldData.value}</span>
+								{#if fieldData.notes}<span class="field-note">{fieldData.notes}</span>{/if}
 							</div>
 						{/each}
 					</div>
 				</div>
-			{/each}
+			{/if}
 		</div>
 	{/if}
 </div>

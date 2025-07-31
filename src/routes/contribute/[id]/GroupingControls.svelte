@@ -67,7 +67,7 @@
 
 <div class="grouping-controls-container">
 	<div class="header">
-		<h3>Game Grouping</h3>
+		<h3>Regional Game Grouping</h3>
 		<button type="button" class="toggle-visibility-btn" onclick={() => isVisible = !isVisible}>
 			{isVisible ? 'Hide' : 'Show'}
 		</button>

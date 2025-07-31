@@ -110,14 +110,14 @@ export const actions = {
     const titleId = formData.get('titleId')?.toString()
     const gameName = formData.get('gameName')?.toString()
     const performanceDataString = formData.get('performanceData')?.toString()
-    const graphicsDataString = formData.get('graphicsData')?.toString()
+    const graphicsData = formData.get('graphicsData')?.toString()
     const youtubeLinksString = formData.get('youtubeLinks')?.toString()
     const shasString = formData.get('shas')?.toString()
     const shas = shasString ? JSON.parse(shasString) : {}
     const updatedGroupDataString = formData.get('updatedGroupData')?.toString()
     const originalGroupDataString = formData.get('originalGroupData')?.toString()
 
-    if (!titleId || !gameName || !performanceDataString || !graphicsDataString || !youtubeLinksString || !updatedGroupDataString || !originalGroupDataString) {
+    if (!titleId || !gameName || !performanceDataString || !graphicsData || !youtubeLinksString || !updatedGroupDataString || !originalGroupDataString) {
       return { error: 'Missing required form data.', success: false }
     }
 
@@ -158,11 +158,20 @@ export const actions = {
         sha: shas.performance
       }]
 
-      const graphicsData = JSON.parse(graphicsDataString);
-      const hasGraphicsData = Object.values(graphicsData).some(section => Object.keys(section).length > 0 && (Object.keys(section)[0] !== '' || Object.values(section)[0] !== ''));
+      function hasNonEmptyValue(obj) {
+        if (obj == null) return false;
+        if (typeof obj === 'string') return obj.trim() !== '';
+        if (typeof obj === 'number') return true;
+        if (typeof obj === 'boolean') return obj;
+        if (Array.isArray(obj)) return obj.some(item => hasNonEmptyValue(item));
+        if (typeof obj === 'object') return Object.values(obj).some(value => hasNonEmptyValue(value));
+        return false;
+      }
+
+      const hasGraphicsData = hasNonEmptyValue(graphicsData)
 
       if (hasGraphicsData) {
-        const graphicsContent = Buffer.from(JSON.stringify(graphicsData, null, 2)).toString('base64');
+        const graphicsContent = Buffer.from(graphicsData, null, 2).toString('base64');
         const graphicsFilePath = `graphics/${groupId}.json`;
         const graphicsCommitMessage = `feat: add/update graphics settings for ${gameName} (${groupId})`;
 

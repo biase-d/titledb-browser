@@ -9,6 +9,7 @@
 	import GraphicsControls from './GraphicControls.svelte'
 	import PerformanceControls from './PerformanceControls.svelte';
 	import YoutubeControls from './YoutubeControls.svelte'
+	import ConfirmationModal from './ConfirmationModal.svelte';
 	import Icon from '@iconify/svelte';
 
 	let { data, form } = $props();
@@ -24,6 +25,8 @@
 	let graphicsData = $state(existingGraphics || {});
 	let youtubeLinks = $state(existingYoutubeLinks || []);
 	let isSubmitting = $state(false);
+	let showConfirmation = $state(false);
+	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
 
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
@@ -87,8 +90,9 @@
 		</div>
 	{:else}
 		<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(/** @type {{ id: string; name: unknown; }[]} */ newGroup) => { updatedGroup = newGroup; }} />
-		<form method="POST" use:enhance={() => {
+		<form bind:this={formElement} method="POST" use:enhance={() => {
 			isSubmitting = true;
+			showConfirmation = false; // Close modal on submit
 			return async ({ update }) => {
 				await deleteDraft(id);
 				await update();
@@ -114,7 +118,7 @@
 			<YoutubeControls initialLinks={existingYoutubeLinks} onUpdate={(newLinks) => { youtubeLinks = newLinks; }} />
 
 			<div class="form-footer">
-				<button class="submit-button" type="submit" disabled={isSubmitting}>
+				<button class="submit-button" type="button" onclick={() => showConfirmation = true} disabled={isSubmitting}>
 					{#if isSubmitting}
 						<Icon icon="line-md:loading-loop" /> Submitting...
 					{:else}
@@ -124,6 +128,14 @@
 			</div>
 		</form>
 	{/if}
+
+	<ConfirmationModal
+		show={showConfirmation}
+		performanceData={performanceData}
+		graphicsData={graphicsData}
+		onCancel={() => showConfirmation = false}
+		onConfirm={() => formElement?.requestSubmit()}
+	/>
 
 	{#if form?.error}
 		<p class="error-message">Error: {form.error}</p>

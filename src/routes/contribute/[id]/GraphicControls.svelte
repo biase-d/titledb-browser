@@ -29,8 +29,16 @@
 		onUpdate(settings);
 	});
 
+	function hideAndReset() {
+		isVisible = false;
+		// Reset state to a blank slate to prevent submitting hidden data
+		settings.docked = { resolution: {}, framerate: {}, custom: {} };
+		settings.handheld = { resolution: {}, framerate: {}, custom: {} };
+		settings.shared = {};
+	}
+
 	function addField(section) {
-		settings[section][''] = '';
+		settings[section][''] = { value: '', notes: '' };
 	}
 	function updateKey(section, oldKey, newKey) {
 		if (oldKey === newKey || newKey === '') return;
@@ -43,7 +51,7 @@
 	}
 
 	function addCustomField(mode) {
-		settings[mode].custom[''] = '';
+		settings[mode].custom[''] = { value: '', notes: '' };
 	}
 	function updateCustomKey(mode, oldKey, newKey) {
 		if (oldKey === newKey || newKey === '') return;
@@ -60,7 +68,7 @@
 	<div class="header">
 		<h3>Graphics Settings</h3>
 		{#if isVisible}
-			<button type="button" class="toggle-btn" onclick={() => isVisible = false}>Hide</button>
+			<button type="button" class="toggle-btn" onclick={hideAndReset}>Reset</button>
 		{/if}
 	</div>
 
@@ -72,26 +80,6 @@
 		<p>Detail the game's graphical options. Add settings that apply to both modes, or mode-specific ones.</p>
 		
 		<div class="settings-sections">
-			<!-- Docked Mode -->
-			<fieldset>
-				<legend>Docked Mode</legend>
-				<div class="structured-grid">
-					<ResolutionSettingsControls bind:settingsData={settings.docked.resolution} />
-				</div>
-				<hr />
-				<div class="structured-grid">
-					<FpsSettingsControls bind:settingsData={settings.docked.framerate} />
-				</div>
-				{#each Object.entries(settings.docked.custom) as [key, value]}
-					<div class="field-row">
-						<input type="text" placeholder="Custom Setting" value={key} on:change={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
-						<input type="text" placeholder="Value" bind:value={settings.docked.custom[key]} />
-						<button type="button" class="remove-btn" onclick={() => removeCustomField('docked', key)}><Icon icon="mdi:minus-circle" /></button>
-					</div>
-				{/each}
-				<button type="button" class="add-btn" onclick={() => addCustomField('docked')}><Icon icon="mdi:plus" /> Add Custom Docked Setting</button>
-			</fieldset>
-
 			<!-- Handheld Mode -->
 			<fieldset>
 				<legend>Handheld Mode</legend>
@@ -102,24 +90,53 @@
 				<div class="structured-grid">
 					<FpsSettingsControls bind:settingsData={settings.handheld.framerate} />
 				</div>
-				{#each Object.entries(settings.handheld.custom) as [key, value]}
-					<div class="field-row">
-						<input type="text" placeholder="Custom Setting" value={key} on:change={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
-						<input type="text" placeholder="Value" bind:value={settings.handheld.custom[key]} />
-						<button type="button" class="remove-btn" onclick={() => removeCustomField('handheld', key)}><Icon icon="mdi:minus-circle" /></button>
+				{#each Object.entries(settings.handheld.custom) as [key, fieldData]}
+					<div class="field-wrapper">
+						<div class="field-row">
+							<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
+							<input type="text" placeholder="Value" bind:value={fieldData.value} />
+							<button type="button" class="remove-btn" onclick={() => removeCustomField('handheld', key)}><Icon icon="mdi:minus-circle" /></button>
+						</div>
+						<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
 					</div>
 				{/each}
 				<button type="button" class="add-btn" onclick={() => addCustomField('handheld')}><Icon icon="mdi:plus" /> Add Custom Handheld Setting</button>
 			</fieldset>
 
+			<!-- Docked Mode -->
+			<fieldset>
+				<legend>Docked Mode</legend>
+				<div class="structured-grid">
+					<ResolutionSettingsControls bind:settingsData={settings.docked.resolution} />
+				</div>
+				<hr />
+				<div class="structured-grid">
+					<FpsSettingsControls bind:settingsData={settings.docked.framerate} />
+				</div>
+				{#each Object.entries(settings.docked.custom) as [key, fieldData]}
+					<div class="field-wrapper">
+						<div class="field-row">
+							<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
+							<input type="text" placeholder="Value" bind:value={fieldData.value} />
+							<button type="button" class="remove-btn" onclick={() => removeCustomField('docked', key)}><Icon icon="mdi:minus-circle" /></button>
+						</div>
+						<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+					</div>
+				{/each}
+				<button type="button" class="add-btn" onclick={() => addCustomField('docked')}><Icon icon="mdi:plus" /> Add Custom Docked Setting</button>
+			</fieldset>
+
 			<!-- Shared Settings -->
 			<fieldset>
 				<legend>Shared (Applies to Both)</legend>
-				{#each Object.entries(settings.shared) as [key, value]}
-					<div class="field-row">
-						<input type="text" placeholder="Shared Setting" value={key} on:change={(e) => updateKey('shared', key, e.currentTarget.value)} />
-						<input type="text" placeholder="Value" bind:value={settings.shared[key]} />
-						<button type="button" class="remove-btn" onclick={() => removeField('shared', key)}><Icon icon="mdi:minus-circle" /></button>
+				{#each Object.entries(settings.shared) as [key, fieldData]}
+					<div class="field-wrapper">
+						<div class="field-row">
+							<input type="text" placeholder="Shared Setting" value={key} onchange={(e) => updateKey('shared', key, e.currentTarget.value)} />
+							<input type="text" placeholder="Value" bind:value={fieldData.value} />
+							<button type="button" class="remove-btn" onclick={() => removeField('shared', key)}><Icon icon="mdi:minus-circle" /></button>
+						</div>
+						<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
 					</div>
 				{/each}
 				<button type="button" class="add-btn" onclick={() => addField('shared')}><Icon icon="mdi:plus" /> Add Shared Setting</button>
@@ -148,14 +165,27 @@
 		margin-bottom: 1rem;
 	}
 
+	.field-wrapper {
+		margin-bottom: 1.5rem;
+	}
 	.field-row {
 		display: grid;
 		grid-template-columns: 1fr 1fr auto;
 		gap: 1rem;
 		align-items: center;
-		margin-bottom: 1rem;
+		margin-bottom: 0.5rem;
 	}
-
+	.notes-input {
+		font-size: 0.9rem;
+		min-height: 60px;
+		resize: vertical;
+		width: 100%;
+		padding: 10px 12px;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+		color: var(--text-primary);
+	}
 	/* Header */
 	.header {
 		display: flex;
@@ -167,6 +197,15 @@
 		margin: 0;
 	}
 
+	.toggle-btn {
+		background: none;
+		border: 1px solid var(--border-color);
+		color: var(--text-secondary);
+		padding: 4px 12px;
+		border-radius: var(--border-radius);
+		font-weight: 500;
+		cursor: pointer;
+	}
 	p {
 		font-size: 0.9rem;
 		color: var(--text-secondary);
@@ -179,15 +218,6 @@
 		color: var(--primary-color);
 	}
 
-	.toggle-btn {
-		background: none;
-		border: 1px solid var(--border-color);
-		color: var(--text-secondary);
-		padding: 4px 12px;
-		border-radius: var(--border-radius);
-		font-weight: 500;
-		cursor: pointer;
-	}
 
 	.add-btn {
 		background-color: transparent;

@@ -7,8 +7,10 @@
 	} = $props();
 
 	let links = $state([...initialLinks]);
+	let isVisible = $state(initialLinks.length > 0);
 
-	function removeAllLinks() {
+	function hideAndReset() {
+		isVisible = false;
 		links = [];
 		onUpdate(links);
 	}
@@ -39,35 +41,37 @@
 <div class="youtube-controls-container">
 	<div class="header">
 		<h3>YouTube Links</h3>
-		{#if links.length > 0}
-			<button type="button" class="remove-section-btn" onclick={removeAllLinks}>
-				<Icon icon="mdi:delete-outline" /> Remove Section
-			</button>
+		{#if isVisible}
+			<button type="button" class="toggle-btn" onclick={hideAndReset}>Reset</button>
 		{/if}
 	</div>
+
 	<p>Add YouTube videos showcasing performance, graphical comparisons, or gameplay.</p>
 
 	{#if links.length === 0}
-		<button type="button" class="add-initial-btn" onclick={addInitialLink}>
-			<Icon icon="mdi:plus" /> Add YouTube Videos
+		<button type="button" class="add-initial-btn" onclick={() => {
+			addInitialLink()
+			isVisible=true
+		}}>
+			<Icon icon="mdi:plus" /> Add YouTube Video
 		</button>
 	{:else}
 		<div class="links-list">
-			{#each links as link, i (i)}
-				<div class="link-row">
-					<input
-					type="url"
-					placeholder="https://www.youtube.com/watch?v=..."
-					value={link}
-					oninput={(e) => updateLink(i, e.currentTarget.value)}
-				/>
-				{#if links.length > 1}
-					<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
-						<Icon icon="mdi:minus-circle" />
-					</button>
-				{/if}
+		{#each links as link, i (i)}
+			<div class="link-row">
+				<input
+				type="url"
+				placeholder="https://www.youtube.com/watch?v=..."
+				value={link}
+				oninput={(e) => updateLink(i, e.currentTarget.value)}
+			/>
+			{#if links.length > 1}
+				<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
+					<Icon icon="mdi:minus-circle" />
+				</button>
+			{/if}
 			</div>
-			{/each}
+		{/each}
 		</div>
 
 		<button type="button" class="add-link-btn" onclick={addLink}>
@@ -91,21 +95,14 @@
 	.header h3 {
 		margin: 0;
 	}
-	.remove-section-btn {
+	.toggle-btn {
 		background: none;
-		border: none;
+		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
-		cursor: pointer;
-		font-size: 0.8rem;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem 0.5rem;
+		padding: 4px 12px;
 		border-radius: var(--border-radius);
-	}
-	.remove-section-btn:hover {
-		color: #e53e3e;
-		background-color: rgba(229, 62, 62, 0.1);
+		font-weight: 500;
+		cursor: pointer;
 	}
 	.youtube-controls-container p {
 		font-size: 0.9rem;
@@ -114,7 +111,7 @@
 	}
 	.links-list {
 		display: flex;
-		flex-direction column;
+		flex-direction: column;
 		gap: 0.75rem;
 		margin-bottom: 1rem;
 	}
