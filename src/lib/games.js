@@ -15,12 +15,29 @@ export async function getGames (searchParams) {
   const sort = searchParams.get('sort') ?? (q ? 'relevance-desc' : 'date-desc')
 
   const whereConditions = []
-  const SIMILARITY_THRESHOLD = 0.1
-
   if (q) {
-    if (sort === 'relevance-desc') {
-      whereConditions.push(sql`word_similarity(${q}, "names"[1]) > ${SIMILARITY_THRESHOLD}`)
+    const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q);
+
+    if (isTitleIdSearch) {
+      whereConditions.push(ilike(games.id, q));
     } else {
+      const searchWords = q.split(' ').filter(Boolean);
+      const textSearchConditions = [];
+
+      for (const word of searchWords) {
+        textSearchConditions.push(
+          or(
+            sql`${`%${word}%`} ILIKE ANY (${games.names})`,
+            sql`word_similarity(${word}, "names"[1]) > 0.2`
+          )
+        );
+      }
+      
+      if (textSearchConditions.length > 0) {
+        whereConditions.push(and(...textSearchConditions));
+      }
+    }
+  }else {
       whereConditions.push(
         or(
           ilike(games.id, `%${q}%`),
@@ -61,7 +78,7 @@ export async function getGames (searchParams) {
       case 'size-desc':
         return [desc(games.size_in_bytes)]
       case 'relevance-desc':
-        if (q) {
+        if (q && !/^[0-9A-F]{16}$/i.test(q)) {
           return [desc(sql`word_similarity(${q}, "names"[1])`)]
         }
         return [desc(games.last_updated)]
