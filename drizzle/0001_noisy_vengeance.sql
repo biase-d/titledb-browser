@@ -1,0 +1,1 @@
+ALTER TABLE "graphics_settings" ADD COLUMN "contributor" text;
