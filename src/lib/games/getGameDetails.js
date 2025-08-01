@@ -2,6 +2,9 @@ import { db } from '$lib/db'
 import { games, graphics_settings, performance_profiles, youtube_links } from '$lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
+/**
+ * @param {string | import("drizzle-orm").SQLWrapper} id
+ */
 export async function getGameDetails (id) {
   const gamePromise = db
     .select({

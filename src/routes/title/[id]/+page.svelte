@@ -1,7 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
-	import { favorites } from '$lib/stores.js';
+	import { favorites } from '$lib/stores';
 	import GraphicsDetail from './GraphicsDetail.svelte';
 	import YoutubeEmbeds from './YoutubeEmbeds.svelte';
 	import PerformanceDetail from './PerformanceDetail.svelte';

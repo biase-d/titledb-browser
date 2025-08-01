@@ -1,7 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { getDraft, saveDraft, deleteDraft } from '$lib/db/idb';
+	import { getDraft, deleteDraft } from '$lib/indexedDB';
 	import { draftsStore } from '$lib/stores';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';

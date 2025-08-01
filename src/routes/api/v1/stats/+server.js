@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit'
-import { getStats } from '$lib/stats'
+import { getStats } from '$lib/getStats'
 
 export const GET = async ({ url }) => {
   try {
