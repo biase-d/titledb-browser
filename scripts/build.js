@@ -138,7 +138,7 @@ async function syncDatabase () {
 
   try {
     await db.select().from(games).limit(1)
-    await db.select().from(performanceProfiles).limit(1)
+    await db.select().from(performance_profiles).limit(1)
     console.log('Database schema assumed to be up to date.')
   } catch (e) {
     console.error('Database schema is not up to date. Please apply migrations.')
@@ -176,8 +176,11 @@ async function syncDatabase () {
       const contributionInfo = contributorMap[groupId] || {}
       profilesToUpsert.push({
         group_id: groupId,
-        game_version: profileData.game_version || null,
-        profiles: JSON.parse(content),
+        game_version: content.game_version || null,
+        profiles:{
+          docked: content.docked,
+          handheld: content.handheld
+        },
         contributor: contributionInfo.contributor || null,
         source_pr_url: contributionInfo.sourcePrUrl || null,
         last_updated: new Date()
