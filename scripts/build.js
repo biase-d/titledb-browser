@@ -177,10 +177,7 @@ async function syncDatabase () {
       profilesToUpsert.push({
         group_id: groupId,
         game_version: content.game_version || null,
-        profiles:{
-          docked: content.docked,
-          handheld: content.handheld
-        },
+        profiles: content, 
         contributor: contributionInfo.contributor || null,
         source_pr_url: contributionInfo.sourcePrUrl || null,
         last_updated: new Date()
