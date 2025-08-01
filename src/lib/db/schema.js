@@ -15,6 +15,7 @@ export const games = pgTable('games', {
 
 export const performance_profiles = pgTable('performance_profiles', {
   group_id: text('group_id').primaryKey().notNull(),
+  game_version: text('game_version'),
   profiles: jsonb('profiles').notNull(),
   contributor: text('contributor'),
   source_pr_url: text('source_pr_url'),

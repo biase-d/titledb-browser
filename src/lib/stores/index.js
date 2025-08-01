@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store'
 import { browser } from '$app/environment'
-import { getAllDrafts, saveDraft, deleteDraft } from '$lib/db/idb.js'
+import { getAllDrafts, saveDraft, deleteDraft } from '$lib/indexedDB.js'
 import { goto } from '$app/navigation'
 
 export const favorites = createFavoritesStore()

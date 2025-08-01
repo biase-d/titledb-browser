@@ -1,7 +1,7 @@
 <script>
 	import { fade } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
-	import { favorites } from '$lib/stores.js';
+	import { favorites } from '$lib/stores';
 	import GraphicsDetail from './GraphicsDetail.svelte';
 	import YoutubeEmbeds from './YoutubeEmbeds.svelte';
 	import PerformanceDetail from './PerformanceDetail.svelte';
@@ -94,6 +94,9 @@
 
 		<div class="section-header">
 			<h2 class="section-title">Performance Profile</h2>
+			{#if performance?.game_version}
+				<span class="version-tag">Version: {performance.game_version}</span>
+			{/if}
 			{#if session?.user}
 				<a href={`/contribute/${id}`} class="contribute-button">
 					{game.performance ? 'Suggest an Edit' : 'Add Performance Data'}
@@ -101,7 +104,7 @@
 			{/if}
 		</div>
 
-		<PerformanceDetail {performance} />
+		<PerformanceDetail {performance} gameId={id} />
 
 		{#if game.graphics}
 			<GraphicsDetail settings={game.graphics} />

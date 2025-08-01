@@ -1,4 +1,4 @@
-import { getStats } from '$lib/stats.js'
+import { getStats } from '$lib/getStats.js'
 
 export const load = async ({ url }) => {
   const stats = await getStats(url.searchParams)

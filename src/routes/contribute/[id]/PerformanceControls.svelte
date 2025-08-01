@@ -1,6 +1,6 @@
 <script>
 	import Icon from '@iconify/svelte';
-	let { mode, modeData } = $props();
+	let { mode = $bindable(), modeData = $bindable() } = $props();
 
 	// Convert comma separated string from old drafts/data to an array for the new UI
 	let multipleResolutions = $state(

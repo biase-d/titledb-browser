@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit'
-import { getGameDetails } from '$lib/game-details'
+import { getGameDetails } from '$lib/games/getGameDetails'
 
 export const load = async ({ params, parent }) => {
   const { id } = params

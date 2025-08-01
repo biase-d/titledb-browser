@@ -1,7 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { getDraft, saveDraft, deleteDraft } from '$lib/db/idb';
+	import { getDraft, deleteDraft } from '$lib/indexedDB';
 	import { draftsStore } from '$lib/stores';
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
@@ -9,6 +9,7 @@
 	import GraphicsControls from './GraphicControls.svelte'
 	import PerformanceControls from './PerformanceControls.svelte';
 	import YoutubeControls from './YoutubeControls.svelte'
+	import GameVersion from './GameVersion.svelte'
 	import ConfirmationModal from './ConfirmationModal.svelte';
 	import Icon from '@iconify/svelte';
 
@@ -24,6 +25,7 @@
 
 	let graphicsData = $state(existingGraphics || {});
 	let youtubeLinks = $state(existingYoutubeLinks || []);
+	let gameVersion = $state(data.existingVersion || '');
 	let isSubmitting = $state(false);
 	let showConfirmation = $state(false);
 	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
@@ -102,12 +104,15 @@
 			<!-- Hidden inputs to pass crucial data to the form action -->
 			<input type="hidden" name="titleId" value={id} />
 			<input type="hidden" name="gameName" value={name} />
+			<input type="hidden" name="gameVersion" value={gameVersion} />
 			<input type="hidden" name="performanceData" value={JSON.stringify(performanceData)} />
 			<input type="hidden" name="graphicsData" value={JSON.stringify(graphicsData)} />
 			<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
 			<input type="hidden" name="youtubeLinks" value={JSON.stringify(youtubeLinks)} />
 			<input type="hidden" name="originalGroupData" value={JSON.stringify(allTitlesInGroup)} />
 			<input type="hidden" name="shas" value={JSON.stringify(data.shas)} />
+
+			<GameVersion bind:gameVersion />
 
 			<div class="mode-grid">
 				<PerformanceControls mode="Handheld" bind:modeData={performanceData.handheld} />

@@ -176,6 +176,7 @@ async function syncDatabase () {
       const contributionInfo = contributorMap[groupId] || {}
       profilesToUpsert.push({
         group_id: groupId,
+        game_version: profileData.game_version || null,
         profiles: JSON.parse(content),
         contributor: contributionInfo.contributor || null,
         source_pr_url: contributionInfo.sourcePrUrl || null,
@@ -186,12 +187,13 @@ async function syncDatabase () {
   console.log(`Processing ${profilesToUpsert.length} performance data files...`)
 
   if (profilesToUpsert.length > 0) {
-await db.insert(performance_profiles)
+    await db.insert(performance_profiles)
       .values(profilesToUpsert)
       .onConflictDoUpdate({
         target: performance_profiles.group_id,
         set: {
           profiles: sql`excluded.profiles`,
+          game_version: sql`excluded.game_version`,
           contributor: sql`excluded.contributor`,
           source_pr_url: sql`excluded.source_pr_url`,
           last_updated: sql`excluded.last_updated`

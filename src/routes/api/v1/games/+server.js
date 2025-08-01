@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit'
-import { getGames } from '$lib/games'
+import { getGames } from '$lib/games/searchGames'
 
 export const GET = async ({ url }) => {
   try {

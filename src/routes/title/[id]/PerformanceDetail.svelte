@@ -1,5 +1,5 @@
 <script>
-	let { performance } = $props();
+	let { performance, gameId } = $props();
 
 	function formatResolution(modeData) {
 		if (!modeData) return 'N/A';
@@ -29,6 +29,12 @@
 {#if !performance}
 	<p class="no-data-message">No performance data has been submitted yet.</p>
 {:else}
+	{#if !performance.game_version}
+		<div class="version-notice">
+			<strong>Note:</strong> This profile was submitted before game versions were tracked
+			<a href={`/contribute/${gameId}`}>Help us by submitting data for the latest version</a>
+		</div>
+	{/if}
 	<div class="perf-card">
 		{#if performance.docked}
 			{@const docked = performance.docked}
@@ -71,6 +77,19 @@
 {/if}
 
 <style>
+	.version-notice {
+		background-color: #fffbe5;
+		color: #7a4a01;
+		border: 1px solid #fde68a;
+		padding: 1rem;
+		border-radius: var(--border-radius);
+		margin-bottom: 1.5rem;
+		font-size: 0.9rem;
+	}
+	.version-notice a {
+		color: var(--primary-color);
+		text-decoration: underline;
+	}
 	.perf-card {
 		background-color: var(--surface-color);
 		border-radius: var(--border-radius);

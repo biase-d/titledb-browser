@@ -28,6 +28,7 @@ export const load = async ({ params, parent }) => {
       name: sql`"names"[1]`,
       groupId: games.group_id,
       existingPerformance: performance_profiles.profiles,
+      existingVersion: performance_profiles.game_version,
       existingGraphics: graphics_settings.settings
     })
     .from(games)
@@ -88,6 +89,7 @@ export const load = async ({ params, parent }) => {
     name: game.name,
     allTitlesInGroup,
     existingData: game.existingPerformance,
+    existingVersion: game.existingVersion,
     existingGraphics: game.existingGraphics,
     existingYoutubeLinks: existingYoutubeLinks.map(l => l.url),
     shas
@@ -109,6 +111,7 @@ export const actions = {
     const formData = await request.formData()
     const titleId = formData.get('titleId')?.toString()
     const gameName = formData.get('gameName')?.toString()
+    const gameVersion = formData.get('gameVersion')?.toString()
     const performanceDataString = formData.get('performanceData')?.toString()
     const graphicsData = formData.get('graphicsData')?.toString()
     const youtubeLinksString = formData.get('youtubeLinks')?.toString()
@@ -116,6 +119,15 @@ export const actions = {
     const shas = shasString ? JSON.parse(shasString) : {}
     const updatedGroupDataString = formData.get('updatedGroupData')?.toString()
     const originalGroupDataString = formData.get('originalGroupData')?.toString()
+
+    if (!gameVersion) {
+      return { error: 'Game Version is a required field.', success: false }
+    }
+
+    const versionRegex = /^\d+\.\d+\.\d+$/;
+      if (!versionRegex.test(gameVersion)) {
+      return { error: 'Invalid Game Version format. Please use the format X.X.X (e.g. 1.1.0)', success: false }
+	  }
 
     if (!titleId || !gameName || !performanceDataString || !graphicsData || !youtubeLinksString || !updatedGroupDataString || !originalGroupDataString) {
       return { error: 'Missing required form data.', success: false }
@@ -135,7 +147,11 @@ export const actions = {
 
     let prBody = `Performance data contribution for **${gameName}** (${titleId}) by @${session.user.login}.`
 
-    const performanceContent = Buffer.from(JSON.stringify(JSON.parse(performanceDataString), null, 2)).toString('base64')
+    const performanceData = {
+      game_version: gameVersion,
+      ...JSON.parse(performanceDataString)
+    };
+    const performanceContent = Buffer.from(JSON.stringify(performanceData, null, 2)).toString('base64')
     const timestamp = Date.now();
     const branchName = `contrib/${coAuthorName.toLowerCase().replace(/[^a-z0-9-]/g, '')}-${groupId}-${timestamp}`
     const performanceFilePath = `${REPO_PATH}/${groupId}.json`

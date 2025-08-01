@@ -1,0 +1,1 @@
+ALTER TABLE "performance_profiles" ADD COLUMN "game_version" text;
