@@ -1,20 +1,20 @@
 import { error } from '@sveltejs/kit'
 import { getGameDetails } from '$lib/games/getGameDetails'
 
+
+/** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
-  const { id } = params
-  if (!id) {
-    throw error(400, 'Game ID is required')
-  }
+	const { session } = await parent();
+	const titleId = params.id;
 
-  const [{ game, allTitlesInGroup, youtubeLinks }, { session }] = await Promise.all([
-    getGameDetails(id),
-    parent()
-  ])
+	const details = await getGameDetails(titleId);
 
-  if (!game) {
-    throw error(404, 'Game not found')
-  }
+	if (!details) {
+		error(404, 'Game not found');
+	}
 
-  return { game, session, allTitlesInGroup, youtubeLinks }
-}
+	return {
+		session,
+		...details
+	};
+};

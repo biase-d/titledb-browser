@@ -1,264 +1,182 @@
-import { error, redirect } from '@sveltejs/kit'
-import { db } from '$lib/db'
-import { games, graphics_settings, performance_profiles, youtube_links } from '$lib/db/schema'
-import { eq, sql } from 'drizzle-orm'
-import { GITHUB_BOT_TOKEN } from '$env/static/private'
-import { Octokit } from '@octokit/rest'
+import { getGameDetails } from '$lib/games/getGameDetails';
+import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/server/github.js';
+import { error, redirect, fail } from '@sveltejs/kit';
+import { isEqual } from 'lodash-es';
 
-const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN })
-
-const REPO_OWNER = 'biase-d'
-const REPO_NAME = 'nx-performance'
-const REPO_PATH = 'profiles'
-const REPO_BRANCH = 'v2'
-
+/** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
-  const { session } = await parent()
-  if (!session?.user) {
-    throw redirect(302, '/')
-  }
+	const { session } = await parent();
 
-  const { id } = params
-  if (!id) {
-    throw error(400, 'Game ID is required')
-  }
+	if (!session?.user?.login) {
+		redirect(302, `/auth/signin?callbackUrl=/contribute/${params.id}`);
+	}
 
-  const result = await db
-    .select({
-      name: sql`"names"[1]`,
-      groupId: games.group_id,
-      existingPerformance: performance_profiles.profiles,
-      existingVersion: performance_profiles.game_version,
-      existingGraphics: graphics_settings.settings
-    })
-    .from(games)
-    .leftJoin(performance_profiles, eq(games.group_id, performance_profiles.group_id))
-    .leftJoin(graphics_settings, eq(games.group_id, graphics_settings.group_id))
-    .where(eq(games.id, id))
-    .limit(1)
+	const titleId = params.id;
+	const details = await getGameDetails(titleId);
 
-  const game = result[0]
+	if (!details) {
+		error(404, 'Game not found');
+	}
 
-  if (!game) {
-    throw error(404, 'Game not found')
-  }
+	const { game, allTitlesInGroup, youtubeLinks } = details;
+	const { groupId, names, performanceHistory } = game;
 
-  const [allTitlesInGroup, existingYoutubeLinks] = await Promise.all([
-    db.select({
-      id: games.id,
-      name: sql`"names"[1]`
-    }).from(games).where(eq(games.group_id, game.groupId)),
-    db.select({ url: youtube_links.url }).from(youtube_links).where(eq(youtube_links.group_id, game.groupId))
-  ])
+	const shas = {};
+	shas.performance = {};
+	for (const profile of performanceHistory) {
+		const path = `profiles/${groupId}/${profile.gameVersion}.json`;
+		shas.performance[profile.gameVersion] = await getFileSha(path);
+	}
 
-  const shas = {
-    performance: null,
-    graphics: null,
-    videos: null,
-    groups: null
-  }
+	shas.graphics = await getFileSha(`graphics/${groupId}.json`);
+	shas.youtube = await getFileSha(`videos/${groupId}.json`);
+	shas.group = await getFileSha(`groups/${groupId}.json`);
 
-  const fileTypes = ['performance', 'graphics', 'videos', 'groups']
-  const filePaths = {
-    performance: `profiles/${game.groupId}.json`,
-    graphics: `graphics/${game.groupId}.json`,
-    videos: `videos/${game.groupId}.json`,
-    groups: `groups/${game.groupId}.json`
-  }
+	return {
+		id: titleId,
+		name: names[0],
+		groupId,
+		allTitlesInGroup,
+		existingPerformance: performanceHistory,
+		existingGraphics: game.graphics,
+		existingYoutubeLinks: youtubeLinks.map(link => link.url),
+		originalYoutubeLinks: youtubeLinks,
+		shas
+	};
+};
 
-  await Promise.all(fileTypes.map(async (type) => {
-    try {
-      const { data: file } = await octokit.repos.getContent({
-        owner: REPO_OWNER,
-        repo: REPO_NAME,
-        path: filePaths[type]
-      })
-      if (file && 'sha' in file) {
-        shas[type] = file.sha
-      }
-    } catch (e) {
-      if (e.status !== 404) {
-        console.error(`GitHub API error getting SHA for ${type}:`, e)
-        throw error(500, `Could not get SHA for ${type} data.`)
-      }
-    }
-  }))
-
-  return {
-    id,
-    name: game.name,
-    allTitlesInGroup,
-    existingData: game.existingPerformance,
-    existingVersion: game.existingVersion,
-    existingGraphics: game.existingGraphics,
-    existingYoutubeLinks: existingYoutubeLinks.map(l => l.url),
-    shas
-  }
-}
-
+/** @type {import('./$types').Actions} */
 export const actions = {
-  default: async ({ request, locals }) => {
-    const session = await locals.auth()
-    const user = session?.user
+	default: async ({ request, locals }) => {
+		try {
+			const session = await locals.getSession();
+			const user = session?.user;
+			if (!user?.login) {
+				return fail(401, { error: 'Unauthorized' });
+			}
 
-    if (!user?.login || !user?.id) {
-      return { error: 'Authentication error. Please sign out and sign back in.', success: false }
-    }
+			const formData = await request.formData();
+			const titleId = formData.get('titleId');
+		const gameName = formData.get('gameName');
+		const performanceData = JSON.parse(formData.get('performanceData'));
+		const graphicsData = JSON.parse(formData.get('graphicsData'));
+		const youtubeLinks = JSON.parse(formData.get('youtubeLinks'));
+		const updatedGroupData = JSON.parse(formData.get('updatedGroupData'));
+		const originalGroupData = JSON.parse(formData.get('originalGroupData'));
+		const originalPerformanceData = JSON.parse(formData.get('originalPerformanceData'));
+		const originalYoutubeLinks = JSON.parse(formData.get('originalYoutubeLinks') || '[]');
+		const changeSummary = JSON.parse(formData.get('changeSummary') || '[]');
+		const shas = JSON.parse(formData.get('shas'));
 
-    const coAuthorName = user.name || user.login
-    const coAuthorEmail = `${user.id}+${user.login}@users.noreply.github.com`
+		const groupId = updatedGroupData[0]?.groupId || titleId.substring(0, 13) + '000';
 
-    const formData = await request.formData()
-    const titleId = formData.get('titleId')?.toString()
-    const gameName = formData.get('gameName')?.toString()
-    const gameVersion = formData.get('gameVersion')?.toString()
-    const performanceDataString = formData.get('performanceData')?.toString()
-    const graphicsData = formData.get('graphicsData')?.toString()
-    const youtubeLinksString = formData.get('youtubeLinks')?.toString()
-    const shasString = formData.get('shas')?.toString()
-    const shas = shasString ? JSON.parse(shasString) : {}
-    const updatedGroupDataString = formData.get('updatedGroupData')?.toString()
-    const originalGroupDataString = formData.get('originalGroupData')?.toString()
+		/** @type {{path: string, content: string | null, sha?: string}[]} */
+		const filesToCommit = [];
+		const allContributors = new Set([user.login]);
 
-    if (!gameVersion) {
-      return { error: 'Game Version is a required field.', success: false }
-    }
+		// Performance
+		for (const profile of performanceData) {
+			if (!profile.gameVersion) continue;
+			if (profile.contributor) allContributors.add(profile.contributor);
+			filesToCommit.push({
+				path: `profiles/${groupId}/${profile.gameVersion}.json`,
+				content: JSON.stringify(profile.profiles, null, 2),
+				sha: shas.performance?.[profile.gameVersion]
+			});
+		}
+		const submittedVersions = new Set(performanceData.map(p => p.gameVersion));
+		for (const originalProfile of originalPerformanceData) {
+			if (!submittedVersions.has(originalProfile.gameVersion)) {
+				filesToCommit.push({ path: `profiles/${groupId}/${originalProfile.gameVersion}.json`, content: null });
+			}
+		}
 
-    const versionRegex = /^\d+\.\d+\.\d+$/;
-      if (!versionRegex.test(gameVersion)) {
-      return { error: 'Invalid Game Version format. Please use the format X.X.X (e.g. 1.1.0)', success: false }
-	  }
+		// Graphics
+		if (Object.keys(graphicsData).length > 0) {
+			// If graphics data exists, the current user is the contributor.
+			// Add original contributor for co-authorship if they exist.
+			const originalContributor = graphicsData.contributor;
+			if (originalContributor) allContributors.add(originalContributor);
 
-    if (!titleId || !gameName || !performanceDataString || !graphicsData || !youtubeLinksString || !updatedGroupDataString || !originalGroupDataString) {
-      return { error: 'Missing required form data.', success: false }
-    }
+			// Assign the current user as the primary contributor for the file.
+			graphicsData.contributor = user.login;
 
-    const gameResult = await db.select({ groupId: games.group_id }).from(games).where(eq(games.id, titleId)).limit(1)
-    const groupId = gameResult[0]?.groupId
-    if (!groupId) {
-      return { error: `Could not find a group ID for game ${titleId}`, success: false }
-    }
+			filesToCommit.push({
+				path: `graphics/${groupId}.json`,
+				content: JSON.stringify(graphicsData, null, 2),
+				sha: shas.graphics
+			});
+		}
 
-    const updatedGroup = JSON.parse(updatedGroupDataString)
-    const originalGroup = JSON.parse(originalGroupDataString)
-    const updatedIds = new Set(updatedGroup.map(t => t.id))
-    const originalIds = new Set(originalGroup.map(t => t.id))
-    const hasGroupChanged = updatedIds.size !== originalIds.size || [...updatedIds].some(id => !originalIds.has(id))
+		// YouTube Links
+		if (youtubeLinks.length > 0) {
+			// Add original contributor for co-authorship if they exist.
+			const originalContributor = originalYoutubeLinks[0]?.submittedBy;
+			if (originalContributor) allContributors.add(originalContributor);
 
-    let prBody = `Performance data contribution for **${gameName}** (${titleId}) by @${session.user.login}.`
+			// Re-structure the data with the current user as the primary contributor.
+			const youtubeFileContent = youtubeLinks.map(url => ({
+				url: url,
+				submittedBy: user.login
+			}));
 
-    const performanceData = {
-      game_version: gameVersion,
-      ...JSON.parse(performanceDataString)
-    };
-    const performanceContent = Buffer.from(JSON.stringify(performanceData, null, 2)).toString('base64')
-    const timestamp = Date.now();
-    const branchName = `contrib/${coAuthorName.toLowerCase().replace(/[^a-z0-9-]/g, '')}-${groupId}-${timestamp}`
-    const performanceFilePath = `${REPO_PATH}/${groupId}.json`
-    const commitMessage = `feat: ${shas.performance ? 'update' : 'add'} performance data for ${gameName} (${titleId})`
-    const prTitle = `[Contribution] ${gameName}`
+			filesToCommit.push({
+				path: `videos/${groupId}.json`,
+				content: JSON.stringify(youtubeFileContent, null, 2),
+				sha: shas.youtube
+			});
+		}
 
-    try {
-      const { data: mainRef } = await octokit.git.getRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${REPO_BRANCH}` })
+		// Grouping
+		const originalIds = new Set(originalGroupData.map(g => g.id));
+		const updatedIds = new Set(updatedGroupData.map(g => g.id));
+		if (!isEqual(originalIds, updatedIds)) {
+			filesToCommit.push({
+				path: `groups/${groupId}.json`,
+				content: JSON.stringify(updatedGroupData.map(g => g.id), null, 2),
+				sha: shas.group
+			});
+		}
 
-      try {
-        await octokit.git.createRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `refs/heads/${branchName}`, sha: mainRef.object.sha })
-      } catch (e) {
-        if (e.status !== 422) throw e // Ignore if branch already exists
-      }
+		if (filesToCommit.length === 0) return fail(400, { error: 'No changes detected.' });
 
-      const fileCommits = [{
-        path: performanceFilePath,
-        message: `${commitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
-        content: performanceContent,
-        sha: shas.performance
-      }]
+		const branchName = `contrib/${user.login}/${groupId}-${Date.now()}`;
+		const prTitle = `[Contribution] ${gameName} (${groupId})`;
+		
+		const prBodyParts = [
+			`Contribution submitted by @${user.login} for **${gameName}**.`,
+			'',
+			`*   **Title ID:** \`${titleId}\``,
+			`*   **Group ID:** \`${groupId}\``,
+			''
+		];
 
-      function hasNonEmptyValue(obj) {
-        if (obj == null) return false;
-        if (typeof obj === 'string') return obj.trim() !== '';
-        if (typeof obj === 'number') return true;
-        if (typeof obj === 'boolean') return obj;
-        if (Array.isArray(obj)) return obj.some(item => hasNonEmptyValue(item));
-        if (typeof obj === 'object') return Object.values(obj).some(value => hasNonEmptyValue(value));
-        return false;
-      }
+		if (changeSummary.length > 0) {
+			prBodyParts.push('### Summary of Changes');
+			prBodyParts.push(...changeSummary.map(c => `*   ${c}`));
+		}
+		const prBody = prBodyParts.join('\n');
 
-      const hasGraphicsData = hasNonEmptyValue(graphicsData)
+		const commitMessageParts = [`feat(${groupId}): Update data for ${gameName}`];
+		commitMessageParts.push('');
+		for (const contributor of allContributors) {
+			commitMessageParts.push(`Co-authored-by: ${contributor} <${contributor}@users.noreply.github.com>`);
+		}
+			const commitMessage = commitMessageParts.join('\n');
 
-      if (hasGraphicsData) {
-        const graphicsContent = Buffer.from(graphicsData, null, 2).toString('base64');
-        const graphicsFilePath = `graphics/${groupId}.json`;
-        const graphicsCommitMessage = `feat: add/update graphics settings for ${gameName} (${groupId})`;
+			const prUrl = await createOrUpdateFilesAndDraftPR(branchName, commitMessage, filesToCommit, prTitle, prBody);
 
-        fileCommits.push({
-          path: graphicsFilePath,
-          message: graphicsCommitMessage,
-          content: graphicsContent,
-          sha: shas.graphics
-        });
-        prBody += `\n\nThis PR also includes graphics settings.`;
-      }
+			if (prUrl) {
+				return { success: true, prUrl };
+			}
+			return fail(500, { error: 'An unexpected error occurred while creating the pull request.' });
 
-      const youtubeLinks = JSON.parse(youtubeLinksString)
-      if (Array.isArray(youtubeLinks) && youtubeLinks.length > 0) {
-        const linksContent = Buffer.from(JSON.stringify(youtubeLinks.filter(Boolean), null, 2)).toString('base64')
-        const linksFilePath = `videos/${groupId}.json`
-        const linksCommitMessage = `feat: add/update YouTube links for ${gameName} (${groupId})`
-
-        fileCommits.push({
-          path: linksFilePath,
-          message: `${linksCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
-          content: linksContent,
-          sha: shas.videos
-        })
-        prBody += `\n\nThis PR also includes YouTube links.`
-      }
-
-      if (hasGroupChanged) {
-        const groupContent = Buffer.from(JSON.stringify(updatedGroup.map(t => t.id), null, 2)).toString('base64')
-        const groupFilePath = `groups/${groupId}.json`
-        const groupCommitMessage = `feat: update grouping for ${gameName} (${groupId})`
-
-        fileCommits.push({
-          path: groupFilePath,
-          message: `${groupCommitMessage}\n\nCo-authored-by: ${coAuthorName} <${coAuthorEmail}>`,
-          content: groupContent,
-          sha: shas.groups
-        })
-        prBody += `\n\nThis PR also includes grouping changes for the associated titles`
-      }
-
-      for (const file of fileCommits) {
-        await octokit.repos.createOrUpdateFileContents({
-          owner: REPO_OWNER,
-          repo: REPO_NAME,
-          path: file.path,
-          message: file.message,
-          content: file.content,
-          branch: branchName,
-          sha: file.sha || null
-        })
-      }
-
-      const { data: pullRequest } = await octokit.pulls.create({
-        owner: REPO_OWNER,
-        repo: REPO_NAME,
-        title: prTitle,
-        head: branchName,
-        base: REPO_BRANCH,
-        body: prBody,
-        maintainer_can_modify: true
-      })
-
-      return { success: true, prUrl: pullRequest.html_url }
-    } catch (e) {
-      console.error('GitHub action failed:', e)
-      // Attempt to clean up the branch if PR creation failed
-      try {
-        await octokit.git.deleteRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${branchName}` })
-      } catch (cleanupError) { /* ignore */ }
-      return { error: e.message || 'An unknown error occurred while creating the pull request on GitHub.', success: false }
-    }
-  }
-}
+		} catch (err) {
+			if (err instanceof GitConflictError) {
+				return fail(409, { error: 'The contribution data has changed since you loaded the page. Please refresh and try again to avoid overwriting recent changes.' });
+			}
+			console.error('Contribution submission failed:', err);
+			return fail(500, { error: 'An unexpected error occurred.' });
+		}
+	}
+};
