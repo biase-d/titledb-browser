@@ -1,5 +1,5 @@
 import { getGameDetails } from '$lib/games/getGameDetails';
-import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/server/github.js';
+import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/github.js';
 import { error, redirect, fail } from '@sveltejs/kit';
 import { isEqual } from 'lodash-es';
 
