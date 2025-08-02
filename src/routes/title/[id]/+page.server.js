@@ -3,7 +3,7 @@ import { getGameDetails } from '$lib/games/getGameDetails'
 
 
 /** @type {import('./$types').PageServerLoad} */
-export const load = async ({ params, parent }) => {
+export const load = async ({ params, parent, url }) => {
 	const { session } = await parent();
 	const titleId = params.id;
 
@@ -15,6 +15,10 @@ export const load = async ({ params, parent }) => {
 
 	return {
 		session,
-		...details
+		...details,
+		url: {
+			href: url.href,
+			origin: url.origin,
+		}
 	};
 };

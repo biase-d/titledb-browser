@@ -38,12 +38,16 @@
 	},
 	"dependencies": {
 		"@auth/sveltekit": "^1.10.0",
+		"@fontsource/inter": "^5.2.6",
 		"@octokit/rest": "^22.0.0",
+		"@resvg/resvg-js": "^2.6.2",
 		"chart.js": "^4.5.0",
 		"drizzle-orm": "^0.44.3",
 		"idb": "^8.0.3",
 		"lodash-es": "^4.17.21",
-		"postgres": "^3.4.7"
+		"postgres": "^3.4.7",
+		"satori": "^0.16.2",
+		"satori-html": "^0.3.2"
 	},
 	"standard": {
 		"parser": "svelte-eslint-parser",

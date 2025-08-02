@@ -10,6 +10,7 @@
 
 	let game = $derived(data.game);
 	let session = $derived(data.session);
+	let url = $derived(data.url)
 	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
 	let youtubeLinks = $derived(data.youtubeLinks || []);
 
@@ -116,10 +117,25 @@
 		const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
 		return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
 	}
+
+	console.log(url)
 </script>
 
 <svelte:head>
-	<title>{name} - Titledb Browser </title>
+	<title>{name} - Titledb Browser</title>
+	<meta name="description" content="View performance profiles and graphics settings for {name} on the Titledb Browser" />
+	<meta property="og:type" content="website" />
+
+	<meta property="og:url" content="{url.href}" />
+	<meta property="og:title" content="{name} - Titledb Browser" />
+	<meta property="og:description" content="View performance profiles and graphics settings for {name} on the Titledb Browser" />
+	<meta property="og:image" content="{url.origin}/api/og/{id}.png" />
+
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content="{url.href}" />
+	<meta property="twitter:title" content="{name} - Titledb Browser" />
+	<meta property="twitter:description" content="View performance profiles and graphics settings for {name} on the Titledb Browser" />
+	<meta property="twitter:image" content="{url.origin}/api/og/{id}.png" />
 </svelte:head>
 
 {#if game}
