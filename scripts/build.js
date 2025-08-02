@@ -202,12 +202,20 @@ async function syncDatabase () {
   for (const file of await fs.readdir(videosDir).catch(() => [])) {
     if (path.extname(file) === '.json') {
       const groupId = path.basename(file, '.json')
-			const contributionInfo = contributorMap.videos[groupId] || {};
-      const urls = JSON.parse(await fs.readFile(path.join(videosDir, file), 'utf-8'))
-      for (const url of urls) linksToInsert.push({ groupId, url, submittedBy: contributionInfo.contributor })
+      const entries = JSON.parse(await fs.readFile(path.join(videosDir, file), 'utf-8'));
+      for (const entry of entries) {
+        if (entry.url) {
+          linksToInsert.push({
+            groupId,
+            url: entry.url,
+            notes: entry.notes,
+            submittedBy: entry.submittedBy
+          });
+        }
+      }
     }
   }
-  if (linksToInsert.length > 0) await db.insert(youtubeLinks).values(linksToInsert)
+  if (linksToInsert.length > 0) await db.insert(youtubeLinks).values(linksToInsert);
 
   console.log('Reading and merging base game data...')
   const titleIdDir = path.join(DATA_DIR, 'titledb_filtered', 'output', 'titleid')

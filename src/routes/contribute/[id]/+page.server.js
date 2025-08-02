@@ -39,7 +39,7 @@ export const load = async ({ params, parent }) => {
 		allTitlesInGroup,
 		existingPerformance: performanceHistory,
 		existingGraphics: game.graphics,
-		existingYoutubeLinks: youtubeLinks.map(link => link.url),
+		existingYoutubeLinks: youtubeLinks,
 		originalYoutubeLinks: youtubeLinks,
 		shas
 	};
@@ -126,8 +126,9 @@ export const actions = {
 			if (originalContributor) allContributors.add(originalContributor);
 
 			// Re-structure the data with the current user as the primary contributor.
-			const youtubeFileContent = youtubeLinks.map(url => ({
-				url: url,
+			const youtubeFileContent = youtubeLinks.map(link => ({
+				url: link.url,
+				notes: link.notes,
 				submittedBy: user.login
 			}));
 
