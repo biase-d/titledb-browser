@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1754083751580,
-      "tag": "0000_freezing_gladiator",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1754090795346,
-      "tag": "0001_noisy_vengeance",
+      "when": 1754097769533,
+      "tag": "0000_nifty_doctor_spectrum",
       "breakpoints": true
     }
   ]

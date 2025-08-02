@@ -21,6 +21,7 @@ CREATE TABLE "games" (
 CREATE TABLE "graphics_settings" (
 	"group_id" text PRIMARY KEY NOT NULL,
 	"settings" jsonb NOT NULL,
+	"contributor" text,
 	"last_updated" timestamp with time zone DEFAULT now()
 );
 --> statement-breakpoint

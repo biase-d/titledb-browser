@@ -1,5 +1,5 @@
 {
-  "id": "6fa6a9a9-11fe-4d20-90e2-90e517ad193a",
+  "id": "9f1dc011-da7e-45c2-9d6c-91388231afd6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -133,6 +133,12 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "contributor": {
+          "name": "contributor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "last_updated": {
           "name": "last_updated",
