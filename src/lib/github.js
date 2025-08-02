@@ -1,7 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { GITHUB_BOT_TOKEN } from '$env/static/private';
 
-const octokit = new Octokit({ auth: GITHUB_TOKEN })
+const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN })
 
 const REPO_OWNER = 'biase-d'
 const REPO_NAME = 'nx-performance'
