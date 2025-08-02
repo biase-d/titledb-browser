@@ -4,6 +4,7 @@
 	let dockedSettings = $derived(settings?.docked || {});
 	let handheldSettings = $derived(settings?.handheld || {});
 	let sharedSettings = $derived(settings?.shared || {});
+	let hasSharedSettings = $derived(sharedSettings && Object.entries(sharedSettings).some(([key, data]) => key && data.value));
 
 	function omit(obj, keys) {
 		if (!obj) return {};
@@ -35,14 +36,20 @@
 		switch (fpsData.lockType) {
 			case 'Unlocked':
 				return 'Unlocked';
-			case 'API':
-				const buffering = fpsData.apiBuffering ? ` (${fpsData.apiBuffering})` : '';
-				return `API Locked to ${fpsData.targetFps} FPS${buffering}`;
+			case 'API':				
+				return `API Locked to ${fpsData.targetFps} FPS`;
 			case 'Custom':
 				return `Custom Lock to ${fpsData.targetFps} FPS`;
 			default:
 				return 'N/A';
 		}
+	}
+
+	function formatBuffering(buffering) {
+		if (!buffering) return '';
+		if (buffering === 'Double') return 'Double buffer';
+		if (buffering === 'Double (Reversed)') return 'Double buffer (Reversed)';
+		return buffering;
 	}
 </script>
 
@@ -64,11 +71,14 @@
 					{#if dockedSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
-							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>
+							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>							
+							{#if dockedSettings.framerate.lockType === 'API' && dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
+								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
+							{/if}
 							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
 						</div>
 					{/if}
-					{#each Object.entries(dockedSettings.custom || {}) as [key, fieldData]}
+					{#each Object.entries(dockedSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
 						<div class="field">
 							<span class="field-key">{key}</span>
 							<span class="field-value">{fieldData.value}</span>
@@ -91,11 +101,14 @@
 					{#if handheldSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
-							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>
+							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>							
+							{#if handheldSettings.framerate.lockType === 'API' && handheldSettings.framerate.apiBuffering && handheldSettings.framerate.apiBuffering !== 'Unknown'}
+								<span class="field-note">{formatBuffering(handheldSettings.framerate.apiBuffering)}</span>
+							{/if}
 							{#if handheldSettings.framerate.notes}<span class="field-note">{handheldSettings.framerate.notes}</span>{/if}
 						</div>
 					{/if}
-					{#each Object.entries(handheldSettings.custom || {}) as [key, fieldData]}
+					{#each Object.entries(handheldSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
 						<div class="field">
 							<span class="field-key">{key}</span>
 							<span class="field-value">{fieldData.value}</span>
@@ -106,7 +119,7 @@
 			</div>
 
 			<!-- Shared -->
-			{#if Object.keys(sharedSettings).length > 0}
+			{#if hasSharedSettings}
 				<div class="setting-section">
 					<h3 class="setting-section-title">Shared</h3>
 					<div class="fields-grid">

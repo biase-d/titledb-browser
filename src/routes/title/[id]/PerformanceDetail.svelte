@@ -1,4 +1,8 @@
 <script>
+	/**
+	 * @param {any} modeData
+	 */
+	function hasResolutionData(modeData) { return !!(modeData?.resolution || (modeData?.resolutions && modeData.resolutions.split(',').filter(Boolean).length > 0) || modeData?.min_res || modeData?.max_res); }
 	let { performance, gameId } = $props();
 
 	function formatResolution(modeData) {
@@ -26,8 +30,8 @@
 	}
 </script>
 
-{#if !performance}
-	<p class="no-data-message">No performance data has been submitted for this version.</p>
+{#if !performance || performance.docked == {} && performance.handheld == {}}
+	<p class="no-data-message">No performance data has been submitted for this version</p>
 {:else}
 	<div class="perf-card">
 		{#if performance.docked}
@@ -35,16 +39,20 @@
 			<div>
 				<h3 class="perf-mode-title">Docked</h3>
 				<div class="perf-grid">
-					<div class="perf-item">
-						<p class="label">Resolution</p>
-						<p class="value">{formatResolution(docked)}</p>
-						{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
-					</div>
-					<div class="perf-item">
-						<p class="label">Framerate</p>
-						<p class="value">{formatFramerate(docked)}</p>
-						{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
-					</div>
+					{#if hasResolutionData(docked)}
+						<div class="perf-item">
+							<p class="label">Resolution</p>
+							<p class="value">{formatResolution(docked)}</p>
+							{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
+						</div>
+					{/if}
+					{#if docked.target_fps}
+						<div class="perf-item">
+							<p class="label">Framerate</p>
+							<p class="value">{formatFramerate(docked)}</p>
+							{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
+						</div>
+					{/if}
 				</div>
 			</div>
 		{/if}
@@ -54,16 +62,20 @@
 			<div class="perf-mode-separator">
 				<h3 class="perf-mode-title">Handheld</h3>
 				<div class="perf-grid">
-					<div class="perf-item">
-						<p class="label">Resolution</p>
-						<p class="value">{formatResolution(handheld)}</p>
-						{#if handheld.resolution_notes}<p class="subtext">{handheld.resolution_notes}</p>{/if}
-					</div>
-					<div class="perf-item">
-						<p class="label">Framerate</p>
-						<p class="value">{formatFramerate(handheld)}</p>
-						{#if handheld.fps_notes}<p class="subtext">{handheld.fps_notes}</p>{/if}
-					</div>
+					{#if hasResolutionData(handheld)}
+						<div class="perf-item">
+							<p class="label">Resolution</p>
+							<p class="value">{formatResolution(handheld)}</p>
+							{#if handheld.resolution_notes}<p class="subtext">{handheld.resolution_notes}</p>{/if}
+						</div>
+					{/if}
+					{#if handheld.target_fps}
+						<div class="perf-item">
+							<p class="label">Framerate</p>
+							<p class="value">{formatFramerate(handheld)}</p>
+							{#if handheld.fps_notes}<p class="subtext">{handheld.fps_notes}</p>{/if}
+						</div>
+					{/if}
 				</div>
 			</div>
 		{/if}
@@ -71,19 +83,6 @@
 {/if}
 
 <style>
-	.version-notice {
-		background-color: #fffbe5;
-		color: #7a4a01;
-		border: 1px solid #fde68a;
-		padding: 1rem;
-		border-radius: var(--border-radius);
-		margin-bottom: 1.5rem;
-		font-size: 0.9rem;
-	}
-	.version-notice a {
-		color: var(--primary-color);
-		text-decoration: underline;
-	}
 	.perf-card {
 		background-color: var(--surface-color);
 		border-radius: var(--border-radius);

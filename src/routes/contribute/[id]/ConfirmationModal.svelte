@@ -3,6 +3,7 @@
 	import PerformanceDetail from '../../title/[id]/PerformanceDetail.svelte';
 	import GraphicsDetail from '../../title/[id]/GraphicsDetail.svelte';
 	import Icon from '@iconify/svelte';
+	import { isEqual } from 'lodash-es';
 
 	let {
 		show = false,
@@ -68,11 +69,31 @@
 			}
 		}
 
-		// YouTube Link Changes
-		if (youtubeLinks.length !== originalYoutubeLinks.length) {
-			const diff = youtubeLinks.length - originalYoutubeLinks.length;
-			if (diff > 0) summary.push(`Added ${diff} YouTube link${diff > 1 ? 's' : ''}.`);
-			else summary.push(`Removed ${-diff} YouTube link${-diff > 1 ? 's' : ''}.`);
+		// YouTube Link Changes (more robust check)
+		const normalizeLinks = (links) => links.map(l => ({ url: l.url, notes: l.notes || '' })).sort((a,b) => a.url.localeCompare(b.url));
+		const normalizedNew = normalizeLinks(youtubeLinks);
+		const normalizedOriginal = normalizeLinks(originalYoutubeLinks);
+
+		if (!isEqual(normalizedNew, normalizedOriginal)) {
+			const originalUrls = new Set(normalizedOriginal.map(l => l.url));
+			const newUrls = new Set(normalizedNew.map(l => l.url));
+			const addedCount = [...newUrls].filter(url => !originalUrls.has(url)).length;
+			const removedCount = [...originalUrls].filter(url => !newUrls.has(url)).length;
+
+			if (addedCount > 0) {
+				summary.push(`Added ${addedCount} YouTube link${addedCount > 1 ? 's' : ''}.`);
+			}
+			if (removedCount > 0) {
+				summary.push(`Removed ${removedCount} YouTube link${removedCount > 1 ? 's' : ''}.`);
+			}
+			
+			// Check for note changes on existing links
+			if (normalizedNew.some(newLink => {
+				const oldLink = normalizedOriginal.find(l => l.url === newLink.url);
+				return oldLink && oldLink.notes !== newLink.notes;
+			})) {
+				summary.push('Updated notes on one or more YouTube links.');
+			}
 		}
 		
 		// Grouping Changes

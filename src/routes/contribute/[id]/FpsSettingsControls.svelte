@@ -3,7 +3,7 @@
 
 	let lockType = $state(settingsData.lockType || 'Unlocked');
 	let targetFps = $state(settingsData.targetFps || '');
-	let apiBuffering = $state(settingsData.apiBuffering || 'Double');
+	let apiBuffering = $state(settingsData.apiBuffering || 'Unknown');
 	let notes = $state(settingsData.notes || '');
 
 	// Effect to sync state back to the parent object
@@ -42,10 +42,11 @@
 <div class="form-group">
 	<label for="api_buffering">Buffering Type</label>
 	<select id="api_buffering" bind:value={apiBuffering}>
-		<option value="Double">Double</option>
-		<option value="Double (Reversed)">Double (Reversed)</option>
-		<option value="Triple">Triple</option>
-		<option value="Quadruple">Quadruple</option>
+		<option value="Unknown">Unknown</option>
+		<option value="Double">Double buffer</option>
+		<option value="Double (Reversed)">Double buffer (Reversed)</option>
+		<option value="Triple">Triple buffer</option>
+		<option value="Quadruple">Quadruple buffer</option>
 	</select>
 </div>
 

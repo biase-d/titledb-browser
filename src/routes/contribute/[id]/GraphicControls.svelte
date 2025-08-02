@@ -26,7 +26,24 @@
 
 	$effect(() => {
 		if (isVisible) {
-			onUpdate(settings);
+			const cleanSettings = JSON.parse(JSON.stringify(settings));
+
+			const filterEmpty = (customObj) => {
+                if (!customObj) return {};
+                const result = {};
+                for (const key in customObj) {
+                    if (key.trim() !== '' && customObj[key].value.trim() !== '') {
+                        result[key] = customObj[key];
+                    }
+                }
+                return result;
+            }
+
+			cleanSettings.docked.custom = filterEmpty(cleanSettings.docked.custom);
+            cleanSettings.handheld.custom = filterEmpty(cleanSettings.handheld.custom);
+            cleanSettings.shared = filterEmpty(cleanSettings.shared);
+
+			onUpdate(cleanSettings);
 		}
 	});
 

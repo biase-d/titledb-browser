@@ -13,20 +13,25 @@
 
 <div class="section-container">
 	{#if links.length === 0}
-		<p class="no-data-message">No videos have been submitted for this title yet.</p>
+		<p class="no-data-message">No videos have been submitted for this title yet</p>
 	{:else}
 		<div class="videos-grid">
 			{#each links as link}
 				{@const videoId = getYouTubeID(link.url)}
 				{#if videoId}
-					<div class="video-wrapper">
-						<iframe
-							src="https://www.youtube.com/embed/{videoId}"
-							title="YouTube video player"
-							frameborder="0"
-							allow="fullscreen"
-						></iframe>
-					</div>
+					<div class="video-container">
+						<div class="video-wrapper">
+							<iframe
+								src="https://www.youtube.com/embed/{videoId}"
+								title="YouTube video player"
+								frameborder="0"
+								allow="fullscreen"
+							></iframe>
+						</div>
+						{#if link.notes}
+							<p class="video-notes">{link.notes}</p>
+						{/if}
+					</div>	
 				{/if}
 			{/each}
 		</div>
@@ -54,12 +59,22 @@
 			grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 		}
 	}
+	.video-container {
+		display: flex;
+		flex-direction: column;
+	}
 	.video-wrapper {
 		position: relative;
 		padding-bottom: 56.25%; /* 16:9 aspect ratio */
 		height: 0;
 		overflow: hidden;
 		border-radius: var(--border-radius);
+	}
+	.video-notes {
+		margin: 0.75rem 0 0;
+		padding: 0.75rem;
+		font-size: 0.9rem;
+		background-color: var(--surface-color);
 	}
 	.video-wrapper iframe {
 		position: absolute;

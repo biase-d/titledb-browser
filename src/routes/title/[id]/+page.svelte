@@ -17,6 +17,59 @@
 	let performanceHistory = $derived(game.performanceHistory || []);
 	let performance = $derived(performanceHistory[selectedVersionIndex]);
 
+	function hasPerformanceData(modeData) {
+		if (!modeData) return false;
+		const hasResolution =
+			!!(modeData.resolution ||
+			(modeData.resolutions && modeData.resolutions.split(',').filter(Boolean).length > 0) ||
+			modeData.min_res ||
+			modeData.max_res);
+		const hasFps = !!modeData.target_fps;
+		return hasResolution || hasFps;
+	}
+
+	let currentProfileHasData = $derived(
+		performance?.profiles && (hasPerformanceData(performance.profiles.docked) || hasPerformanceData(performance.profiles.handheld))
+	);
+
+	function hasGraphicsData(graphics) {
+		if (!graphics || Object.keys(graphics).length === 0) return false;
+
+		const checkModeData = (modeData) => {
+			if (!modeData) return false;
+			
+			const res = modeData.resolution;
+			if (res && (res.fixedResolution || res.minResolution || res.maxResolution || (res.multipleResolutions?.length > 0 && res.multipleResolutions[0]))) {
+				return true;
+			}
+			
+			const fps = modeData.framerate;
+			if (fps && fps.targetFps) {
+				return true;
+			}
+			
+			const custom = modeData.custom;
+			if (custom && Object.entries(custom).some(([key, data]) => key && data.value)) {
+				return true;
+			}
+			
+			return false;
+		};
+
+		if (checkModeData(graphics.docked) || checkModeData(graphics.handheld)) {
+			return true;
+		}
+
+		const shared = graphics.shared;
+		if (shared && Object.entries(shared).some(([key, data]) => key && data.value)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	let gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics));
+
 	let allContributors = $derived.by(() => {
 		const contributors = new Set();
 		if (performance?.contributor) contributors.add(performance.contributor);
@@ -119,49 +172,55 @@
 		{:else}
 			<div class="section-header performance-header">
 				<h2 class="section-title">Performance Profile</h2>
-				{#if !isSingleContributor && performance?.contributor}
+				{#if currentProfileHasData && !isSingleContributor && performance?.contributor}
 					<div class="section-contributor-info">
-					<span>Submitted by <a href={`/profile/${performance.contributor}`}>{performance.contributor}</a></span>
-					{#if performance.sourcePrUrl}
-						<a href={performance.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
-					{/if}
-				</div>
-			{/if}
-			{#if performanceHistory.length > 1}
-				<div class="version-selector">
-					<label for="version-select">Version:</label>
-					<select id="version-select" bind:value={selectedVersionIndex}>
-						{#each performanceHistory as profile, i}
-							<option value={i}>{profile.gameVersion}</option>
-						{/each}
-					</select>
-				</div>
-			{:else if performance}
-				<span class="version-tag">Version: {performance.gameVersion}</span>
-			{/if}
-
-			{#if session?.user}
-				<a href={`/contribute/${id}`} class="contribute-button">
-					{performance ? 'Suggest an Edit' : 'Add Performance Data'}
-				</a>
-			{/if}
-		</div>
-
-		<PerformanceDetail performance={performance?.profiles} gameId={id} />
-
-		{#if game.graphics}
-			<div class="section-header">
-				<h2 class="section-title">Graphics Settings</h2>
-				{#if !isSingleContributor && game.graphics.contributor}
-					<div class="section-contributor-info">
-						<span>Submitted by <a href={`/profile/${game.graphics.contributor}`}>{game.graphics.contributor}</a></span>
+						<span>Submitted by <a href={`/profile/${performance.contributor}`}>{performance.contributor}</a></span>
+						{#if performance.sourcePrUrl}
+							<a href={performance.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
+						{/if}
 					</div>
 				{/if}
-			</div>
-			<GraphicsDetail settings={game.graphics} />
-		{/if}
+				{#if performanceHistory.length > 1}
+					<div class="version-selector">
+						<label for="version-select">Version:</label>
+						<select id="version-select" bind:value={selectedVersionIndex}>
+							{#each performanceHistory as profile, i}
+								<option value={i}>{profile.gameVersion}</option>
+							{/each}
+						</select>
+					</div>
+				{:else if performance}
+					<span class="version-tag">Version: {performance.gameVersion}</span>
+				{/if}
 
-		{#if youtubeLinks.length > 0}
+				{#if session?.user}
+					<a href={`/contribute/${id}`} class="contribute-button">
+						{currentProfileHasData ? 'Suggest an Edit' : 'Add Performance Data'}
+					</a>
+				{/if}
+			</div>
+
+			{#if currentProfileHasData}
+				<PerformanceDetail performance={performance?.profiles} gameId={id} />
+			{:else}
+				<div class="no-data-message card">
+					<p>No performance data has been submitted for this version.</p>
+				</div>
+			{/if}
+
+			{#if gameGraphicsHasData}
+				<div class="section-header">
+					<h2 class="section-title">Graphics Settings</h2>
+					{#if !isSingleContributor && game.graphics.contributor}
+						<div class="section-contributor-info">
+							<span>Submitted by <a href={`/profile/${game.graphics.contributor}`}>{game.graphics.contributor}</a></span>
+						</div>
+					{/if}
+				</div>
+				<GraphicsDetail settings={game.graphics} />
+			{/if}
+
+			{#if youtubeLinks.length > 0}
 			<div class="section-header">
 				<h2 class="section-title">Gameplay Videos</h2>
 				{#if !isSingleContributor && youtubeLinks[0]?.submittedBy}
@@ -462,6 +521,16 @@
 		color: var(--text-secondary);
 		max-width: 450px;
 		margin: 0 auto 1.5rem;
+	}
+	.no-data-message.card {
+		padding: 2rem;
+		text-align: center;
+		background-color: var(--surface-color);
+		border-radius: var(--border-radius);
+		border: 1px solid var(--border-color);
+	}
+	.no-data-message p {
+		margin: 0;
 	}
 	.cta-button {
 		display: inline-block;

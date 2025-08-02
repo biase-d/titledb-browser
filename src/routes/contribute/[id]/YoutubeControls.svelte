@@ -3,27 +3,29 @@
 
 	let {
 		initialLinks = [],
-		onUpdate = (/** @type {string[]} */ links) => {}
+		onUpdate = (/** @type {{url: string, notes: string}[]} */ links) => {}
 	} = $props();
 
-	let links = $state([...initialLinks]);
-	let isVisible = $state(initialLinks.length > 0);
+	// Handle old drafts with string arrays and new data with object arrays
+	const normalizedLinks = initialLinks.map(link => 
+		typeof link === 'string' ? { url: link, notes: '' } : link
+	);
+	let links = $state([...normalizedLinks]);
 
 	function hideAndReset() {
-		isVisible = false;
 		links = [];
 		onUpdate(links);
 	}
 
 	function addInitialLink() {
 		if (links.length === 0) {
-			links.push('');
+			links.push({ url: '', notes: '' });
 			onUpdate(links);
 		}
 	}
 
 	function addLink() {
-		links.push('');
+		links.push({ url: '', notes: '' });
 		onUpdate(links);
 	}
 
@@ -32,8 +34,13 @@
 		onUpdate(links);
 	}
 
-	function updateLink(index, value) {
-		links[index] = value;
+	function updateUrl(index, value) {
+		links[index].url = value;
+		onUpdate(links);
+	}
+
+	function updateNotes(index, value) {
+		links[index].notes = value;
 		onUpdate(links);
 	}
 </script>
@@ -41,35 +48,41 @@
 <div class="youtube-controls-container">
 	<div class="header">
 		<h3>YouTube Links</h3>
-		{#if isVisible}
+		{#if links.length > 0}
 			<button type="button" class="toggle-btn" onclick={hideAndReset}>Reset</button>
 		{/if}
 	</div>
 
-	<p>Add YouTube videos showcasing performance, graphical comparisons, or gameplay.</p>
+	<p>Add YouTube videos showcasing performance or graphical comparisons</p>
 
-	{#if links.length === 0}
+	{#if links.length === 0}		
 		<button type="button" class="add-initial-btn" onclick={() => {
 			addInitialLink()
-			isVisible=true
 		}}>
 			<Icon icon="mdi:plus" /> Add YouTube Video
 		</button>
 	{:else}
 		<div class="links-list">
 		{#each links as link, i (i)}
-			<div class="link-row">
-				<input
-				type="url"
-				placeholder="https://www.youtube.com/watch?v=..."
-				value={link}
-				oninput={(e) => updateLink(i, e.currentTarget.value)}
-			/>
-			{#if links.length > 1}
-				<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
-					<Icon icon="mdi:minus-circle" />
-				</button>
-			{/if}
+			<div class="link-entry">
+				<div class="link-row">
+					<input
+						type="url"
+						placeholder="https://www.youtube.com/watch?v=..."
+						value={link.url}
+						oninput={(e) => updateUrl(i, e.currentTarget.value)}
+					/>
+					{#if links.length > 1}
+						<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
+							<Icon icon="mdi:minus-circle" />
+						</button>
+					{/if}
+				</div>
+				<textarea 
+					placeholder="Optional notes (e.g., 'Docked gameplay', 'Comparison video')"
+					value={link.notes}
+					oninput={(e) => updateNotes(i, e.currentTarget.value)}
+				></textarea>
 			</div>
 		{/each}
 		</div>
@@ -112,8 +125,13 @@
 	.links-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 1.5rem;
 		margin-bottom: 1rem;
+	}
+	.link-entry {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
 	}
 	.link-row {
 		display: flex;
@@ -127,6 +145,14 @@
 		border: 1px solid var(--border-color);
 		border-radius: 6px;
 		color: var(--text-primary);
+	}
+	.link-entry textarea {
+		width: 100%;
+		min-height: 60px;
+		resize: vertical;
+		padding: 10px 12px;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
 	}
 	.remove-btn {
 		background: none;
