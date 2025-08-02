@@ -1,0 +1,1 @@
+ALTER TABLE "youtube_links" ADD COLUMN "notes" text;

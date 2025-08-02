@@ -8,6 +8,13 @@
       "when": 1754097769533,
       "tag": "0000_nifty_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1754119957483,
+      "tag": "0001_windy_energizer",
+      "breakpoints": true
     }
   ]
 }

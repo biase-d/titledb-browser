@@ -47,6 +47,7 @@ export const youtubeLinks = pgTable('youtube_links', {
 	id: serial('id').primaryKey(),
 	groupId: text('group_id').notNull().references(() => gameGroups.id),
 	url: text('url').notNull(),
+	notes: text('notes'),
 	submittedBy: text('submitted_by'),
 	submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow()
 });
