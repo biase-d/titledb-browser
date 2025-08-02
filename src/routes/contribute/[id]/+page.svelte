@@ -59,8 +59,8 @@
 		performanceProfiles.push({
 			gameVersion: nextVersion,
 			profiles: {
-				docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' },
-				handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' }
+				docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: '', fps_notes: '' },
+				handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: '', fps_notes: '' }
 			},
 			isNew: true // Flag to identify new, unsaved entries
 		});

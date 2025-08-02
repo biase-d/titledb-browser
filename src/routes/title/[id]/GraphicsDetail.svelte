@@ -47,15 +47,25 @@
 
 	function formatBuffering(buffering) {
 		if (!buffering) return '';
-		if (buffering === 'Double') return 'Double buffer';
-		if (buffering === 'Double (Reversed)') return 'Double buffer (Reversed)';
-		return buffering;
+		switch (buffering) {
+			case 'Double':
+				return 'Double buffer';
+			case 'Double (Reversed)':
+				return 'Double buffer (Reversed)';
+			case 'Triple':
+				return 'Triple buffer';
+			case 'Quadruple':
+				return 'Quadruple buffer';
+			default:
+				return buffering;
+		}
 	}
+
 </script>
 
 <div class="section-container">
 	{#if !settings || Object.keys(settings).length === 0}
-		<p class="no-data-message">No graphics settings have been submitted for this title yet.</p>
+		<p class="no-data-message">No graphics settings have been submitted for this title yet</p>
 	{:else}
 		<div class="card">
 			<!-- Docked -->

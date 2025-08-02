@@ -1,14 +1,9 @@
 import { db } from '$lib/db';
-import { games, performanceProfiles } from '$lib/db/schema';
+import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
 import { desc, eq, sql, inArray, or, and } from 'drizzle-orm';
 
 const PAGE_SIZE = 50;
 
-/**
- * Searches, filters, and paginates games, and fetches related metadata and statistics
- * @param {URLSearchParams} searchParams - The URL search parameters from the request
- * @returns {Promise<object>} An object containing results, pagination info, stats, and recent updates
- */
 export async function searchGames(searchParams) {
 	await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
 
@@ -34,15 +29,16 @@ export async function searchGames(searchParams) {
 		}
 		whereClauses.push(or(...searchConditions));
 	}
-	if (dockedFps) whereClauses.push(sql`${latestProfileSubquery.profiles}->'docked'->>'target_fps' = ${dockedFps}`);
-	if (handheldFps) whereClauses.push(sql`${latestProfileSubquery.profiles}->'handheld'->>'target_fps' = ${handheldFps}`);
+	
+	if (dockedFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'docked'->>'target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps') = ${dockedFps}`);
+	if (handheldFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'handheld'->>'target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps') = ${handheldFps}`);
+	
 	if (resolutionType) whereClauses.push(sql`${latestProfileSubquery.profiles}->'docked'->>'resolution_type' = ${resolutionType} OR ${latestProfileSubquery.profiles}->'handheld'->>'resolution_type' = ${resolutionType}`);
 	
 	const isSearchingOrFiltering = q || dockedFps || handheldFps || resolutionType;
 
-	// If we are NOT searching or filtering, only show games that have performance data
 	if (!isSearchingOrFiltering) {
-		whereClauses.push(sql`${latestProfileSubquery.groupId} IS NOT NULL`);
+		whereClauses.push(sql`${latestProfileSubquery.groupId} IS NOT NULL OR ${graphicsSettings.groupId} IS NOT NULL`);
 	}
 	
 	const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
@@ -66,20 +62,24 @@ export async function searchGames(searchParams) {
 		}
 	};
 	
-	const mainQuery = db.with(latestProfileSubquery).select({
-		...games,
-		performance: latestProfileSubquery.profiles
-	})
-	.from(games)
-	.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
-	.where(where)
-	.orderBy(getOrderBy())
-	.limit(PAGE_SIZE)
-	.offset((page - 1) * PAGE_SIZE);
-
-	const countQuery = db.with(latestProfileSubquery).select({ count: sql`count(*)` })
+	const query = db.with(latestProfileSubquery)
+		.select({
+			...games,
+			performance: sql`COALESCE(${latestProfileSubquery.profiles}, json_build_object('docked', json_build_object('target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'), 'handheld', json_build_object('target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'))::jsonb)`
+		})
 		.from(games)
 		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
+		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+		.where(where)
+		.orderBy(getOrderBy())
+		.limit(PAGE_SIZE * 2) 
+		.offset((page - 1) * PAGE_SIZE);
+
+	const countQuery = db.with(latestProfileSubquery)
+		.select({ count: sql`count(distinct ${games.groupId})` })
+		.from(games)
+		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
+		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
 		.where(where);
 	
 	const statsQuery = db.select({
@@ -88,7 +88,9 @@ export async function searchGames(searchParams) {
 		totalContributors: sql`count(distinct ${performanceProfiles.contributor})`.mapWith(Number)
 	}).from(performanceProfiles);
 	
-	const [results, countResult, statsResult] = await Promise.all([mainQuery, countQuery, statsQuery]);
+	const [queryResult, countResult, statsResult] = await Promise.all([query, countQuery, statsQuery]);
+
+	const uniqueResults = Array.from(new Map(queryResult.map(item => [item.groupId, item])).values()).slice(0, PAGE_SIZE);
 
 	const totalItems = parseInt(countResult[0]?.count || '0', 10);
 	const totalPages = Math.ceil(totalItems / PAGE_SIZE);
@@ -97,8 +99,7 @@ export async function searchGames(searchParams) {
 	if (page === 1 && !isSearchingOrFiltering) {
 		const recentProfiles = await db.execute(sql`
 			WITH ranked_profiles AS (
-				SELECT "group_id", ROW_NUMBER() OVER(PARTITION BY "group_id" ORDER BY "last_updated" DESC) as rn
-				FROM "performance_profiles"
+				SELECT "group_id", ROW_NUMBER() OVER(PARTITION BY "group_id" ORDER BY "last_updated" DESC) as rn FROM "performance_profiles"
 			)
 			SELECT "group_id" FROM ranked_profiles WHERE rn = 1 ORDER BY (
 				SELECT "last_updated" FROM "performance_profiles" WHERE "group_id" = ranked_profiles."group_id" ORDER BY "last_updated" DESC LIMIT 1
@@ -112,7 +113,7 @@ export async function searchGames(searchParams) {
 	}
 	
 	return {
-		results,
+		results: uniqueResults,
 		recentUpdates,
 		pagination: { currentPage: page, totalPages, totalItems },
 		stats: {

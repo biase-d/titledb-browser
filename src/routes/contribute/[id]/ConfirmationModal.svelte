@@ -19,45 +19,68 @@
 		onCancel = () => {}
 	} = $props();
 
+	/**
+	 * Checks if a profile is effectively empty, meaning the user has likely only
+	 * entered a version number but no actual performance data
+	 * It's considered empty if all user-editable text fields and the target_fps are blank
+	 */
+	function isProfileEmpty(profile) {
+		if (!profile || !profile.profiles) return true;
+		const { docked, handheld } = profile.profiles;
+
+		const isModeEmpty = (mode) => {
+			if (!mode) return true;
+			// A mode is empty if it has no user-entered text AND no target FPS
+			const hasContent = mode.resolution || mode.resolutions || mode.min_res || mode.max_res || mode.resolution_notes || mode.fps_notes || mode.target_fps;
+			return !hasContent;
+		};
+
+		return isModeEmpty(docked) && isModeEmpty(handheld);
+	}
+
 	let changeSummary = $derived((() => {
 		if (!show) return [];
-
 		const summary = [];
 
-		// Performance Profile Changes
 		const originalProfilesMap = new Map(originalPerformance.map(p => [p.gameVersion, p]));
 		const newProfilesMap = new Map(performanceProfiles.map(p => [p.gameVersion, p]));
 
-		// Check for added/updated profiles
+		// Check for added or updated profiles
 		for (const [version, newProfile] of newProfilesMap.entries()) {
 			const originalProfile = originalProfilesMap.get(version);
+			const newIsEmpty = isProfileEmpty(newProfile);
+
 			if (!originalProfile) {
-				summary.push(`Added new performance profile for v${version}.`);
+				// This is a new version
+				if (newIsEmpty) {
+					summary.push(`Added empty placeholder for performance v${version}.`);
+				} else {
+					summary.push(`Added new performance data for v${version}.`);
+				}
 			} else {
-				// Deep comparison for updates
-				const diffs = [];
-				for (const mode of ['docked', 'handheld']) {
-					for (const key in newProfile.profiles[mode]) {
-						if (newProfile.profiles[mode][key] !== originalProfile.profiles[mode][key]) {
-							const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-							diffs.push(`${mode.charAt(0).toUpperCase() + mode.slice(1)} ${formattedKey}`);
-						}
+				// This is an existing version, check for changes
+				const originalIsEmpty = isProfileEmpty(originalProfile);
+				const contentChanged = JSON.stringify(newProfile.profiles) !== JSON.stringify(originalProfile.profiles);
+
+				if (contentChanged) {
+					if (newIsEmpty) {
+						summary.push(`Cleared performance data for v${version}.`);
+					} else if (originalIsEmpty) {
+						summary.push(`Added performance data to v${version}.`);
+					} else {
+						summary.push(`Updated performance data for v${version}.`);
 					}
 				}
-				if (diffs.length > 0) {
-					summary.push(`Updated performance v${version}: ${diffs.slice(0, 2).join(', ')}${diffs.length > 2 ? '...' : ''}.`);
-				}
 			}
 		}
 
-		// Check for deleted profiles
+		// Check for explicitly deleted profiles (removed from the list)
 		for (const version of originalProfilesMap.keys()) {
 			if (!newProfilesMap.has(version)) {
-				summary.push(`Deleted performance profile for v${version}.`);
+				summary.push(`Removed performance profile for v${version}.`);
 			}
 		}
 
-		// Graphics Settings Changes
 		const graphicsChanged = JSON.stringify(graphicsData) !== JSON.stringify(originalGraphics || {});
 		if (graphicsChanged) {
 			if (!originalGraphics && Object.keys(graphicsData).length > 0) {
@@ -68,8 +91,7 @@
 				summary.push('Updated graphics settings.');
 			}
 		}
-
-		// YouTube Link Changes (more robust check)
+		// YouTube Link Changes
 		const normalizeLinks = (links) => links.map(l => ({ url: l.url, notes: l.notes || '' })).sort((a,b) => a.url.localeCompare(b.url));
 		const normalizedNew = normalizeLinks(youtubeLinks);
 		const normalizedOriginal = normalizeLinks(originalYoutubeLinks);
@@ -141,7 +163,11 @@
 				{#each performanceProfiles as profile (profile.gameVersion)}
 					<div class="version-preview-section">
 						<h4 class="version-preview-title">Version: {profile.gameVersion || 'Not specified'}</h4>
-						<PerformanceDetail performance={profile.profiles} />
+						{#if !isProfileEmpty(profile)}
+							<PerformanceDetail performance={profile.profiles} />
+						{:else}
+							<p class="empty-message">No performance data was entered for this version</p>
+						{/if}
 					</div>
 				{/each}
 
@@ -247,6 +273,15 @@
 	padding-bottom: 0.75rem;
 	margin-bottom: 1rem;
 	border-bottom: 1px solid var(--border-color);
+}
+.empty-message {
+	padding: 1.5rem;
+	text-align: center;
+	color: var(--text-secondary);
+	background-color: var(--surface-color);
+	border: 1px dashed var(--border-color);
+	border-radius: var(--border-radius);
+	margin: 0;
 }
 .modal-footer {
 	display: flex;

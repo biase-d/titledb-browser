@@ -57,37 +57,48 @@ export const actions = {
 
 			const formData = await request.formData();
 			const titleId = formData.get('titleId');
-		const gameName = formData.get('gameName');
-		const performanceData = JSON.parse(formData.get('performanceData'));
-		const graphicsData = JSON.parse(formData.get('graphicsData'));
-		const youtubeLinks = JSON.parse(formData.get('youtubeLinks'));
-		const updatedGroupData = JSON.parse(formData.get('updatedGroupData'));
-		const originalGroupData = JSON.parse(formData.get('originalGroupData'));
-		const originalPerformanceData = JSON.parse(formData.get('originalPerformanceData'));
-		const originalYoutubeLinks = JSON.parse(formData.get('originalYoutubeLinks') || '[]');
-		const changeSummary = JSON.parse(formData.get('changeSummary') || '[]');
-		const shas = JSON.parse(formData.get('shas'));
+			const gameName = formData.get('gameName');
+			const performanceData = JSON.parse(formData.get('performanceData'));
+			const graphicsData = JSON.parse(formData.get('graphicsData'));
+			const youtubeLinks = JSON.parse(formData.get('youtubeLinks'));
+			const updatedGroupData = JSON.parse(formData.get('updatedGroupData'));
+			const originalGroupData = JSON.parse(formData.get('originalGroupData'));
+			const originalPerformanceData = JSON.parse(formData.get('originalPerformanceData'));
+			const originalYoutubeLinks = JSON.parse(formData.get('originalYoutubeLinks') || '[]');
+			const changeSummary = JSON.parse(formData.get('changeSummary') || '[]');
+			const shas = JSON.parse(formData.get('shas'));
 
-		const groupId = updatedGroupData[0]?.groupId || titleId.substring(0, 13) + '000';
+			const groupId = updatedGroupData[0]?.groupId || titleId.substring(0, 13) + '000';
 
 		/** @type {{path: string, content: string | null, sha?: string}[]} */
 		const filesToCommit = [];
 		const allContributors = new Set([user.login]);
 
-		// Performance
-		for (const profile of performanceData) {
-			if (!profile.gameVersion) continue;
+		const submittedProfilesMap = new Map(performanceData.map(p => [p.gameVersion, p]));
+		const originalProfilesMap = new Map(originalPerformanceData.map(p => [p.gameVersion, p]));
+
+		// Process all submitted profiles (for creation or update)
+		for (const [version, profile] of submittedProfilesMap.entries()) {
+			if (!version) continue; // Skip entries without a version number
+
 			if (profile.contributor) allContributors.add(profile.contributor);
+			
 			filesToCommit.push({
-				path: `profiles/${groupId}/${profile.gameVersion}.json`,
+				path: `profiles/${groupId}/${version}.json`,
+				// We always push the content, even if it's an "empty" profile
+				// This preserves the version placeholder
 				content: JSON.stringify(profile.profiles, null, 2),
-				sha: shas.performance?.[profile.gameVersion]
+				sha: shas.performance?.[version]
 			});
 		}
-		const submittedVersions = new Set(performanceData.map(p => p.gameVersion));
-		for (const originalProfile of originalPerformanceData) {
-			if (!submittedVersions.has(originalProfile.gameVersion)) {
-				filesToCommit.push({ path: `profiles/${groupId}/${originalProfile.gameVersion}.json`, content: null });
+
+		// Process deletions (profiles that were in the original list but not the submitted one)
+		for (const version of originalProfilesMap.keys()) {
+			if (!submittedProfilesMap.has(version)) {
+				filesToCommit.push({
+					path: `profiles/${groupId}/${version}.json`,
+					content: null // A null content signals deletion
+				});
 			}
 		}
 

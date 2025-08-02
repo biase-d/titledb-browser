@@ -13,19 +13,8 @@
 		settingsData.apiBuffering = apiBuffering;
 		settingsData.notes = notes;
 
-		// Clean up fields that are not relevant
 		if (lockType === 'Unlocked') {
 			settingsData.targetFps = '';
-			settingsData.notes = '';
-			settingsData.apiBuffering = '';
-		}
-		if (lockType !== 'API') {
-			settingsData.apiBuffering = '';
-		}
-		if (lockType === 'API' && settingsData.notes) {
-			// Retain notes if switching between API and Custom
-		} else if (lockType !== 'Custom' && lockType !== 'API') {
-			settingsData.notes = '';
 		}
 	});
 </script>
