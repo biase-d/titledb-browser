@@ -1,7 +1,6 @@
 import { html } from 'satori-html';
 import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
-import { createRequire } from 'module';
 import { promises as fs } from 'fs';
 import { db } from '$lib/db';
 import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
@@ -69,19 +68,16 @@ function graphicsModeHasData(modeData) {
     return !!(hasRes || hasFps);
 }
 
-const require = createRequire(import.meta.url);
-
-// Resolve fonts using Node's require.resolve()
-const fontRegularPath = require.resolve('@fontsource/inter/files/inter-latin-400-normal.woff');
-const fontBoldPath = require.resolve('@fontsource/inter/files/inter-latin-700-normal.woff');
+const fontRegular = await fetch('https://og-playground.vercel.app/inter-latin-ext-400-normal.woff');
+const fontBold = await fetch('https://og-playground.vercel.app/inter-latin-ext-700-normal.woff');
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ params }) {
 	const gameId = params.id;
 
 	// Read font files as buffers
-	const fontFile = await fs.readFile(fontRegularPath);
-	const fontBoldFile = await fs.readFile(fontBoldPath);
+	const fontFile = await fontRegular.arrayBuffer()
+	const fontBoldFile = await fontBold.arrayBuffer()
 
 	// Fetch game
 	const game = await db.query.games.findFirst({ where: eq(games.id, gameId) });
