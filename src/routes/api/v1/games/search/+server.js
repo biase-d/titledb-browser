@@ -8,7 +8,7 @@ export const GET = async ({ url }) => {
       return json([])
     }
 
-    const { results } = await getGames(url.searchParams)
+    const { results } = await searchGames(url.searchParams)
 
     const searchResults = results.map(game => ({
       id: game.id,
