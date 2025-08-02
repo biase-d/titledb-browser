@@ -78,7 +78,8 @@
 						</button>
 					{/if}
 				</div>
-				<textarea 
+				<p>Optional notes</p>
+				<textarea
 					placeholder="Optional notes (e.g., 'Docked gameplay', 'Comparison video')"
 					value={link.notes}
 					oninput={(e) => updateNotes(i, e.currentTarget.value)}
@@ -153,6 +154,7 @@
 		padding: 10px 12px;
 		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
+		color: var(--text-primary);
 	}
 	.remove-btn {
 		background: none;
