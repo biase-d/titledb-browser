@@ -8,7 +8,6 @@
 		onUpdate = (/** @type {any} */ settings) => {}
 	} = $props();
 
-	// State is structured by mode with dedicated keys for structured and custom data
 	let settings = $state({
 		docked: {
 			resolution: initialSettings?.docked?.resolution || {},
@@ -26,15 +25,19 @@
 	let isVisible = $state(Object.keys(initialSettings || {}).length > 0);
 
 	$effect(() => {
-		onUpdate(settings);
+		if (isVisible) {
+			onUpdate(settings);
+		}
 	});
 
 	function hideAndReset() {
 		isVisible = false;
-		// Reset state to a blank slate to prevent submitting hidden data
+		// Reset state to a blank slate
 		settings.docked = { resolution: {}, framerate: {}, custom: {} };
 		settings.handheld = { resolution: {}, framerate: {}, custom: {} };
 		settings.shared = {};
+		// Explicitly tell the parent that there is no data anymore.
+		onUpdate({});
 	}
 
 	function addField(section) {

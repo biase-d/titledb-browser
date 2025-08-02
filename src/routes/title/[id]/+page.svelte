@@ -12,7 +12,21 @@
 	let session = $derived(data.session);
 	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
 	let youtubeLinks = $derived(data.youtubeLinks || []);
-	let performance = game.performance;
+
+	let selectedVersionIndex = $state(0);
+	let performanceHistory = $derived(game.performanceHistory || []);
+	let performance = $derived(performanceHistory[selectedVersionIndex]);
+
+	let allContributors = $derived.by(() => {
+		const contributors = new Set();
+		if (performance?.contributor) contributors.add(performance.contributor);
+		if (game.graphics?.contributor) contributors.add(game.graphics.contributor);
+		if (youtubeLinks[0]?.submittedBy) contributors.add(youtubeLinks[0].submittedBy);
+		return contributors;
+	});
+
+	let isSingleContributor = $derived(allContributors.size === 1);
+	let singleContributorName = $derived(isSingleContributor ? allContributors.values().next().value : null);
 
 	let id = $derived(game?.id);
 	let name = $derived(game?.names?.[0] || 'Loading...');
@@ -92,35 +106,81 @@
 			</div>
 		</div>
 
-		<div class="section-header">
-			<h2 class="section-title">Performance Profile</h2>
-			{#if performance?.game_version}
-				<span class="version-tag">Version: {performance.game_version}</span>
+		{#if performanceHistory.length === 0}
+			<div class="no-data-cta">
+				<h2>No Performance Data Yet</h2>
+				<p>This title is in our database, but no community performance data has been submitted for it.</p>
+				{#if session?.user}
+					<a href="/contribute/{id}" class="cta-button">Be the first to contribute!</a>
+				{:else}
+					<a href="/auth/signin?callbackUrl=/contribute/{id}" class="cta-button">Sign in to contribute</a>
+				{/if}
+			</div>
+		{:else}
+			<div class="section-header performance-header">
+				<h2 class="section-title">Performance Profile</h2>
+				{#if !isSingleContributor && performance?.contributor}
+					<div class="section-contributor-info">
+					<span>Submitted by <a href={`/profile/${performance.contributor}`}>{performance.contributor}</a></span>
+					{#if performance.sourcePrUrl}
+						<a href={performance.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
+					{/if}
+				</div>
 			{/if}
+			{#if performanceHistory.length > 1}
+				<div class="version-selector">
+					<label for="version-select">Version:</label>
+					<select id="version-select" bind:value={selectedVersionIndex}>
+						{#each performanceHistory as profile, i}
+							<option value={i}>{profile.gameVersion}</option>
+						{/each}
+					</select>
+				</div>
+			{:else if performance}
+				<span class="version-tag">Version: {performance.gameVersion}</span>
+			{/if}
+
 			{#if session?.user}
 				<a href={`/contribute/${id}`} class="contribute-button">
-					{game.performance ? 'Suggest an Edit' : 'Add Performance Data'}
+					{performance ? 'Suggest an Edit' : 'Add Performance Data'}
 				</a>
 			{/if}
 		</div>
 
-		<PerformanceDetail {performance} gameId={id} />
+		<PerformanceDetail performance={performance?.profiles} gameId={id} />
 
 		{#if game.graphics}
+			<div class="section-header">
+				<h2 class="section-title">Graphics Settings</h2>
+				{#if !isSingleContributor && game.graphics.contributor}
+					<div class="section-contributor-info">
+						<span>Submitted by <a href={`/profile/${game.graphics.contributor}`}>{game.graphics.contributor}</a></span>
+					</div>
+				{/if}
+			</div>
 			<GraphicsDetail settings={game.graphics} />
 		{/if}
 
-		<div class="contributor-info">
-			{#if game.contributor}
-				<span>Submitted by <a href={`/profile/${game.contributor}`} rel="noopener noreferrer">{game.contributor}</a></span>
-				{#if game.sourcePrUrl}
-					<a href={game.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
-				{/if}
-			{/if}
-		</div>
-
 		{#if youtubeLinks.length > 0}
+			<div class="section-header">
+				<h2 class="section-title">Gameplay Videos</h2>
+				{#if !isSingleContributor && youtubeLinks[0]?.submittedBy}
+					<div class="section-contributor-info">
+						<span>Submitted by <a href={`/profile/${youtubeLinks[0].submittedBy}`}>{youtubeLinks[0].submittedBy}</a></span>
+					</div>
+				{/if}
+			</div>
 			<YoutubeEmbeds links={youtubeLinks} />
+		{/if}
+
+			{#if isSingleContributor}
+				<div class="contributor-info">
+					<span>All data submitted by <a href={`/profile/${singleContributorName}`} rel="noopener noreferrer">{singleContributorName}</a></span>
+					{#if performance.sourcePrUrl}
+						<a href={performance.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
+					{/if}
+				</div>
+			{/if}
 		{/if}
 
 		{#if game.screenshots && game.screenshots.length > 0}
@@ -284,10 +344,42 @@
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 1rem;
+		flex-wrap: wrap;
+		gap: 1rem;
+	}
+	.performance-header {
+		margin-top: 2rem;
 	}
 	.section-title {
 		font-size: 1.5rem;
 		font-weight: 700;
+	}
+	.section-header > .section-title {
+		margin-right: auto;
+	}
+	.section-contributor-info {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-align: right;
+	}
+	.section-contributor-info a {
+		color: var(--primary-color);
+	}
+	.version-selector {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.version-selector label {
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+	}
+	.version-selector select {
+		background-color: var(--input-bg);
+		border: 1px solid var(--border-color);
+		border-radius: var(--border-radius);
+		padding: 6px 10px;
+		font-size: 0.9rem;
 	}
 	.contribute-button {
 		background-color: var(--input-bg);
@@ -325,9 +417,11 @@
 		justify-content: flex-end;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 0.8rem;
+		font-size: 0.9rem;
 		color: var(--text-secondary);
-		margin-top: 1.5rem;
+		margin-top: 2.5rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--border-color);
 	}
 	.contributor-info a {
 		color: var(--primary-color);
@@ -351,5 +445,31 @@
 	.lightbox img {
 		max-width: 90%;
 		max-height: 90%;
+	}
+	.no-data-cta {
+		text-align: center;
+		padding: 3rem 2rem;
+		margin-top: 2rem;
+		background-color: var(--surface-color);
+		border-radius: var(--border-radius);
+		border: 2px dashed var(--border-color);
+	}
+	.no-data-cta h2 {
+		font-size: 1.75rem;
+		margin: 0 0 0.5rem;
+	}
+	.no-data-cta p {
+		color: var(--text-secondary);
+		max-width: 450px;
+		margin: 0 auto 1.5rem;
+	}
+	.cta-button {
+		display: inline-block;
+		background-color: var(--primary-color);
+		color: var(--primary-action-text);
+		padding: 12px 24px;
+		border-radius: 6px;
+		font-weight: 600;
+		text-decoration: none;
 	}
 </style>

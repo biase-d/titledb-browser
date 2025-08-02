@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit'
-import { getGames } from '$lib/games/searchGames'
+import { searchGames } from '$lib/games/searchGames'
 
 export const GET = async ({ url }) => {
   try {
@@ -8,7 +8,7 @@ export const GET = async ({ url }) => {
       return json([])
     }
 
-    const { results } = await getGames(url.searchParams)
+    const { results } = await searchGames(url.searchParams)
 
     const searchResults = results.map(game => ({
       id: game.id,

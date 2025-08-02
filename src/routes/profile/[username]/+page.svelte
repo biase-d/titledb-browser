@@ -1,218 +1,302 @@
 <script>
 	import Icon from "@iconify/svelte";
 
-    export let data;
-    const { username, mergedPullRequests } = data;
+	let { data } = $props();
+	
+	let username = $derived(data.username);
+	let contributions = $derived(data.contributions || []);
+	let totalContributions = $derived(data.totalContributions || 0);
+	let sessionUser = $derived(data.session?.user);
+	
+	let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLowerCase());
 
-    const sessionUser = data.session?.user;
-    const isOwnProfile = sessionUser?.login?.toLowerCase() === username.toLowerCase();
+	const iconPool = ['mdi:star', 'mdi:trophy', 'mdi:medal', 'mdi:sparkles', 'mdi:diamond-stone', 'mdi:crown', 'mdi:lightning-bolt'];
+	const badges = [
+		{ threshold: 1, name: 'First Contribution', color: '#a1a1aa' },
+		{ threshold: 5, name: 'Bronze Contributor', color: '#cd7f32' },
+		{ threshold: 15, name: 'Silver Contributor', color: '#c0c0c0' },
+		{ threshold: 30, name: 'Gold Contributor', color: '#ffd700' },
+		{ threshold: 50, name: 'Platinum Contributor', color: '#e5e4e2' },
+		{ threshold: 100, name: 'Diamond Contributor', color: '#b9f2ff' },
+		{ threshold: 200, name: 'Master Contributor', color: '#ff00ff' }
+	].map((badge, i) => ({ ...badge, icon: iconPool[i % iconPool.length] }));
 
-    const iconPool = [
-        'mdi:star',
-        'mdi:trophy',
-        'mdi:medal',
-        'mdi:sparkles',
-        'mdi:diamond-stone',
-        'mdi:crown',
-        'mdi:lightning-bolt'
-    ];
-
-    const badges = [
-        { threshold: 5, name: 'Bronze Contributor', color: '#cd7f32' },
-        { threshold: 10, name: 'Silver Contributor', color: '#c0c0c0' },
-        { threshold: 20, name: 'Gold Contributor', color: '#ffd700' },
-        { threshold: 40, name: 'Platinum Contributor', color: '#e5e4e2' },
-        { threshold: 80, name: 'Diamond Contributor', color: '#b9f2ff' },
-        { threshold: 100, name: 'Master Contributor', color: '#ff00ff' }
-    ].map(badge => ({
-        ...badge,
-        icon: iconPool[Math.floor(Math.random() * iconPool.length)]
-    }));
-
-    $: unlockedBadges = badges.filter(badge => mergedPullRequests.length >= badge.threshold);
-    $: nextBadge = badges.find(badge => mergedPullRequests.length < badge.threshold);
-    $: progressToNext = nextBadge ? Math.floor((mergedPullRequests.length / nextBadge.threshold) * 100) : 100;
+	let unlockedBadges = $derived(badges.filter(badge => totalContributions >= badge.threshold));
+	let nextBadge = $derived(badges.find(badge => totalContributions < badge.threshold));
+	let progressToNext = $derived(nextBadge ? Math.floor((totalContributions / nextBadge.threshold) * 100) : 100);
 </script>
 
 <svelte:head>
-    <title>{username}'s profile - Titledb Browser</title>
+	<title>{username}'s Profile - Titledb Browser</title>
 </svelte:head>
 
 <div class="profile-container">
-    <div class="profile-header">
-        {#if isOwnProfile && sessionUser?.image}
-            <img src={sessionUser.image} alt={username} class="avatar" />
-        {/if}
-        <div class="header-text">
-            <h1>{username}'s Profile</h1>
-            {#if isOwnProfile}
-                <form action="/auth/signout" method="post">
-                    <button type="submit" class="signout-button">Sign Out</button>
-                </form>
-            {/if}
-            <p>
-                Successfully contributed data for <strong>{mergedPullRequests.length}</strong>
-                {mergedPullRequests.length === 1 ? 'game' : 'games'}.
-            </p>
-            
-            <div class="badges-container">
-                {#if unlockedBadges.length > 0}
-                    {#each unlockedBadges as badge}
-                        <span class="badge" style="--badge-color: {badge.color};" title={badge.name}>
-                            <Icon icon={badge.icon} class="badge-icon" />
-                            <span class="badge-count">{badge.threshold}</span>
-                        </span>
-                    {/each}
-                {/if}
-            </div>
+	<div class="profile-header">
+		{#if isOwnProfile && sessionUser?.image}
+			<img src={sessionUser.image} alt={username} class="avatar" />
+		{/if}
+		<div class="header-text">
+			<h1>{username}</h1>
+			<p>Community Contributor</p>
+		</div>
+		{#if isOwnProfile}
+			<form action="/auth/signout" method="post" class="signout-form">
+				<button type="submit" class="signout-button">Sign Out</button>
+			</form>
+		{/if}
+	</div>
 
-            {#if nextBadge}
-                <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: {progressToNext}%;"></div>
-                    <span class="progress-text">{progressToNext}% to {nextBadge.threshold} contributions ({nextBadge.name})</span>
-                </div>
-            {/if}
-        </div>
-    </div>
+	<div class="stats-bar">
+		<div class="stat-item">
+			<span class="stat-value">{totalContributions}</span>
+			<span class="stat-label">Total Contributions</span>
+		</div>
+		<div class="stat-item">
+			<span class="stat-value">{contributions.length}</span>
+			<span class="stat-label">Unique Games</span>
+		</div>
+		{#if unlockedBadges.length > 0}
+			<div class="stat-item badges-container">
+				{#each unlockedBadges as badge}
+					<span class="badge" style="--badge-color: {badge.color};" title="{badge.name} ({badge.threshold}+ contributions)">
+						<Icon icon={badge.icon} />
+					</span>
+				{/each}
+			</div>
+		{/if}
+	</div>
 
-    {#if mergedPullRequests.length > 0}
-        <h2 class="section-title">Contributions</h2>
-         <div class="pr-grid">
-            {#each mergedPullRequests as game}
-                <a href={game.url} class="pr-card merged">
-                    <h3 class="pr-title">{game.title}</h3>
-                    <span class="pr-link">View Game →</span>
-                </a>
-            {/each}
-        </div>
-    {:else}
-        <div class="empty-state">
-            <h2>No Contributions Found</h2>
-            <p>{username} hasn't submitted any performance data contributions yet</p>
-        </div>
-    {/if}
+	{#if nextBadge}
+		<div class="progress-section">
+			<p><strong>Next Goal:</strong> {nextBadge.name} ({nextBadge.threshold} contributions)</p>
+			<div class="progress-bar-container">
+				<div class="progress-bar" style="width: {progressToNext}%;"></div>
+				<span class="progress-text">{totalContributions} / {nextBadge.threshold}</span>
+			</div>
+		</div>
+	{/if}
+
+	<h2 class="section-title">Contributions</h2>
+
+	{#if contributions.length > 0}
+		<div class="contributions-grid">
+			{#each contributions as item (item.game.id)}
+				<a href={`/title/${item.game.id}`} class="game-card">
+					<div class="card-icon" style="background-image: url({item.game.iconUrl || '/favicon.svg'})"></div>
+					<div class="card-info">
+						<p class="card-title">{item.game.name}</p>
+						<div class="versions-list">
+							{#each item.versions as v}
+								<a href={v.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="version-tag" onclick={(e) => e.stopPropagation()}>
+									v{v.version} <Icon icon="mdi:open-in-new" />
+								</a>
+							{/each}
+						</div>
+					</div>
+				</a>
+			{/each}
+		</div>
+	{:else}
+		<div class="empty-state">
+			<h2>No Contributions Yet</h2>
+			<p>{username} hasn't submitted any performance data that has been merged.</p>
+		</div>
+	{/if}
 </div>
 
 <style>
-    .profile-container { max-width: 1024px; margin: 0 auto; }
-    .profile-header {
-        display: flex;
-        align-items: flex-start;
-        gap: 1.5rem;
-        margin-bottom: 2.5rem;
-        padding-bottom: 1.5rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-    .section-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-top: 3rem;
-        margin-bottom: 1.5rem;
-    }
-    .avatar {
-        width: 120px;
-        height: 120px;
-        border-radius: 999px;
-        border: 2px solid var(--border-color);
-        flex-shrink: 0;
-    }
-    .header-text {
-        flex-grow: 1;
-    }
-    .header-text h1 {
-        margin: 0;
-        font-size: 2.25rem;
-        color: var(--text-primary);
-    }
-    .header-text p {
-        margin: 0.25rem 0 0.75rem;
-        font-size: 1.1rem;
-        color: var(--text-secondary);
-    }
+	.profile-container {
+		max-width: 1024px;
+		margin: 0 auto;
+	}
 
-    .badges-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 4px 10px;
-        border-radius: 999px;
-        background-color: var(--badge-color);
-        color: white;
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-shadow: 0 1px 1px rgba(0,0,0,0.2);
-    }
-    :global(.badge-icon) {
-        width: 1rem;
-        height: 1rem;
-        filter: brightness(1.2);
-    }
-    .progress-bar-container {
-        width: 100%;
-        height: 8px;
-        background-color: var(--input-bg);
-        border-radius: 999px;
-        overflow: hidden;
-        margin-top: 0.5rem;
-        position: relative;
-    }
-    .progress-bar {
-        height: 100%;
-        background-color: var(--primary-color);
-        border-radius: 999px;
-        transition: width 0.3s ease-out;
-    }
-    .progress-text {
-        font-size: 0.8rem;
-        color: var(--text-secondary);
-        margin-top: 0.5rem;
-        display: block;
-    }
+	.profile-header {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		margin-bottom: 2rem;
+	}
 
-    .pr-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
+	.avatar {
+		width: 80px;
+		height: 80px;
+		border-radius: 999px;
+	}
 
-    .pr-card {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        background-color: var(--surface-color);
-        padding: 1.5rem;
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        text-decoration: none;
-        transition: all 0.2s ease;
-        box-shadow: var(--box-shadow);
-    }
+	.header-text h1 {
+		margin: 0;
+		font-size: 2rem;
+	}
 
-    .pr-card:hover {
-        transform: translateY(-3px);
-        border-color: var(--primary-color);
-    }
+	.header-text p {
+		margin: 0;
+		color: var(--text-secondary);
+	}
 
-    .pr-title {
-        font-weight: 600;
-        color: var(--text-primary);
-        margin: 0;
-        font-size: 1.1rem;
-        flex-grow: 1;
-    }
+	.signout-form {
+		margin-left: auto;
+	}
 
-    .empty-state {
-        text-align: center;
-        padding: 4rem 2rem;
-        background-color: var(--surface-color);
-        border-radius: var(--border-radius);
-        border: 2px dashed var(--border-color);
-    }
+	.signout-button {
+		padding: 8px 16px;
+		font-weight: 500;
+		background: none;
+		color: var(--text-secondary);
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+		cursor: pointer;
+	}
+
+	.stats-bar {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 1rem;
+		padding: 1.5rem;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: var(--border-radius);
+	}
+
+	.stat-item {
+		text-align: center;
+	}
+
+	.stat-value {
+		font-size: 2rem;
+		font-weight: 600;
+		color: var(--primary-color);
+	}
+
+	.stat-label {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+	}
+
+	.badges-container {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.badge {
+		font-size: 1.75rem;
+		color: var(--badge-color);
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+	}
+
+	.progress-section {
+		margin-top: 2rem;
+	}
+
+	.progress-section p {
+		margin: 0 0 0.5rem;
+		font-size: 0.9rem;
+	}
+
+	.progress-bar-container {
+		position: relative;
+		width: 100%;
+		height: 12px;
+		background-color: var(--input-bg);
+		border-radius: 999px;
+		overflow: hidden;
+	}
+
+	.progress-bar {
+		height: 100%;
+		background-color: var(--primary-color);
+		border-radius: 999px;
+	}
+
+	.progress-text {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		font-size: 0.7rem;
+		font-weight: bold;
+		color: white;
+		text-shadow: 0 0 2px black;
+	}
+
+	.section-title {
+		margin: 2.5rem 0 1.5rem;
+		padding-bottom: 0.5rem;
+		font-size: 1.5rem;
+		font-weight: 600;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.contributions-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.game-card {
+		display: flex;
+		flex-direction: column;
+		background-color: var(--surface-color);
+		border-radius: var(--border-radius);
+		box-shadow: var(--box-shadow);
+		transition: transform 0.2s;
+	}
+
+	.game-card:hover {
+		transform: translateY(-3px);
+	}
+
+	.card-icon {
+		aspect-ratio: 1 / 1;
+		background-size: cover;
+		background-position: center;
+		background-color: var(--input-bg);
+		border-top-left-radius: var(--border-radius);
+		border-top-right-radius: var(--border-radius);
+	}
+
+	.card-info {
+		flex-grow: 1;
+		padding: 1rem;
+	}
+
+	.card-title {
+		margin: 0 0 0.75rem;
+		font-weight: 600;
+	}
+
+	.versions-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.version-tag {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 4px 8px;
+		font-size: 0.8rem;
+		font-weight: 500;
+		background-color: var(--input-bg);
+		color: var(--text-secondary);
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+	}
+
+	.version-tag:hover {
+		border-color: var(--primary-color);
+		color: var(--primary-color);
+	}
+
+	.empty-state {
+		padding: 4rem 2rem;
+		text-align: center;
+		background-color: var(--surface-color);
+		border: 2px dashed var(--border-color);
+		border-radius: var(--border-radius);
+	}
 </style>

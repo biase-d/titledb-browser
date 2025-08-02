@@ -6,53 +6,86 @@
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import GroupingControls from './GroupingControls.svelte';
-	import GraphicsControls from './GraphicControls.svelte'
+	import GraphicsControls from './GraphicControls.svelte';
 	import PerformanceControls from './PerformanceControls.svelte';
-	import YoutubeControls from './YoutubeControls.svelte'
-	import GameVersion from './GameVersion.svelte'
+	import YoutubeControls from './YoutubeControls.svelte';
 	import ConfirmationModal from './ConfirmationModal.svelte';
 	import Icon from '@iconify/svelte';
 
 	let { data, form } = $props();
 
-	let { id, name, existingData, existingGraphics, existingYoutubeLinks, allTitlesInGroup } = $derived(data);
-	let updatedGroup = $state([...allTitlesInGroup]);
+	let { id, name, allTitlesInGroup, existingPerformance, existingGraphics, existingYoutubeLinks, shas } = $derived(data);
+	// Add fallback to prevent crash if allTitlesInGroup is not ready
+	let updatedGroup = $state([...(allTitlesInGroup || [])]);
 
-	let performanceData = $state(existingData || {
-		docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' },
-		handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' }
-	});
+	let performanceProfiles = $state(
+		existingPerformance.length > 0
+			? JSON.parse(JSON.stringify(existingPerformance))
+			: []
+	);
 
 	let graphicsData = $state(existingGraphics || {});
 	let youtubeLinks = $state(existingYoutubeLinks || []);
-	let gameVersion = $state(data.existingVersion || '');
 	let isSubmitting = $state(false);
 	let showConfirmation = $state(false);
 	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
+
+	function addNewVersion() {
+		let nextVersion = '1.0.0';
+
+		if (performanceProfiles.length > 0) {
+			const latestProfile = [...performanceProfiles]
+				.filter(p => p.gameVersion)
+				.sort((a, b) => {
+					const partsA = a.gameVersion.split('.').map(part => parseInt(part, 10) || 0);
+					const partsB = b.gameVersion.split('.').map(part => parseInt(part, 10) || 0);
+					const len = Math.max(partsA.length, partsB.length);
+					for (let i = 0; i < len; i++) {
+						const numA = partsA[i] || 0;
+						const numB = partsB[i] || 0;
+						if (numB !== numA) return numB - numA;
+					}
+					return 0;
+				})[0];
+
+			if (latestProfile) {
+				const parts = latestProfile.gameVersion.split('.').map(p => parseInt(p, 10) || 0);
+				while (parts.length < 3) parts.push(0); // Ensure it has at least 3 parts for .patch
+				parts[parts.length - 1]++; // Increment the last part (patch)
+				nextVersion = parts.join('.');
+			}
+		}
+
+		performanceProfiles.push({
+			gameVersion: nextVersion,
+			profiles: {
+				docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' },
+				handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: 30, fps_notes: '' }
+			},
+			isNew: true // Flag to identify new, unsaved entries
+		});
+	}
+
+	function removeVersion(index) {
+		performanceProfiles.splice(index, 1);
+	}
+
 
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
 		if (savedDraft) {
 			const restoreDraft = () => {
-				const draftPerformance = savedDraft.performance || savedDraft;
-				const draftGroup = savedDraft.group;
-
-				if (draftPerformance) {
-					performanceData.docked = draftPerformance.docked;
-					performanceData.handheld = draftPerformance.handheld;
-				}
-				if (draftGroup) {
-					updatedGroup = draftGroup;
-				}
+				if (savedDraft.performanceProfiles) performanceProfiles = savedDraft.performanceProfiles;
+				if (savedDraft.group) updatedGroup = savedDraft.group;
+				if (savedDraft.graphics) graphicsData = savedDraft.graphics;
+				if (savedDraft.youtube) youtubeLinks = savedDraft.youtube;
 			}
-			const fromDrafts = page.url.searchParams.get('from_draft') === 'true';
-			if (fromDrafts) {
+			if (page.url.searchParams.get('from_draft') === 'true' || confirm('You have a saved draft for this game. Would you like to restore it?')) {
 				restoreDraft();
-			} else {
-				if (confirm('You have a saved draft for this game. Would you like to restore it?')) {
-					restoreDraft();
-				}
 			}
+		} else if (performanceProfiles.length === 0) {
+			// If no existing profiles and no draft, start with one blank entry
+			addNewVersion();
 		}
 	});
 
@@ -60,14 +93,15 @@
 		if (!browser) return;
 
 		const dataToSave = {
-			name: name,
-			performance: performanceData,
+			name,
+			performanceProfiles,
+			graphics: graphicsData,
+			youtube: youtubeLinks,
 			group: updatedGroup
 		};
 
 		const debounceTimer = setTimeout(() => {
-			const plainObjectToSave = JSON.parse(JSON.stringify(dataToSave));
-			draftsStore.save(id, plainObjectToSave);
+			draftsStore.save(id, JSON.parse(JSON.stringify(dataToSave)));
 		}, 500);
 
 		return () => clearTimeout(debounceTimer);
@@ -91,33 +125,56 @@
 			<a href="/" class="back-link-main">Return to Home</a>
 		</div>
 	{:else}
-		<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(/** @type {{ id: string; name: unknown; }[]} */ newGroup) => { updatedGroup = newGroup; }} />
+		<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(newGroup) => { updatedGroup = newGroup; }} />
+
 		<form bind:this={formElement} method="POST" use:enhance={() => {
 			isSubmitting = true;
-			showConfirmation = false; // Close modal on submit
+			showConfirmation = false;
 			return async ({ update }) => {
 				await deleteDraft(id);
 				await update();
 				isSubmitting = false;
 			};
 		}}>
-			<!-- Hidden inputs to pass crucial data to the form action -->
 			<input type="hidden" name="titleId" value={id} />
 			<input type="hidden" name="gameName" value={name} />
-			<input type="hidden" name="gameVersion" value={gameVersion} />
-			<input type="hidden" name="performanceData" value={JSON.stringify(performanceData)} />
+			<input type="hidden" name="performanceData" value={JSON.stringify(performanceProfiles)} />
 			<input type="hidden" name="graphicsData" value={JSON.stringify(graphicsData)} />
-			<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
 			<input type="hidden" name="youtubeLinks" value={JSON.stringify(youtubeLinks)} />
+			<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
 			<input type="hidden" name="originalGroupData" value={JSON.stringify(allTitlesInGroup)} />
-			<input type="hidden" name="shas" value={JSON.stringify(data.shas)} />
+			<input type="hidden" name="originalPerformanceData" value={JSON.stringify(existingPerformance)} />
+			<input type="hidden" name="originalYoutubeLinks" value={JSON.stringify(data.originalYoutubeLinks)} />
+			<input type="hidden" name="shas" value={JSON.stringify(shas)} />
 
-			<GameVersion bind:gameVersion />
+			{#each performanceProfiles as profile, i (i)}
+				<div class="version-section">
+					<div class="version-header">
+						<h4>Performance Profile</h4>
+						<div class="version-input-wrapper">
+							<label> Game Version</label>
+							<input
+								type="text"
+								bind:value={profile.gameVersion}
+								placeholder="e.g. 1.1.0"
+								pattern="\d+\.\d+\.\d+"
+								title="Version X.X.X (e.g. 1.1.0)"
+								required
+								class="version-input"
+							/>
+							<button type="button" class="remove-version-btn" onclick={() => removeVersion(i)}>Remove</button>
+						</div>
+					</div>
+					<div class="mode-grid">
+						<PerformanceControls mode="Handheld" bind:modeData={profile.profiles.handheld} />
+						<PerformanceControls mode="Docked" bind:modeData={profile.profiles.docked} />
+					</div>
+				</div>
+			{/each}
 
-			<div class="mode-grid">
-				<PerformanceControls mode="Handheld" bind:modeData={performanceData.handheld} />
-				<PerformanceControls mode="Docked" bind:modeData={performanceData.docked} />
-			</div>
+			<button type="button" class="add-version-btn" onclick={addNewVersion}>
+				<Icon icon="mdi:plus-circle-outline" /> Add data for another version
+			</button>
 
 			<GraphicsControls initialSettings={existingGraphics} onUpdate={(newSettings) => { graphicsData = newSettings; }} />
 			<YoutubeControls initialLinks={existingYoutubeLinks} onUpdate={(newLinks) => { youtubeLinks = newLinks; }} />
@@ -136,10 +193,26 @@
 
 	<ConfirmationModal
 		show={showConfirmation}
-		performanceData={performanceData}
+		performanceProfiles={performanceProfiles}
 		graphicsData={graphicsData}
+		youtubeLinks={youtubeLinks}
+		updatedGroup={updatedGroup}
+		originalPerformance={existingPerformance}
+		originalGraphics={existingGraphics}
+		originalYoutubeLinks={existingYoutubeLinks}
+		originalGroup={allTitlesInGroup}
 		onCancel={() => showConfirmation = false}
-		onConfirm={() => formElement?.requestSubmit()}
+		onConfirm={(summary) => {
+			if (formElement) {
+				// Add the summary to a hidden input before submitting
+				const summaryInput = document.createElement('input');
+				summaryInput.type = 'hidden';
+				summaryInput.name = 'changeSummary';
+				summaryInput.value = JSON.stringify(summary);
+				formElement.appendChild(summaryInput);
+				formElement.requestSubmit();
+			}
+		}}
 	/>
 
 	{#if form?.error}
@@ -149,20 +222,23 @@
 
 <style>
 	.game-name {
-		color: var(--primary-color)
+		color: var(--primary-color);
 	}
+
 	.success-message {
+		padding: 1.5rem;
+		text-align: center;
 		background-color: #dcfce7;
 		color: #166534;
 		border: 1px solid #4ade80;
-		padding: 1.5rem;
 		border-radius: var(--border-radius);
-		text-align: center;
 	}
+
 	.success-message h2 {
 		margin: 0 0 0.5rem;
 		color: var(--text-primary);
 	}
+
 	.success-message p {
 		margin-bottom: 1.5rem;
 		color: var(--text-secondary);
@@ -185,13 +261,13 @@
 	}
 
 	.error-message {
+		margin-top: 1rem;
+		padding: 1rem;
+		font-weight: 500;
 		color: #b91c1c;
 		background-color: #fee2e2;
 		border: 1px solid #f87171;
-		padding: 1rem;
 		border-radius: var(--border-radius);
-		margin-top: 1rem;
-		font-weight: 500;
 	}
 
 	.form-container {
@@ -206,45 +282,91 @@
 	}
 
 	h1 {
+		margin: 0;
 		font-size: 2.5rem;
 		font-weight: 700;
-		margin: 0;
 		color: var(--text-primary);
 	}
 
 	.subtitle {
-		font-size: 1.1rem;
 		margin: 0.5rem 0 2.5rem;
+		font-size: 1.1rem;
 		color: var(--text-secondary);
+	}
+
+	.version-section {
+		margin-bottom: 2.5rem;
+		padding: 1.5rem;
+		background-color: var(--input-bg);
+		border: 1px solid var(--border-color);
+		border-radius: var(--border-radius);
+	}
+
+	.version-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.version-header h4 {
+		margin: 0;
+		font-size: 1.1rem;
+	}
+
+	.version-input-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.version-input {
+		width: 120px;
+		padding: 8px 10px;
+		background-color: var(--surface-color);
+		color: var(--text-primary);
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+	}
+
+	.remove-version-btn {
+		padding: 6px 12px;
+		background: transparent;
+		color: #ef4444;
+		border: 1px solid #ef4444;
+		border-radius: 6px;
+		cursor: pointer;
+		font-weight: 500;
 	}
 
 	.mode-grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 2.5rem;
+		grid-template-columns: 1fr;
+		gap: 2rem;
 	}
-	@media (max-width: 800px) {
+
+	@media (min-width: 800px) {
 		.mode-grid {
-			grid-template-columns: 1fr;
+			grid-template-columns: 1fr 1fr;
 		}
 	}
 
-	input {
+	.add-version-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
 		width: 100%;
-		background-color: var(--input-bg);
-		color: var(--text-primary);
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-		padding: 10px 12px;
-		font-size: 1rem;
-		box-sizing: border-box;
-		transition: border-color 0.2s, box-shadow 0.2s;
+		margin-bottom: 2rem;
+		padding: 0.75rem;
+		background-color: transparent;
+		color: var(--primary-color);
+		border: 2px dashed var(--border-color);
+		border-radius: var(--border-radius);
+		font-weight: 600;
+		cursor: pointer;
 	}
-	input:focus{
-		outline: none;
-		border-color: var(--primary-color);
-		box-shadow: 0 0 0 2px var(--primary-color);
-	}
+
 	.form-footer {
 		margin-top: 2rem;
 		padding-top: 1.5rem;
@@ -253,19 +375,18 @@
 	}
 
 	.submit-button {
-		background-color: var(--primary-color);
-		color: white;
-		padding: 0.75rem 1.5rem;
-		border-radius: var(--border-radius);
-		border: none;
-		font-size: 1rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: background-color 0.2s;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
+		padding: 0.75rem 1.5rem;
+		font-size: 1rem;
+		font-weight: 600;
+		background-color: var(--primary-color);
+		color: white;
+		border: none;
+		border-radius: var(--border-radius);
+		cursor: pointer;
 	}
 
 	.submit-button:disabled {

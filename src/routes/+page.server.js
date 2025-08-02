@@ -1,5 +1,12 @@
-import { getGames } from '$lib/games/searchGames.js'
+import { searchGames } from '$lib/games/searchGames';
 
-export const load = async ({ url }) => {
-  return await getGames(url.searchParams)
-}
+/** @type {import('./$types').PageServerLoad} */
+export const load = async ({ url, parent }) => {
+	const { session } = await parent();
+	const searchResults = await searchGames(url.searchParams);
+
+	return {
+		session,
+		...searchResults
+	};
+};

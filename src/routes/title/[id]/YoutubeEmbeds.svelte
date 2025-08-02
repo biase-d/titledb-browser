@@ -12,7 +12,6 @@
 </script>
 
 <div class="section-container">
-	<h2 class="section-title">Gameplay & Performance Videos</h2>
 	{#if links.length === 0}
 		<p class="no-data-message">No videos have been submitted for this title yet.</p>
 	{:else}
@@ -36,12 +35,7 @@
 
 <style>
 	.section-container {
-	margin-top: 3rem;
-	}
-	.section-title {
-	font-size: 1.5rem;
-	font-weight: 700;
-	margin-bottom: 1rem;
+		margin-top: 1rem;
 	}
 	.no-data-message {
 	padding: 2rem;

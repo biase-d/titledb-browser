@@ -39,6 +39,17 @@
 	</select>
 </div>
 
+<div class="form-group">
+	<label for="api_buffering">Buffering Type</label>
+	<select id="api_buffering" bind:value={apiBuffering}>
+		<option value="Double">Double</option>
+		<option value="Double (Reversed)">Double (Reversed)</option>
+		<option value="Triple">Triple</option>
+		<option value="Quadruple">Quadruple</option>
+	</select>
+</div>
+
+
 {#if lockType !== 'Unlocked'}
 	<div class="form-group">
 		<label for="target_fps">Locked to X FPS</label>
@@ -46,17 +57,6 @@
 	</div>
 {/if}
 
-{#if lockType === 'API'}
-	<div class="form-group">
-		<label for="api_buffering">Buffering Type</label>
-		<select id="api_buffering" bind:value={apiBuffering}>
-			<option value="Double">Double</option>
-			<option value="Double (Reversed)">Double (Reversed)</option>
-			<option value="Triple">Triple</option>
-			<option value="Quadruple">Quadruple</option>
-		</select>
-	</div>
-{/if}
 
 {#if lockType === 'Custom' || lockType === 'API'}
 	<div class="form-group form-group-full">
