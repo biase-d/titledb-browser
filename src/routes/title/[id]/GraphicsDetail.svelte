@@ -82,7 +82,7 @@
 						<div class="field">
 							<span class="field-key">Framerate</span>
 							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>							
-							{#if dockedSettings.framerate.lockType === 'API' && dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
+							{#if dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
 								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
 							{/if}
 							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
@@ -112,7 +112,7 @@
 						<div class="field">
 							<span class="field-key">Framerate</span>
 							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>							
-							{#if handheldSettings.framerate.lockType === 'API' && handheldSettings.framerate.apiBuffering && handheldSettings.framerate.apiBuffering !== 'Unknown'}
+							{#if handheldSettings.framerate.apiBuffering && handheldSettings.framerate.apiBuffering !== 'Unknown'}
 								<span class="field-note">{formatBuffering(handheldSettings.framerate.apiBuffering)}</span>
 							{/if}
 							{#if handheldSettings.framerate.notes}<span class="field-note">{handheldSettings.framerate.notes}</span>{/if}
