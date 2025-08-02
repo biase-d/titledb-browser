@@ -15,7 +15,9 @@
 		</a>
 
 		<nav class="desktop-nav">
+			<!--
 			<a href="/stats">Stats</a>
+			-->
 			<a href="/favorites">Favorites</a>
 			<div class="auth-wrapper">
 				<AuthButton session={data.session} />
