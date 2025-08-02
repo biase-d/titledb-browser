@@ -30,23 +30,19 @@ async function cloneOrPull (repoPath, repoUrl) {
 }
 
 function getContributorFromCommit(commit) {
-	const coAuthorRegex = /Co-authored-by: .*<(?:\d+\+)?([\w-]+)@users\.noreply\.github\.com>/g
+	const coAuthorRegex = /Co-authored-by:.*<(?:\d+\+)?(?<username>[\w-]+)@users\.noreply\.github\.com>/
 	const commitMessage = commit.commit.message;
-	const primaryAuthorLogin = commit.author?.login;
 
-	const coAuthorMatches = [...commitMessage.matchAll(coAuthorRegex)];
-	if (coAuthorMatches.length > 0) {
-		const lastMatch = coAuthorMatches[coAuthorMatches.length - 1];
-		return lastMatch[1];
-	}
-	if (primaryAuthorLogin && primaryAuthorLogin.toLowerCase() !== 'web-flow') {
-		return primaryAuthorLogin;
-	}
-	return null;
+	const coAuthorMatch = commitMessage.match(coAuthorRegex);
+	const contributor = coAuthorMatch?.groups?.username || null;
+	
+	// Only return the contributor if found via the co-author trailer
+	return contributor;
 }
 
+
 async function buildContributorMap () {
-  console.log('Building comprehensive contributor map from PR history...')
+  console.log('Building comprehensive contributor map from PR history...');
   const contributorMap = {
 		performance: {},
 		graphics: {},
@@ -59,43 +55,56 @@ async function buildContributorMap () {
       repo: 'nx-performance',
       state: 'closed',
       per_page: 100
-    })
+    });
 
-    for (const pr of prs) {
-      if (!pr.merged_at) continue;
+    const mergedPrs = prs.filter(pr => pr.merged_at);
+    console.log(`Found ${mergedPrs.length} merged PRs to process.`);
 
-			const { data: commit } = await octokit.repos.getCommit({
-				owner: 'biase-d',
-				repo: 'nx-performance',
-				ref: pr.merge_commit_sha
-			})
+    for (const pr of mergedPrs) {
+      // Get the last commit from the PR itself to find the co-author trailer
+      // This is reliable even when a bot creates the PR
+      const { data: commits } = await octokit.pulls.listCommits({
+        owner: 'biase-d',
+        repo: 'nx-performance',
+        pull_number: pr.number,
+        per_page: 1
+      });
+      if (commits.length === 0) continue;
 
-			const contributor = getContributorFromCommit(commit)
-			if (!contributor) continue;
-			
-			const prInfo = { contributor, sourcePrUrl: pr.html_url };
+      const contributor = getContributorFromCommit(commits[0]);
+      // If no contributor is found (e.g., a manual merge without co-author), skip
+      if (!contributor) continue;
+      
+      const prInfo = { contributor, sourcePrUrl: pr.html_url };
 
-			for (const file of commit.files) {
-				const filePath = file.filename;
-				let match;
+      // Get the definitive list of all files changed in the PR
+      const { data: files } = await octokit.pulls.listFiles({
+        owner: 'biase-d',
+        repo: 'nx-performance',
+        pull_number: pr.number,
+        per_page: 100 // A single PR won't likely exceed 100 files
+      });
 
-				if (match = filePath.match(/^profiles\/([A-F0-9]{16})\//)) {
-					contributorMap.performance[match[1]] = prInfo;
-				} else if (match = filePath.match(/^graphics\/([A-F0-9]{16})\.json/)) {
-					contributorMap.graphics[match[1]] = prInfo;
-				} else if (match = filePath.match(/^videos\/([A-F0-9]{16})\.json/)) {
-					contributorMap.videos[match[1]] = prInfo;
-				}
-			}
+      for (const file of files) {
+        const filePath = file.filename;
+        let match;
+
+        if ((match = filePath.match(/^profiles\/([A-F0-9]{16})\//))) {
+          contributorMap.performance[match[1]] = prInfo;
+        } else if ((match = filePath.match(/^graphics\/([A-F0-9]{16})\.json/))) {
+          contributorMap.graphics[match[1]] = prInfo;
+        } else if ((match = filePath.match(/^videos\/([A-F0-9]{16})\.json/))) {
+          contributorMap.videos[match[1]] = prInfo;
+        }
+      }
     }
   } catch (apiError) {
-    console.error(`Failed to build contributor map from GitHub API: ${apiError.message}`)
+    console.error(`Failed to build contributor map from GitHub API: ${apiError.message}`);
   }
 
   console.log('-> Contributor map built.')
   return contributorMap;
 }
-
 
 function getBaseId (titleId) { return titleId.substring(0, 13) + '000' }
 function parseSizeToBytes (sizeStr) {
@@ -242,7 +251,7 @@ async function syncDatabase () {
 
 (async () => {
   try {
-    await db.execute(sql`SELECT 1;`) console.log('DB connection successful.')
+    await db.execute(sql`SELECT 1;`); console.log('DB connection successful.')
     await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`)
     await fs.mkdir(DATA_DIR, { recursive: true })
     await Promise.all(Object.values(REPOS).map(repo => cloneOrPull(repo.path, repo.url)))
