@@ -154,6 +154,7 @@
 		padding: 10px 12px;
 		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
+		border-radius: 6px;
 		color: var(--text-primary);
 	}
 	.remove-btn {
