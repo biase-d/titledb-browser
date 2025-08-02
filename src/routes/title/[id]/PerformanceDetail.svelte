@@ -27,14 +27,8 @@
 </script>
 
 {#if !performance}
-	<p class="no-data-message">No performance data has been submitted yet.</p>
+	<p class="no-data-message">No performance data has been submitted for this version.</p>
 {:else}
-	{#if !performance.game_version}
-		<div class="version-notice">
-			<strong>Note:</strong> This profile was submitted before game versions were tracked
-			<a href={`/contribute/${gameId}`}>Help us by submitting data for the latest version</a>
-		</div>
-	{/if}
 	<div class="perf-card">
 		{#if performance.docked}
 			{@const docked = performance.docked}

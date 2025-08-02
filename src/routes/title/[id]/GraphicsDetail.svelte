@@ -47,8 +47,6 @@
 </script>
 
 <div class="section-container">
-	<h2 class="section-title">Graphics Settings</h2>
-
 	{#if !settings || Object.keys(settings).length === 0}
 		<p class="no-data-message">No graphics settings have been submitted for this title yet.</p>
 	{:else}
@@ -128,12 +126,7 @@
 
 <style>
 	.section-container {
-		margin-top: 3rem;
-	}
-	.section-title {
-		font-size: 1.5rem;
-		font-weight: 700;
-		margin-bottom: 1rem;
+		margin-top: 1rem;
 	}
 	.card {
 		background-color: var(--surface-color);
