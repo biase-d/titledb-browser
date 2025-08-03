@@ -151,7 +151,7 @@
 
 					{#if otherTitlesInGroup.length > 0}
 						<div class="other-versions">
-							<strong>Other known versions:</strong>
+							<strong>Other known regional releases</strong>
 							<ul>
 								{#each otherTitlesInGroup as title}
 									<li><a href={`/title/${title.id}`}>{title.name} ({title.id})</a></li>
