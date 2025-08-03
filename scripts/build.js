@@ -318,6 +318,11 @@ async function doIncrementalUpdate() {
       }
     }
   }
+  
+  if (affectedGroupIds.size > 0) {
+    const groupsToInsert = Array.from(affectedGroupIds).map(id => ({ id }));
+    await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
+  }
 
   for (const [key, profile] of dbProfilesMap.entries()) {
     if (!localProfiles.has(key)) {
@@ -374,6 +379,11 @@ async function doIncrementalUpdate() {
          }
          affectedGroupIds.add(groupId);
       }
+    }
+
+    if (affectedGroupIds.size > 0) {
+        const groupsToInsert = Array.from(affectedGroupIds).map(id => ({ id }));
+        await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
     }
 
     for (const [groupId, record] of dbRecordsMap.entries()) {
