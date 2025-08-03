@@ -1,7 +1,7 @@
 {
 	"name": "titleDB-Browser",
 	"private": true,
-	"version": "1.0.0",
+	"version": "3.0.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -42,7 +42,7 @@
 		"@octokit/rest": "^22.0.0",
 		"@resvg/resvg-js": "^2.6.2",
 		"chart.js": "^4.5.0",
-		"drizzle-orm": "^0.44.3",
+		"drizzle-orm": "^0.44.4",
 		"idb": "^8.0.3",
 		"lodash-es": "^4.17.21",
 		"postgres": "^3.4.7",
