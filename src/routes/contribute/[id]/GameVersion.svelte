@@ -19,7 +19,6 @@
         id="game_version"
         bind:value={gameVersion}
         placeholder="e.g. 1.1.0"
-        pattern="\d+\.\d+\.\d+"
         title="Please enter a version number in the format X.X.X (e.g. 1.1.0)"
         required
     />

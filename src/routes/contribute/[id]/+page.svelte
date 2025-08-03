@@ -157,7 +157,6 @@
 								type="text"
 								bind:value={profile.gameVersion}
 								placeholder="e.g. 1.1.0"
-								pattern="\d+\.\d+\.\d+"
 								title="Version X.X.X (e.g. 1.1.0)"
 								required
 								class="version-input"
