@@ -64,9 +64,33 @@ export async function searchGames(searchParams) {
 	
 	const query = db.with(latestProfileSubquery)
 		.select({
-			...games,
-			performance: sql`COALESCE(${latestProfileSubquery.profiles}, json_build_object('docked', json_build_object('target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'), 'handheld', json_build_object('target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'))::jsonb)`
-		})
+			id: games.id,
+			groupId: games.groupId,
+			names: games.names,
+			iconUrl: games.iconUrl,
+			publisher: games.publisher,
+			lastUpdated: games.lastUpdated,
+			performance: sql`
+					jsonb_build_object(
+						'docked', jsonb_build_object(
+							'target_fps',
+							CASE
+								WHEN ${latestProfileSubquery.profiles}->'docked'->>'target_fps' IS NOT NULL
+								THEN ${latestProfileSubquery.profiles}->'docked'->>'target_fps'
+								ELSE ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'
+							END
+						),
+						'handheld', jsonb_build_object(
+							'target_fps',
+							CASE
+								WHEN ${latestProfileSubquery.profiles}->'handheld'->>'target_fps' IS NOT NULL
+								THEN ${latestProfileSubquery.profiles}->'handheld'->>'target_fps'
+								ELSE ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'
+							END
+						)
+					)
+				`
+			})
 		.from(games)
 		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
 		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
@@ -108,7 +132,12 @@ export async function searchGames(searchParams) {
 		
 		if (recentProfiles.length > 0) {
 			const groupIds = recentProfiles.map(p => p.group_id);
-			recentUpdates = await db.select().from(games).where(inArray(games.groupId, groupIds));
+			recentUpdates = await db.select({
+				id: games.id,
+				names: games.names,
+				publisher: games.publisher,
+				iconUrl: games.iconUrl
+			}).from(games).where(inArray(games.groupId, groupIds));
 		}
 	}
 	
