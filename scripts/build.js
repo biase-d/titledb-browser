@@ -303,6 +303,7 @@ async function doIncrementalUpdate() {
         const dbRecord = dbProfilesMap.get(key);
         if (!dbRecord || lastUpdated > dbRecord.lastUpdated) {
           console.log(`Upserting performance profile for ${key}`);
+          await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
           const content = JSON.parse(await fs.readFile(path.join(perfDir, groupId, versionFile), 'utf-8'));
           await db.insert(performanceProfiles).values({
             groupId, gameVersion, profiles: content,
@@ -317,11 +318,6 @@ async function doIncrementalUpdate() {
         }
       }
     }
-  }
-  
-  if (affectedGroupIds.size > 0) {
-    const groupsToInsert = Array.from(affectedGroupIds).map(id => ({ id }));
-    await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
   }
 
   for (const [key, profile] of dbProfilesMap.entries()) {
@@ -351,6 +347,8 @@ async function doIncrementalUpdate() {
       const dbRecord = dbRecordsMap.get(groupId);
       if (!dbRecord || lastUpdated > (dbRecord.lastUpdated || dbRecord.submittedAt)) {
          console.log(`Upserting ${type} for ${groupId}`);
+         await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
+
          const content = JSON.parse(await fs.readFile(path.join(dataDir, file), 'utf-8'));
          if (type === 'graphics') {
             await db.insert(graphicsSettings).values({
@@ -379,11 +377,6 @@ async function doIncrementalUpdate() {
          }
          affectedGroupIds.add(groupId);
       }
-    }
-
-    if (affectedGroupIds.size > 0) {
-        const groupsToInsert = Array.from(affectedGroupIds).map(id => ({ id }));
-        await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
     }
 
     for (const [groupId, record] of dbRecordsMap.entries()) {
