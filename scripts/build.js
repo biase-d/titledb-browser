@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import { sql, inArray, eq, and } from 'drizzle-orm'
 import postgres from 'postgres'
 import { simpleGit } from 'simple-git'
-import { games, graphicsSettings, performanceProfiles, youtubeLinks, gameGroups } from '../../src/lib/db/schema.js'
+import { games, graphicsSettings, performanceProfiles, youtubeLinks, gameGroups } from '../src/lib/db/schema.js'
 
 const DATA_DIR = 'data'
 const REPOS = {
