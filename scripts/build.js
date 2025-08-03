@@ -25,7 +25,7 @@ async function cloneOrPull (repoPath, repoUrl) {
     await git.cwd(repoPath).pull()
   } catch {
     console.log(`Cloning ${repoUrl} into ${repoPath}...`)
-    await git.clone(repoUrl, repoPath, ['--depth=0'])
+    await git.clone(repoUrl, repoPath)
   }
 }
 
