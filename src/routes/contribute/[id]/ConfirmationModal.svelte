@@ -38,6 +38,30 @@
 		return isModeEmpty(docked) && isModeEmpty(handheld);
 	}
 
+	function isGraphicsEmpty(graphics) {
+		if (!graphics || Object.keys(graphics).length === 0) return true;
+
+		const isModeDataEmpty = (modeData) => {
+			if (!modeData) return true;
+			const res = modeData.resolution;
+			if (res && (res.fixedResolution || res.minResolution || res.maxResolution || res.multipleResolutions?.[0] || res.notes)) return false;
+
+			const fps = modeData.framerate;
+			if (fps && (fps.targetFps || fps.notes)) return false;
+
+			const custom = modeData.custom;
+			if (custom && Object.values(custom).some(c => c.value || c.notes)) return false;
+
+			return true;
+		}
+
+		const shared = graphics.shared;
+		if (shared && Object.values(shared).some(s => s.value || s.notes)) return false;
+
+		return isModeDataEmpty(graphics.docked) && isModeDataEmpty(graphics.handheld);
+	}
+
+
 	let changeSummary = $derived((() => {
 		if (!show) return [];
 		const summary = [];
@@ -83,14 +107,18 @@
 
 		const graphicsChanged = JSON.stringify(graphicsData) !== JSON.stringify(originalGraphics || {});
 		if (graphicsChanged) {
-			if (!originalGraphics && Object.keys(graphicsData).length > 0) {
+			const newIsEmpty = isGraphicsEmpty(graphicsData);
+			const originalIsEmpty = isGraphicsEmpty(originalGraphics);
+
+			if (newIsEmpty && !originalIsEmpty) {
+				summary.push('Cleared graphics settings.');
+			} else if (!newIsEmpty && originalIsEmpty) {
 				summary.push('Added new graphics settings.');
-			} else if (originalGraphics && Object.keys(graphicsData).length === 0) {
-				summary.push('Removed graphics settings.');
-			} else {
+			} else if (!newIsEmpty && !originalIsEmpty) {
 				summary.push('Updated graphics settings.');
 			}
 		}
+
 		// YouTube Link Changes
 		const normalizeLinks = (links) => links.map(l => ({ url: l.url, notes: l.notes || '' })).sort((a,b) => a.url.localeCompare(b.url));
 		const normalizedNew = normalizeLinks(youtubeLinks);
@@ -171,7 +199,7 @@
 					</div>
 				{/each}
 
-				{#if Object.keys(graphicsData).length > 0}
+				{#if !isGraphicsEmpty(graphicsData)}
 					<div class="version-preview-section">
 						<h4 class="version-preview-title">Graphics Settings</h4>
 						<GraphicsDetail settings={graphicsData} />

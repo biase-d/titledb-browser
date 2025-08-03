@@ -7,6 +7,7 @@
 	let minResolution = $state(settingsData.minResolution || '');
 	let maxResolution = $state(settingsData.maxResolution || '');
 	let multipleResolutions = $state(settingsData.multipleResolutions || ['']);
+	let notes = $state(settingsData.notes || '');
 
 	$effect(() => {
 		settingsData.resolutionType = resolutionType;
@@ -14,6 +15,7 @@
 		settingsData.minResolution = minResolution;
 		settingsData.maxResolution = maxResolution;
 		settingsData.multipleResolutions = multipleResolutions;
+		settingsData.notes = notes;
 
 		if (resolutionType !== 'Multiple Fixed') settingsData.multipleResolutions = [''];
 		if (resolutionType !== 'Dynamic') {
@@ -85,7 +87,16 @@
 	</div>
 {/if}
 
+<div class="form-group form-group-full">
+	<label for="resolution_notes">Resolution Notes</label>
+	<textarea id="resolution_notes" bind:value={notes} placeholder="Any details about upscaling, visual quality, etc."></textarea>
+</div>
+
 <style>
+	textarea {
+		min-height: 80px;
+		resize: vertical;
+	}
 	.form-group {
 		display: flex;
 		flex-direction: column;
@@ -98,7 +109,7 @@
 		margin-bottom: 0.5rem;
 		font-size: 0.9rem;
 	}
-	input, select {
+	input, select, textarea {
 		width: 100%;
 		padding: 10px 12px;
 		background-color: var(--surface-color);

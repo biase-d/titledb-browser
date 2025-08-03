@@ -26,7 +26,7 @@
 	function formatFramerate(modeData) {
 		if (!modeData) return 'N/A';
 		if (!modeData.target_fps) return modeData.fps_behavior || 'N/A';
-		return `${modeData.target_fps} FPS`;
+		return `${modeData.fps_behavior} ${modeData.target_fps} FPS`;
 	}
 </script>
 

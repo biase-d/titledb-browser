@@ -76,6 +76,7 @@
 						<div class="field">
 							<span class="field-key">Resolution</span>
 							<span class="field-value">{formatResolution(dockedSettings.resolution)}</span>
+							{#if dockedSettings.resolution.notes}<span class="field-note">{dockedSettings.resolution.notes}</span>{/if}
 						</div>
 					{/if}
 					{#if dockedSettings.framerate}
@@ -106,6 +107,7 @@
 						<div class="field">
 							<span class="field-key">Resolution</span>
 							<span class="field-value">{formatResolution(handheldSettings.resolution)}</span>
+							{#if handheldSettings.resolution.notes}<span class="field-note">{handheldSettings.resolution.notes}</span>{/if}
 						</div>
 					{/if}
 					{#if handheldSettings.framerate}
