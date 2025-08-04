@@ -40,7 +40,7 @@ export const performanceProfiles = pgTable('performance_profiles', {
 export const graphicsSettings = pgTable('graphics_settings', {
 	groupId: text('group_id').primaryKey().references(() => gameGroups.id),
 	settings: jsonb('settings').notNull(),
-	contributor: text('contributor'),
+	contributor: text('contributor').array(),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 });
 

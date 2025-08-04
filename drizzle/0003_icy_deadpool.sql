@@ -1,0 +1,1 @@
+ALTER TABLE "graphics_settings" ALTER COLUMN "contributor" SET DATA TYPE text[] USING ARRAY[contributor];
