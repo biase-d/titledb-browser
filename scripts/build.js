@@ -142,8 +142,8 @@ async function buildFullContributorMap (cachedMap = null, lastProcessedDate = nu
         if ((match = filePath.match(/^profiles\/([A-F0-9]{16})\/(.+)\.json/))) {
           const groupId = match[1];
           const fileBaseName = match[2];
-          const [gameVersion, ...suffixParts] = fileBaseName.split('_');
-          const suffix = suffixParts.join('_') || '';
+          const [gameVersion, ...suffixParts] = fileBaseName.split('$');
+          const suffix = suffixParts.join('$') || '';
           const key = `${groupId}-${gameVersion}-${suffix}`;
           contributorMap.performance[key] = prInfo;
         } else if ((match = filePath.match(/^graphics\/([A-F0-9]{16})\.json/))) {
@@ -335,9 +335,10 @@ async function syncDataType(config) {
       const groupId = file.name;
       const versionFiles = await fs.readdir(path.join(dataDir, groupId)).catch(() => []);
       for (const versionFile of versionFiles) {
+        // This inner loop handles the performance profile logic
         const baseName = path.basename(versionFile, '.json');
-        const [gameVersion, ...suffixParts] = baseName.split('_');
-        const suffix = suffixParts.join('_') || null;
+        const [gameVersion, ...suffixParts] = baseName.split('$');
+        const suffix = suffixParts.join('$') || null;
         const fileKey = `${groupId}-${gameVersion}-${suffix || ''}`;
         localFileKeys.add(fileKey);
 

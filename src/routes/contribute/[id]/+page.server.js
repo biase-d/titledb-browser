@@ -143,11 +143,11 @@ export const actions = {
 			const submittedPerformanceData = performanceData.filter(p => p.gameVersion && p.gameVersion.trim() !== '');
 
 			const submittedProfilesMap = new Map(submittedPerformanceData.map(p => {
-				const key = p.suffix ? `${p.gameVersion}_${p.suffix}` : p.gameVersion;
+				const key = p.suffix ? `${p.gameVersion}$${p.suffix}` : p.gameVersion;
 				return [key, p];
 			}));
 			const originalProfilesMap = new Map(originalPerformanceData.map(p => {
-				const key = p.suffix ? `${p.gameVersion}_${p.suffix}` : p.gameVersion;
+				const key = p.suffix ? `${p.gameVersion}$${p.suffix}` : p.gameVersion;
 				return [key, p];
 			}));
 
@@ -158,7 +158,7 @@ export const actions = {
 				const fileContent = submittedProfile.profiles;
 
 				const fileName = submittedProfile.suffix
-					? `${submittedProfile.gameVersion}_${submittedProfile.suffix}.json`
+					? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json`
 					: `${submittedProfile.gameVersion}.json`;
 
 				filesToCommit.push({
@@ -171,7 +171,7 @@ export const actions = {
 			for (const [key, originalProfile] of originalProfilesMap.entries()) {
 				if (!submittedProfilesMap.has(key)) {
 					const fileName = originalProfile.suffix
-						? `${originalProfile.gameVersion}_${originalProfile.suffix}.json`
+						? `${originalProfile.gameVersion}$${originalProfile.suffix}.json`
 						: `${originalProfile.gameVersion}.json`;
 					filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: null, sha: shas.performance?.[key] });
 				}

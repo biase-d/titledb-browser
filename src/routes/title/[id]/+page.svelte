@@ -13,7 +13,13 @@
 	let url = $derived(data.url)
 	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
 	let youtubeLinks = $derived(data.youtubeLinks || []);
-	let youtubeContributors = $derived(data.youtubeContributors || []);
+		let youtubeContributors = $derived.by(() => {
+		const contributors = new Set();
+		youtubeLinks.forEach(link => {
+			if (link.submittedBy) contributors.add(link.submittedBy);
+		});
+		return [...contributors];
+	});
 
 	let selectedVersionIndex = $state(0);
 	let performanceHistory = $derived(game.performanceHistory || []);
@@ -201,12 +207,16 @@
 						<label for="version-select">Version:</label>
 						<select id="version-select" bind:value={selectedVersionIndex}>
 							{#each performanceHistory as profile, i}
-								<option value={i}>{profile.gameVersion}</option>
+								<option value={i}>
+									{profile.suffix ? `${profile.gameVersion} (${profile.suffix})` : profile.gameVersion}
+								</option>
 							{/each}
 						</select>
 					</div>
 				{:else if performance}
-					<span class="version-tag">Version: {performance.gameVersion}</span>
+					<span class="version-tag">
+						Version: {performance.suffix ? `${performance.gameVersion} (${performance.suffix})` : performance.gameVersion}
+					</span>
 				{/if}
 
 				{#if session?.user}
