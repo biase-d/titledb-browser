@@ -453,12 +453,14 @@ async function syncDataType(config) {
       try {
         await fs.access(DATE_MAP_CACHE);
         console.log('Loading date map from cache...');
-        dateMap = JSON.parse(await fs.readFile(DATE_MAP_CACHE, 'utf-8'), (key, value) => {
-          if (key.toLowerCase().includes('date') && typeof value === 'string') {
-            return new Date(value);
+        const dateMapJson = JSON.parse(await fs.readFile(DATE_MAP_CACHE, 'utf-8'));
+        dateMap = {};
+        for (const type in dateMapJson) {
+          dateMap[type] = {};
+          for (const groupId in dateMapJson[type]) {
+            dateMap[type][groupId] = new Date(dateMapJson[type][groupId]);
           }
-          return value;
-        });
+        }
       } catch {
         console.log('Date map cache not found.');
         cachedMap = null;
