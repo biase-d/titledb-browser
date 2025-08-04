@@ -18,6 +18,11 @@ export async function getGameDetails(titleId) {
 
 	const groupId = game.groupId;
 
+	// Fetch the parent game group to get the complete list of YouTube contributors
+	const groupInfo = await db.query.gameGroups.findFirst({
+		where: eq(gameGroups.id, groupId)
+	});
+
 	// Fetch all other titles sharing the same group ID
 	const allTitlesInGroup = await db.query.games.findMany({
 		where: eq(games.groupId, groupId),
@@ -61,7 +66,7 @@ export async function getGameDetails(titleId) {
 
 	const gameData = {
 		...game,
-		graphics: graphics?.settings || null,
+		graphics: graphics || null,
 		performanceHistory: allPerformanceProfiles.map(p => ({
 			id: p.id,
 			gameVersion: p.gameVersion,
@@ -78,6 +83,7 @@ export async function getGameDetails(titleId) {
 	return {
 		game: gameData,
 		allTitlesInGroup: allTitlesInGroup.map((t) => ({ id: t.id, name: t.names[0] })),
-		youtubeLinks: links
+		youtubeLinks: links,
+		youtubeContributors: groupInfo?.youtubeContributors || []
 	};
 }

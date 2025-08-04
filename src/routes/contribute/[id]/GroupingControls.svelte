@@ -169,7 +169,7 @@
 			</ul>
 		{/if}
 	</div>
-
+	
 	<div class="custom-add-section">
 		<label for="custom-id-input">Or add by Title ID</label>
 		<div class="custom-id-row">
