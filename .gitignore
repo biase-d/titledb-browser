@@ -8,6 +8,7 @@ data/
 .wrangler
 /.svelte-kit
 /build
+.cache
 
 # OS
 .DS_Store
