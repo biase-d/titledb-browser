@@ -189,14 +189,21 @@ async function doFullRebuild() {
 			const contributionInfo = contributorMap.performance[groupId] || {};
 			for (const versionFile of await fs.readdir(path.join(performanceDir, groupId)).catch(() => [])) {
 				if (path.extname(versionFile) === '.json') {
-					const gameVersion = path.basename(versionFile, '.json')
-					const content = JSON.parse(await fs.readFile(path.join(performanceDir, groupId, versionFile), 'utf-8'))
+					const baseName = path.basename(versionFile, '.json');
+					const [gameVersion, ...suffixParts] = baseName.split('_');
+					const suffix = suffixParts.join('_') || null;
+
+					const content = JSON.parse(await fs.readFile(path.join(performanceDir, groupId, versionFile), 'utf-8'));
+
 					profilesToInsert.push({
-						groupId, gameVersion, profiles: content,
+						groupId,
+						gameVersion,
+						suffix,
+						profiles: content,
 						contributor: contributionInfo.contributor,
 						sourcePrUrl: contributionInfo.sourcePrUrl,
 						lastUpdated: dateMap.performance[groupId] || new Date()
-					})
+					});
 				}
 			}
 		}
@@ -285,34 +292,45 @@ async function doIncrementalUpdate() {
   console.log('Syncing performance profiles...');
   const perfDir = path.join(dataRepoPath, 'profiles');
   const dbProfiles = await db.select().from(performanceProfiles);
-  const dbProfilesMap = new Map(dbProfiles.map(p => [`${p.groupId}-${p.gameVersion}`, p]));
+  const dbProfilesMap = new Map(dbProfiles.map(p => [`${p.groupId}-${p.gameVersion}-${p.suffix || ''}`, p]));
   const localProfiles = new Set();
 
   for (const groupDir of await fs.readdir(perfDir, { withFileTypes: true }).catch(() => [])) {
     if (groupDir.isDirectory()) {
       const groupId = groupDir.name;
       for (const versionFile of await fs.readdir(path.join(perfDir, groupId)).catch(() => [])) {
-        const gameVersion = path.basename(versionFile, '.json');
-        const key = `${groupId}-${gameVersion}`;
+        const baseName = path.basename(versionFile, '.json');
+        const [gameVersion, ...suffixParts] = baseName.split('_');
+        const suffix = suffixParts.join('_') || null;
+        const key = `${groupId}-${gameVersion}-${suffix || ''}`;
         localProfiles.add(key);
 
         const filePath = `profiles/${groupId}/${versionFile}`;
         const log = await git.cwd(dataRepoPath).log({ file: filePath, n: 1 });
         const lastUpdated = log.latest ? new Date(log.latest.date) : new Date();
-        
+
         const dbRecord = dbProfilesMap.get(key);
         if (!dbRecord || lastUpdated > dbRecord.lastUpdated) {
           console.log(`Upserting performance profile for ${key}`);
           await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
           const content = JSON.parse(await fs.readFile(path.join(perfDir, groupId, versionFile), 'utf-8'));
-          await db.insert(performanceProfiles).values({
-            groupId, gameVersion, profiles: content,
+          const recordToUpsert = {
+            groupId,
+            gameVersion: content.gameVersion || gameVersion,
+            suffix: content.suffix || suffix,
+            profiles: content.profiles,
             contributor: content.contributor,
             sourcePrUrl: content.sourcePrUrl,
             lastUpdated
-          }).onConflictDoUpdate({
-            target: [performanceProfiles.groupId, performanceProfiles.gameVersion],
-            set: { profiles: content, contributor: content.contributor, sourcePrUrl: content.sourcePrUrl, lastUpdated }
+          };
+          await db.insert(performanceProfiles).values(recordToUpsert).onConflictDoUpdate({
+            target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
+            set: {
+              profiles: recordToUpsert.profiles,
+              contributor: recordToUpsert.contributor,
+              sourcePrUrl: recordToUpsert.sourcePrUrl,
+              lastUpdated: recordToUpsert.lastUpdated
+            }
           });
           affectedGroupIds.add(groupId);
         }
@@ -323,7 +341,13 @@ async function doIncrementalUpdate() {
   for (const [key, profile] of dbProfilesMap.entries()) {
     if (!localProfiles.has(key)) {
       console.log(`Deleting performance profile for ${key}`);
-      await db.delete(performanceProfiles).where(and(eq(performanceProfiles.groupId, profile.groupId), eq(performanceProfiles.gameVersion, profile.gameVersion)));
+      await db.delete(performanceProfiles).where(
+        and(
+          eq(performanceProfiles.groupId, profile.groupId),
+          eq(performanceProfiles.gameVersion, profile.gameVersion),
+          profile.suffix ? eq(performanceProfiles.suffix, profile.suffix) : isNull(performanceProfiles.suffix)
+        )
+      );
       affectedGroupIds.add(profile.groupId);
     }
   }
