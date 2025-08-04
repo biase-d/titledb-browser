@@ -56,7 +56,12 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
 
       - name: Run build script to sync database
-        run: node scripts/build.js ${{ steps.build_cache.outputs.cache-hit != 'true' && '--no-cache' }}
+        run: |
+          if [ "${{ steps.build_cache.outputs.cache-hit }}" != "true" ]; then
+            node scripts/build.js --no-cache
+          else
+            node scripts/build.js
+          fi
         env:
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
