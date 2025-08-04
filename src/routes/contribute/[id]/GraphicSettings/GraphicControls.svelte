@@ -22,7 +22,7 @@
 		shared: initialSettings?.shared || {}
 	});
 
-	let isVisible = $state(Object.keys(initialSettings || {}).length > 0);
+	let isVisible = $state(!!initialSettings);
 
 	$effect(() => {
 		if (isVisible) {

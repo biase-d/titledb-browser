@@ -203,7 +203,7 @@
 				<Icon icon="mdi:plus-circle-outline" /> Add data for another version
 			</button>
 
-			<GraphicsControls initialSettings={existingGraphics} onUpdate={(newSettings) => { graphicsData = newSettings; }} />
+			<GraphicsControls initialSettings={existingGraphics?.settings} onUpdate={(newSettings) => { graphicsData = newSettings; }} />
 			<YoutubeControls initialLinks={existingYoutubeLinks} onUpdate={(newLinks) => { youtubeLinks = newLinks; }} />
 
 			<div class="form-footer">
