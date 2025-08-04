@@ -24,6 +24,12 @@ jobs:
           repository: biase-d/nx-performance
           path: data/nx-performance
 
+      - name: Checkout titledb_filtered data repository
+        uses: actions/checkout@v4
+        with:
+          repository: masagrator/titledb_filtered
+          path: data/titledb_filtered
+
       - name: Get latest data repo commit hash
         id: data_commit
         run: echo "sha=$(git -C data/nx-performance rev-parse HEAD)" >> $GITHUB_OUTPUT
