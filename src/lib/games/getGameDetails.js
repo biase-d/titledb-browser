@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { games, performanceProfiles, graphicsSettings, youtubeLinks } from '$lib/db/schema';
+import { games, performanceProfiles, graphicsSettings, youtubeLinks, gameGroups } from '$lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
 /**
