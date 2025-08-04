@@ -13,6 +13,7 @@
 	let url = $derived(data.url)
 	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
 	let youtubeLinks = $derived(data.youtubeLinks || []);
+	let youtubeContributors = $derived(data.youtubeContributors || []);
 
 	let selectedVersionIndex = $state(0);
 	let performanceHistory = $derived(game.performanceHistory || []);
@@ -75,7 +76,7 @@
 		const contributors = new Set();
 		if (performance?.contributor) contributors.add(performance.contributor);
 		if (game.graphics?.contributor) contributors.add(game.graphics.contributor);
-		if (youtubeLinks[0]?.submittedBy) contributors.add(youtubeLinks[0].submittedBy);
+		youtubeContributors.forEach(c => contributors.add(c));
 		return contributors;
 	});
 
@@ -139,7 +140,7 @@
 {#if game}
 	<div class="page-container" in:fade={{ duration: 300 }}>
 		<div class="page-nav">
-			<button class="back-button" onclick={() => history.back()}>← Back</button>
+			<a href="/" class="back-button">← Back</a>
 		</div>
 		<div class="banner-header">
 			<div class="banner-image" style="background-image: url({game.bannerUrl});"></div>
@@ -225,9 +226,14 @@
 			{#if gameGraphicsHasData}
 				<div class="section-header">
 					<h2 class="section-title">Graphics Settings</h2>
-					{#if !isSingleContributor && game.graphics.contributor}
+					{#if !isSingleContributor && game.graphics.contributor?.length > 0}
 						<div class="section-contributor-info">
-							<span>Submitted by <a href={`/profile/${game.graphics.contributor}`}>{game.graphics.contributor}</a></span>
+							<span>
+								Submitted by
+								{#each game.graphics.contributor as contributor, i}
+									<a href={`/profile/${contributor}`}>{contributor}</a>{i < game.graphics.contributor.length - 1 ? ', ' : ''}
+								{/each}
+							</span>
 						</div>
 					{/if}
 				</div>
@@ -237,9 +243,13 @@
 			{#if youtubeLinks.length > 0}
 			<div class="section-header">
 				<h2 class="section-title">Gameplay Videos</h2>
-				{#if !isSingleContributor && youtubeLinks[0]?.submittedBy}
+				{#if !isSingleContributor && youtubeContributors.length > 0}
 					<div class="section-contributor-info">
-						<span>Submitted by <a href={`/profile/${youtubeLinks[0].submittedBy}`}>{youtubeLinks[0].submittedBy}</a></span>
+						<span>Submitted by
+							{#each youtubeContributors as contributor, i}
+								<a href={`/profile/${contributor}`}>{contributor}</a>{i < youtubeContributors.length - 1 ? ', ' : ''}
+							{/each}
+						</span>
 					</div>
 				{/if}
 			</div>
