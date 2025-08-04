@@ -13,6 +13,9 @@
 	let searchLoading = $state(false)
 	let debounceTimer
 
+	let customIdInput = $state('')
+	let customIdError = $state('')
+
 	let currentGroup = $state([...initialGroup])
 
 	async function performSearch () {
@@ -61,6 +64,45 @@
 		if (index > -1) {
 			currentGroup.splice(index, 1)
 			onUpdate(currentGroup)
+		}
+	}
+
+	async function addCustomId () {
+		const id = customIdInput.trim().toUpperCase()
+
+		if (!/^0[5-8]00[0-9A-F]{10}$/.test(id)) {
+			customIdError = 'Invalid Title ID format. Must be 16 hex characters'
+			return
+		}
+
+		if (isAlreadyInGroup({ id })) {
+			customIdError = 'This title is already in the group'
+			return
+		}
+
+		customIdError = ''
+		searchLoading = true
+
+		try {
+			const res = await fetch(`/api/v1/games/search?q=${encodeURIComponent(id)}`)
+			let titleData
+			if (res.ok) {
+				const results = await res.json()
+				if (results.length > 0) {
+					titleData = { id: results[0].id, name: results[0].name }
+				} else {
+					titleData = { id, name: 'Custom Title' }
+				}
+			} else {
+				titleData = { id, name: 'Custom Title' }
+			}
+			addToGroup(titleData)
+			customIdInput = ''
+		} catch (e) {
+			console.error('Failed to add custom ID', e)
+			customIdError = 'An error occurred while adding the ID'
+		} finally {
+			searchLoading = false
 		}
 	}
 </script>
@@ -125,6 +167,24 @@
 					</li>
 				{/each}
 			</ul>
+		{/if}
+	</div>
+
+	<div class="custom-add-section">
+		<label for="custom-id-input">Or add by Title ID</label>
+		<div class="custom-id-row">
+			<input
+				id="custom-id-input"
+				type="text"
+				bind:value={customIdInput}
+				placeholder="0100..."
+				maxlength="16"
+				onkeydown={(e) => { if (e.key === 'Enter') addCustomId() }}
+			/>
+			<button type="button" class="add-button" onclick={addCustomId}>Add ID</button>
+		</div>
+		{#if customIdError}
+			<p class="error-text">{customIdError}</p>
 		{/if}
 	</div>
 	{/if}
@@ -277,5 +337,38 @@
 		background-color: var(--input-bg);
 		color: var(--text-secondary);
 		cursor: not-allowed;
+	}
+
+	.custom-add-section {
+		margin-top: 1.5rem;
+		padding-top: 1.5rem;
+		border-top: 1px dashed var(--border-color);
+	}
+	.custom-add-section label {
+		font-weight: 500;
+		margin-bottom: 0.5rem;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		display: block;
+	}
+	.custom-id-row {
+		display: flex;
+		gap: 1rem;
+	}
+	.custom-id-row input {
+		flex-grow: 1;
+		width: 100%;
+		background-color: var(--surface-color);
+		color: var(--text-primary);
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+		padding: 10px 12px;
+		font-size: 1rem;
+		box-sizing: border-box;
+	}
+	.error-text {
+		color: #ef4444;
+		font-size: 0.8rem;
+		margin: 0.5rem 0 0;
 	}
 </style>

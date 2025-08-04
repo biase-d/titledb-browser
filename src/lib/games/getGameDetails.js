@@ -62,7 +62,15 @@ export async function getGameDetails(titleId) {
 	const gameData = {
 		...game,
 		graphics: graphics?.settings || null,
-		performanceHistory: allPerformanceProfiles,
+		performanceHistory: allPerformanceProfiles.map(p => ({
+			id: p.id,
+			gameVersion: p.gameVersion,
+			suffix: p.suffix || '',
+			profiles: p.profiles,
+			contributor: p.contributor,
+			sourcePrUrl: p.sourcePrUrl,
+			lastUpdated: p.lastUpdated
+		})),
 		contributor: latestProfile?.contributor,
 		sourcePrUrl: latestProfile?.sourcePrUrl
 	};

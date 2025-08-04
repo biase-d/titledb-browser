@@ -6,7 +6,7 @@
 	import { page } from '$app/state';
 	import { browser } from '$app/environment';
 	import GroupingControls from './GroupingControls.svelte';
-	import GraphicsControls from './GraphicControls.svelte';
+	import GraphicsControls from './GraphicSettings/GraphicControls.svelte';
 	import PerformanceControls from './PerformanceControls.svelte';
 	import YoutubeControls from './YoutubeControls.svelte';
 	import ConfirmationModal from './ConfirmationModal.svelte';
@@ -34,11 +34,14 @@
 		let nextVersion = '1.0.0';
 
 		if (performanceProfiles.length > 0) {
+			const getVersionParts = (versionStr) =>
+				(versionStr.match(/[\d.]+/)?.[0] || '0').split('.').map(part => parseInt(part, 10) || 0);
+
 			const latestProfile = [...performanceProfiles]
 				.filter(p => p.gameVersion)
 				.sort((a, b) => {
-					const partsA = a.gameVersion.split('.').map(part => parseInt(part, 10) || 0);
-					const partsB = b.gameVersion.split('.').map(part => parseInt(part, 10) || 0);
+					const partsA = getVersionParts(a.gameVersion);
+					const partsB = getVersionParts(b.gameVersion);
 					const len = Math.max(partsA.length, partsB.length);
 					for (let i = 0; i < len; i++) {
 						const numA = partsA[i] || 0;
@@ -49,7 +52,7 @@
 				})[0];
 
 			if (latestProfile) {
-				const parts = latestProfile.gameVersion.split('.').map(p => parseInt(p, 10) || 0);
+				const parts = getVersionParts(latestProfile.gameVersion);
 				while (parts.length < 3) parts.push(0); // Ensure it has at least 3 parts for .patch
 				parts[parts.length - 1]++; // Increment the last part (patch)
 				nextVersion = parts.join('.');
@@ -58,6 +61,7 @@
 
 		performanceProfiles.push({
 			gameVersion: nextVersion,
+			suffix: '',
 			profiles: {
 				docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: '', fps_notes: '' },
 				handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: '', fps_notes: '' }
@@ -144,6 +148,7 @@
 			<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
 			<input type="hidden" name="originalGroupData" value={JSON.stringify(allTitlesInGroup)} />
 			<input type="hidden" name="originalPerformanceData" value={JSON.stringify(existingPerformance)} />
+			<input type="hidden" name="originalGraphicsData" value={JSON.stringify(existingGraphics)} />
 			<input type="hidden" name="originalYoutubeLinks" value={JSON.stringify(data.originalYoutubeLinks)} />
 			<input type="hidden" name="shas" value={JSON.stringify(shas)} />
 
@@ -152,15 +157,39 @@
 					<div class="version-header">
 						<h4>Performance Profile</h4>
 						<div class="version-input-wrapper">
-							<label> Game Version</label>
-							<input
-								type="text"
-								bind:value={profile.gameVersion}
-								placeholder="e.g. 1.1.0"
-								required
-								class="version-input"
-							/>
-							<button type="button" class="remove-version-btn" onclick={() => removeVersion(i)}>Remove</button>
+							<div class="form-field">
+								<label for="game_version_{i}">Game Version</label>
+								<input
+									id="game_version_{i}"
+									type="text"
+									bind:value={profile.gameVersion}
+									placeholder="e.g. 1.1.0"
+									required
+									class="version-input"
+								/>
+							</div>
+							<div class="form-field">
+								<label for="version_suffix_{i}">
+									Region
+									<div class="tooltip">
+										<Icon icon="mdi:help-circle-outline" />
+										<span class="tooltip-text">
+											Optional. Use if this version only applies to a specific region or edition (e.g., 'jp', 'us', 'rev1'). Leave blank if it applies to all games in the group.
+										</span>
+									</div>
+								</label>
+								<input
+									id="version_suffix_{i}"
+									type="text"
+									bind:value={profile.suffix}
+									placeholder="e.g. 'jp'"
+									class="version-input"
+									oninput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9_-]/g, ''); }}
+								/>
+							</div>
+							{#if performanceProfiles.length > 1}
+								<button type="button" class="remove-version-btn" onclick={() => removeVersion(i)}>Remove</button>
+							{/if}
 						</div>
 					</div>
 					<div class="mode-grid">
@@ -314,9 +343,53 @@
 
 	.version-input-wrapper {
 		display: flex;
-		align-items: center;
+		align-items: flex-end;
 		gap: 1rem;
+		flex-wrap: wrap;
 	}
+
+	.form-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.form-field label {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	.tooltip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        color: var(--text-secondary);
+    }
+    .tooltip .tooltip-text {
+        visibility: hidden;
+        width: 250px;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 8px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -125px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.8rem;
+        line-height: 1.4;
+    }
+    .tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
 
 	.version-input {
 		width: 120px;
@@ -328,13 +401,14 @@
 	}
 
 	.remove-version-btn {
-		padding: 6px 12px;
+		padding: 8px 12px;
 		background: transparent;
 		color: #ef4444;
 		border: 1px solid #ef4444;
 		border-radius: 6px;
 		cursor: pointer;
 		font-weight: 500;
+		height: 38px;
 	}
 
 	.mode-grid {

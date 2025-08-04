@@ -46,8 +46,9 @@
 					id="{mode.toLowerCase()}_resolution"
 					bind:value={modeData.resolution}
 					placeholder="e.g., 1920x1080"
+					pattern="\d+x\d+"
+					title="Format must be WxH (e.g., 1920x1080)"
 					oninput={(e) => {
-						// Enforce the '1234x567' format by stripping invalid characters
 						e.currentTarget.value = e.currentTarget.value.replace(/[^0-9x]/g, '');
 						modeData.resolution = e.currentTarget.value;
 					}}
@@ -58,11 +59,33 @@
 		{#if modeData.resolution_type === 'Dynamic'}
 			<div class="form-group">
 				<label for="{mode.toLowerCase()}_min_res">Min Resolution</label>
-				<input type="text" id="{mode.toLowerCase()}_min_res" bind:value={modeData.min_res} placeholder="e.g., 1280x720" />
+				<input
+					type="text"
+					id="{mode.toLowerCase()}_min_res"
+					bind:value={modeData.min_res}
+					placeholder="e.g., 1280x720"
+					pattern="\d+x\d+"
+					title="Format must be WxH (e.g., 1920x1080)"
+					oninput={(e) => {
+						e.currentTarget.value = e.currentTarget.value.replace(/[^0-9x]/g, '');
+						modeData.min_res = e.currentTarget.value;
+					}}
+				/>
 			</div>
 			<div class="form-group">
 				<label for="{mode.toLowerCase()}_max_res">Max Resolution</label>
-				<input type="text" id="{mode.toLowerCase()}_max_res" bind:value={modeData.max_res} placeholder="e.g., 1600x900" />
+				<input
+					type="text"
+					id="{mode.toLowerCase()}_max_res"
+					bind:value={modeData.max_res}
+					placeholder="e.g., 1600x900"
+					pattern="\d+x\d+"
+					title="Format must be WxH (e.g., 1600x900)"
+					oninput={(e) => {
+						e.currentTarget.value = e.currentTarget.value.replace(/[^0-9x]/g, '');
+						modeData.max_res = e.currentTarget.value;
+					}}
+				/>
 			</div>
 		{/if}
 
@@ -76,6 +99,12 @@
 								type="text"
 								bind:value={multipleResolutions[i]}
 								placeholder="e.g., 1280x720"
+								pattern="\d+x\d+"
+								title="Format must be WxH (e.g., 1920x1080)"
+								oninput={(e) => {
+									e.currentTarget.value = e.currentTarget.value.replace(/[^0-9x]/g, '');
+									multipleResolutions[i] = e.currentTarget.value;
+								}}
 							/>
 							{#if multipleResolutions.length > 1}
 								<button type="button" class="remove-btn" onclick={() => multipleResolutions.splice(i, 1)}>
@@ -119,7 +148,16 @@
 
 		<div class="form-group">
 			<label for="{mode.toLowerCase()}_target_fps">Target FPS</label>
-			<input type="number" id="{mode.toLowerCase()}_target_fps" bind:value={modeData.target_fps} placeholder="e.g., 30 or 60" />
+			<input
+				type="number"
+				id="{mode.toLowerCase()}_target_fps"
+				bind:value={modeData.target_fps}
+				placeholder="e.g., 30 or 60"
+				min="1"
+				max="240"
+				step="1"
+				oninput={this.value = Math.round(this.value)}
+			/>
 		</div>
 
 		<div class="form-group form-group-full">
