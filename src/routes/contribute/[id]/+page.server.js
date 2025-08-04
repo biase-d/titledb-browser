@@ -140,10 +140,12 @@ export const actions = {
 			const filesToCommit = [];
 			const allContributors = new Set([user.login]);
 
-			// Filter out empty profiles before processing
-			const validPerformanceData = performanceData.filter(p => !isProfileEmpty(p));
+			const submittedPerformanceData = performanceData.filter(p => {
+				const isEmpty = isProfileEmpty(p);
+				return !p.isNew || (p.isNew && !isEmpty);
+			});
 
-			const submittedProfilesMap = new Map(validPerformanceData.map(p => {
+			const submittedProfilesMap = new Map(submittedPerformanceData.map(p => {
 				const key = p.suffix ? `${p.gameVersion}_${p.suffix}` : p.gameVersion;
 				return [key, p];
 			}));
