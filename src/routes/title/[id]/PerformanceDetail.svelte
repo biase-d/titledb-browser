@@ -7,16 +7,15 @@
 
 	function formatResolution(modeData) {
 		if (!modeData) return 'N/A';
-		const getVerticalRes = (res) => res?.trim().split('x')[1] || '?';
 		switch (modeData.resolution_type) {
 			case 'Fixed':
-				return `Fixed at ${getVerticalRes(modeData.resolution)}p`;
+				return `Fixed at ${modeData.resolution || 'N/A'}`;
 			case 'Dynamic':
-				const min = getVerticalRes(modeData.min_res);
-				const max = getVerticalRes(modeData.max_res);
-				return `Dynamic ${min}p ~ ${max}p`;
+				const min = modeData.min_res || '?';
+				const max = modeData.max_res || '?';
+				return `Dynamic ${min} ~ ${max}`;
 			case 'Multiple Fixed':
-				const resolutions = modeData.resolutions?.split(',').filter(Boolean).map(r => `${getVerticalRes(r)}p`).join(', ') || 'N/A';
+				const resolutions = modeData.resolutions?.split(',').filter(Boolean).map(r => r.trim()).join(', ') || 'N/A';
 				return `Multiple: ${resolutions}`;
 			default:
 				return 'N/A';
