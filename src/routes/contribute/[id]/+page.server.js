@@ -140,10 +140,7 @@ export const actions = {
 			const filesToCommit = [];
 			const allContributors = new Set([user.login]);
 
-			const submittedPerformanceData = performanceData.filter(p => {
-				const isEmpty = isProfileEmpty(p);
-				return !p.isNew || (p.isNew && !isEmpty);
-			});
+			const submittedPerformanceData = performanceData.filter(p => p.gameVersion && p.gameVersion.trim() !== '');
 
 			const submittedProfilesMap = new Map(submittedPerformanceData.map(p => {
 				const key = p.suffix ? `${p.gameVersion}_${p.suffix}` : p.gameVersion;
@@ -155,8 +152,6 @@ export const actions = {
 			}));
 
 			for (const [key, submittedProfile] of submittedProfilesMap.entries()) {
-				if (!submittedProfile.gameVersion) continue;
-
 				const originalProfile = originalProfilesMap.get(key);
 				if (originalProfile?.contributor) allContributors.add(originalProfile.contributor);
 
