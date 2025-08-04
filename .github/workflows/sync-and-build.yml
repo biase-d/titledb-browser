@@ -15,8 +15,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout main repository
         uses: actions/checkout@v4
+
+      - name: Checkout nx-performance data repository
+        uses: actions/checkout@v4
+        with:
+          repository: biase-d/nx-performance
+          path: data/nx-performance
+
+      - name: Get latest data repo commit hash
+        id: data_commit
+        run: echo "sha=$(git -C data/nx-performance rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Cache Build Artifacts
+        uses: actions/cache@v4
+        id: build_cache
+        with:
+          path: .cache
+          key: ${{ runner.os }}-build-artifacts-${{ steps.data_commit.outputs.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -33,7 +50,7 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
 
       - name: Run build script to sync database
-        run: node scripts/build.js
+        run: node scripts/build.js ${{ steps.build_cache.outputs.cache-hit != 'true' && '--no-cache' }}
         env:
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
