@@ -34,8 +34,9 @@
 		performance?.profiles && (hasPerformanceData(performance.profiles.docked) || hasPerformanceData(performance.profiles.handheld))
 	);
 
-	function hasGraphicsData(graphics) {
-		if (!graphics || Object.keys(graphics).length === 0) return false;
+	function hasGraphicsData(graphicsSettings) {
+		if (!graphicsSettings || Object.keys(graphicsSettings).length === 0) return false;
+		const graphics = graphicsSettings;
 
 		const checkModeData = (modeData) => {
 			if (!modeData) return false;
@@ -70,7 +71,7 @@
 		return false;
 	}
 
-	let gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics));
+	let gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics?.settings));
 
 	let allContributors = $derived.by(() => {
 		const contributors = new Set();
@@ -226,7 +227,7 @@
 			{#if gameGraphicsHasData}
 				<div class="section-header">
 					<h2 class="section-title">Graphics Settings</h2>
-					{#if !isSingleContributor && game.graphics.contributor?.length > 0}
+					{#if !isSingleContributor && game.graphics?.contributor?.length > 0}
 						<div class="section-contributor-info">
 							<span>
 								Submitted by
@@ -237,7 +238,7 @@
 						</div>
 					{/if}
 				</div>
-				<GraphicsDetail settings={game.graphics} />
+				<GraphicsDetail settings={game.graphics.settings} />
 			{/if}
 
 			{#if youtubeLinks.length > 0}

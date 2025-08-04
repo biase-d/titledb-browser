@@ -1,10 +1,9 @@
 <script>
 	let { settings } = $props();
-	let settingsData = $derived(settings?.settings || {});
 
-	let dockedSettings = $derived(settingsData?.docked || {});
-	let handheldSettings = $derived(settingsData?.handheld || {});
-	let sharedSettings = $derived(settingsData?.shared || {});
+	let dockedSettings = $derived(settings?.docked || {});
+	let handheldSettings = $derived(settings?.handheld || {});
+	let sharedSettings = $derived(settings?.shared || {});
 	let hasSharedSettings = $derived(sharedSettings && Object.entries(sharedSettings).some(([key, data]) => key && data.value));
 
 	function omit(obj, keys) {
@@ -65,7 +64,7 @@
 </script>
 
 <div class="section-container">
-	{#if !settingsData || Object.keys(settingsData).length === 0}
+	{#if !settings || Object.keys(settings).length === 0}
 		<p class="no-data-message">No graphics settings have been submitted for this title yet</p>
 	{:else}
 		<div class="card">
