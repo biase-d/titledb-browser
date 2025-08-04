@@ -5,9 +5,9 @@ export const fpsBehaviorEnum = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unst
 
 export const gameGroups = pgTable('game_groups', {
 	id: text('id').primaryKey(),
+	youtubeContributors: text('youtube_contributors').array(),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 });
-
 
 export const games = pgTable('games', {
 	id: text('id').primaryKey(),
