@@ -80,6 +80,15 @@
 		currentPage = newPage;
 		updateData({ resetPage: false });
 	}
+
+	function deleteAllDrafts() {
+		if (confirm('Are you sure you want to delete all drafts? This cannot be undone.')) {
+			// Loop through a copy because the original array might change during iteration
+			for (const draft of [...drafts]) {
+				draftsStore.delete(draft.id);
+			}
+		}
+	}
 	
 	let hasActiveFilters = $derived(dockedFps || handheldFps || resolutionType);
 
@@ -166,6 +175,7 @@
 		<div class="drafts-section">
 			<div class='section-header-wrapper'>
 				<h2 class="section-header">Saved Drafts</h2>
+				<button class="delete-all-drafts-btn" onclick={deleteAllDrafts} title="Delete all drafts">Delete All</button>
 			</div>
 			<ul class="drafts-list">
 				{#each drafts as draft (draft.id)}
@@ -589,5 +599,19 @@
 	.pagination button:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+
+	.delete-all-drafts-btn {
+		background: none;
+		border: none;
+		color: #ef4444;
+		font-size: 0.9rem;
+		font-weight: 500;
+		cursor: pointer;
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--border-radius);
+	}
+	.delete-all-drafts-btn:hover {
+		background-color: rgba(239, 68, 68, 0.1);
 	}
 </style>
