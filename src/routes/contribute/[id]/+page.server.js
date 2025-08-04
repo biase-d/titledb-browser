@@ -187,7 +187,7 @@ export const actions = {
 					content: JSON.stringify(fileContent, null, 2),
 					sha: shas.graphics
 				});
-			} else if (Object.keys(originalGraphicsData).length > 0) {
+			} else if (originalGraphicsData && Object.keys(originalGraphicsData).length > 0) {
 				// If user cleared all previously existing graphics data
 				filesToCommit.push({ path: `graphics/${groupId}.json`, content: null, sha: shas.graphics });
 			}
