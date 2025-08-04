@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { Octokit } from '@octokit/rest'
 import { drizzle } from 'drizzle-orm/postgres-js'
-import { sql, inArray, eq, and } from 'drizzle-orm'
+import { sql, inArray, eq, and, isNull } from 'drizzle-orm'
 import postgres from 'postgres'
 import { simpleGit } from 'simple-git'
 import { games, graphicsSettings, performanceProfiles, youtubeLinks, gameGroups } from '../src/lib/db/schema.js'
@@ -29,12 +29,20 @@ async function cloneOrPull (repoPath, repoUrl) {
   }
 }
 
-function getContributorFromCommit(commit) {
-	const coAuthorRegex = /Co-authored-by:.*<(?:\d+\+)?(?<username>[\w-]+)@users\.noreply\.github\.com>/
+function getContributorsFromCommit(commit) {
+	const contributors = new Set();
+	const coAuthorRegex = /Co-authored-by:.*<(?:\d+\+)?(?<username>[\w-]+)@users\.noreply\.github\.com>/g;
 	const commitMessage = commit.commit.message;
-	const coAuthorMatch = commitMessage.match(coAuthorRegex);
-	return coAuthorMatch?.groups?.username || null;
+	const coAuthorMatches = [...commitMessage.matchAll(coAuthorRegex)];
+
+	for (const match of coAuthorMatches) {
+		if (match.groups.username) {
+			contributors.add(match.groups.username);
+		}
+	}
+	return Array.from(contributors);
 }
+
 
 async function buildDateMap () {
   console.log('Building file date map from Git history...');
@@ -78,37 +86,94 @@ async function buildDateMap () {
   return dateMap;
 }
 
-async function buildFullContributorMap () {
-  console.log('Building comprehensive contributor map from PR history...');
-  const contributorMap = { performance: {}, graphics: {}, videos: {} };
+async function buildFullContributorMap (cachedMap = null, lastProcessedDate = null) {
+  let contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {} };
+  let latestMergedAt = lastProcessedDate;
+
+  if (contributorMap.graphics) {
+    for (const groupId in contributorMap.graphics) {
+      contributorMap.graphics[groupId] = new Set(contributorMap.graphics[groupId]);
+    }
+  }
+
+  console.log('Building/updating contributor map from PR history...');
+  
   try {
-    const prs = await octokit.paginate(octokit.pulls.list, { owner: 'biase-d', repo: 'nx-performance', state: 'closed', per_page: 100 });
+    const prs = await octokit.paginate('GET /repos/{owner}/{repo}/pulls', { 
+      owner: 'biase-d', 
+      repo: 'nx-performance', 
+      state: 'closed', 
+      sort: 'updated',
+      direction: 'desc',
+      per_page: 100 
+    });
+
     const mergedPrs = prs.filter(pr => pr.merged_at);
-    console.log(`Found ${mergedPrs.length} merged PRs to process.`);
+    if (!latestMergedAt) {
+      console.log(`Found ${mergedPrs.length} total merged PRs to process (full build).`);
+    } else {
+      console.log(`Checking for new PRs merged after ${latestMergedAt.toISOString()}`);
+    }
+    
     for (const pr of mergedPrs) {
+      const mergedAt = new Date(pr.merged_at);
+
+      if (lastProcessedDate && mergedAt <= lastProcessedDate) {
+        console.log('No more new PRs to process.');
+        break; 
+      }
+
+      if (!latestMergedAt || mergedAt > latestMergedAt) {
+        latestMergedAt = mergedAt;
+      }
+      
       const { data: commits } = await octokit.pulls.listCommits({ owner: 'biase-d', repo: 'nx-performance', pull_number: pr.number, per_page: 1 });
       if (commits.length === 0) continue;
-      const contributor = getContributorFromCommit(commits[0]);
-      if (!contributor) continue;
-      const prInfo = { contributor, sourcePrUrl: pr.html_url };
+
+      const contributorsInPr = getContributorsFromCommit(commits[0]);
+      if (contributorsInPr.length === 0) continue;
+
+      const prInfo = { contributors: contributorsInPr, sourcePrUrl: pr.html_url };
+
       const { data: files } = await octokit.pulls.listFiles({ owner: 'biase-d', repo: 'nx-performance', pull_number: pr.number, per_page: 100 });
       for (const file of files) {
         const filePath = file.filename;
         let match;
-        if ((match = filePath.match(/^profiles\/([A-F0-9]{16})\//))) {
-          contributorMap.performance[match[1]] = prInfo;
+        if ((match = filePath.match(/^profiles\/([A-F0-9]{16})\/(.+)\.json/))) {
+          const groupId = match[1];
+          const fileBaseName = match[2];
+          const [gameVersion, ...suffixParts] = fileBaseName.split('_');
+          const suffix = suffixParts.join('_') || '';
+          const key = `${groupId}-${gameVersion}-${suffix}`;
+          contributorMap.performance[key] = prInfo;
         } else if ((match = filePath.match(/^graphics\/([A-F0-9]{16})\.json/))) {
-          contributorMap.graphics[match[1]] = prInfo;
+          const groupId = match[1];
+          if (!contributorMap.graphics[groupId]) {
+            contributorMap.graphics[groupId] = new Set();
+          }
+          prInfo.contributors.forEach(c => contributorMap.graphics[groupId].add(c));
         } else if ((match = filePath.match(/^videos\/([A-F0-9]{16})\.json/))) {
-          contributorMap.videos[match[1]] = prInfo;
+          const groupId = match[1];
+          if (!contributorMap.videos[groupId]) {
+            contributorMap.videos[groupId] = new Set();
+          }
+          prInfo.contributors.forEach(c => contributorMap.videos[groupId].add(c));
         }
       }
     }
+
+    for (const groupId in contributorMap.graphics) {
+      contributorMap.graphics[groupId] = Array.from(contributorMap.graphics[groupId]);
+    }
+    for (const groupId in contributorMap.videos) {
+      contributorMap.videos[groupId] = Array.from(contributorMap.videos[groupId]);
+    }
+
   } catch (apiError) {
     console.error(`Failed to build contributor map from GitHub API: ${apiError.message}`);
   }
-  console.log('-> Contributor map built.')
-  return contributorMap;
+  console.log('-> Contributor map build/update complete.')
+  return { contributorMap, latestMergedAt };
 }
 
 function getBaseId (titleId) { return titleId.substring(0, 13) + '000' }
@@ -122,320 +187,299 @@ function parseSizeToBytes (sizeStr) {
   return Math.round(value * (units[unit] || 1))
 }
 
-async function doFullRebuild() {
-  console.log('Starting FULL database rebuild process...');
-  await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`)
-
-  const dateMap = await buildDateMap();
-  const gameUpdateMap = {};
-
-  const allGroupIds = new Set()
-  const customGroupMap = new Map()
-
-  const groupsDir = path.join(DATA_DIR, 'nx-performance', 'groups')
-  try {
-    const groupFiles = await fs.readdir(groupsDir)
-    for (const file of groupFiles) {
-      if (path.extname(file) === '.json') {
-        const customGroupId = path.basename(file, '.json')
-        allGroupIds.add(customGroupId)
-        const titleIds = JSON.parse(await fs.readFile(path.join(groupsDir, file), 'utf-8'))
-        for (const titleId of titleIds) customGroupMap.set(titleId, customGroupId)
-      }
-    }
-  } catch (e) { /* ignore */ }
-
-  const performanceDir = path.join(DATA_DIR, 'nx-performance', 'profiles')
-  for (const groupDir of await fs.readdir(performanceDir, { withFileTypes: true }).catch(() => [])) {
-    if (groupDir.isDirectory()) allGroupIds.add(groupDir.name)
-  }
-  const graphicsDir = path.join(DATA_DIR, 'nx-performance', 'graphics')
-  for (const file of await fs.readdir(graphicsDir).catch(() => [])) {
-    if (path.extname(file) === '.json') allGroupIds.add(path.basename(file, '.json'))
-  }
-  const videosDir = path.join(DATA_DIR, 'nx-performance', 'videos')
-  for (const file of await fs.readdir(videosDir).catch(() => [])) {
-    if (path.extname(file) === '.json') allGroupIds.add(path.basename(file, '.json'))
-  }
-
-  const mainJsonPath = path.join(DATA_DIR, 'titledb_filtered', 'output', 'main.json')
-  const mainGamesList = JSON.parse(await fs.readFile(mainJsonPath, 'utf-8'))
-  for (const id of Object.keys(mainGamesList)) {
-    const groupId = customGroupMap.get(id) || getBaseId(id);
-    allGroupIds.add(groupId);
-    if (!gameUpdateMap[groupId]) gameUpdateMap[groupId] = { lastUpdated: new Date(0) };
-  }
-
-  for (const type of ['performance', 'graphics', 'videos']) {
-      for (const [groupId, date] of Object.entries(dateMap[type])) {
-          if (!gameUpdateMap[groupId] || date > gameUpdateMap[groupId].lastUpdated) {
-              gameUpdateMap[groupId] = { lastUpdated: date };
-          }
-      }
-  }
+async function syncDatabase (contributorMap, dateMap) {
+  console.log('Starting database synchronization...');
   
-  const gameGroupsToInsert = Array.from(allGroupIds).map(id => ({ id, lastUpdated: gameUpdateMap[id]?.lastUpdated || new Date() }))
-  if (gameGroupsToInsert.length > 0) {
-    console.log(`Inserting ${gameGroupsToInsert.length} game groups...`)
-    await db.insert(gameGroups).values(gameGroupsToInsert)
-  }
-
-  const contributorMap = await buildFullContributorMap()
-
-  const profilesToInsert = [];
-	for (const groupDir of await fs.readdir(performanceDir, { withFileTypes: true }).catch(() => [])) {
-		if (groupDir.isDirectory()) {
-			const groupId = groupDir.name;
-			const contributionInfo = contributorMap.performance[groupId] || {};
-			for (const versionFile of await fs.readdir(path.join(performanceDir, groupId)).catch(() => [])) {
-				if (path.extname(versionFile) === '.json') {
-					const baseName = path.basename(versionFile, '.json');
-					const [gameVersion, ...suffixParts] = baseName.split('_');
-					const suffix = suffixParts.join('_') || null;
-
-					const content = JSON.parse(await fs.readFile(path.join(performanceDir, groupId, versionFile), 'utf-8'));
-
-					profilesToInsert.push({
-						groupId,
-						gameVersion,
-						suffix,
-						profiles: content,
-						contributor: contributionInfo.contributor,
-						sourcePrUrl: contributionInfo.sourcePrUrl,
-						lastUpdated: dateMap.performance[groupId] || new Date()
-					});
-				}
-			}
-		}
-	}
-  if (profilesToInsert.length > 0) await db.insert(performanceProfiles).values(profilesToInsert)
-
-  const graphicsToUpsert = [];
-  for (const file of await fs.readdir(graphicsDir).catch(() => [])) {
-    if (path.extname(file) === '.json') {
-      const groupId = path.basename(file, '.json')
-			const contributionInfo = contributorMap.graphics[groupId] || {};
-      graphicsToUpsert.push({
-        groupId,
-        settings: JSON.parse(await fs.readFile(path.join(graphicsDir, file), 'utf-8')),
-				contributor: contributionInfo.contributor,
-				lastUpdated: dateMap.graphics[groupId] || new Date()
-      })
-    }
-  }
-  if (graphicsToUpsert.length > 0) await db.insert(graphicsSettings).values(graphicsToUpsert).onConflictDoUpdate({ target: graphicsSettings.groupId, set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, last_updated: sql`excluded.last_updated` } })
-
-  const linksToInsert = [];
-  for (const file of await fs.readdir(videosDir).catch(() => [])) {
-    if (path.extname(file) === '.json') {
-      const groupId = path.basename(file, '.json')
-      const entries = JSON.parse(await fs.readFile(path.join(videosDir, file), 'utf-8'));
-      for (const entry of entries) {
-        if (entry.url) {
-          linksToInsert.push({
-            groupId,
-            url: entry.url,
-            notes: entry.notes,
-            submittedBy: entry.submittedBy,
-						submittedAt: dateMap.videos[groupId] || new Date()
-          });
-        }
-      }
-    }
-  }
-  if (linksToInsert.length > 0) await db.insert(youtubeLinks).values(linksToInsert);
-
-  console.log('Reading and merging base game data...')
-  const titleIdDir = path.join(DATA_DIR, 'titledb_filtered', 'output', 'titleid')
-  const gamesToUpsert = []
-  for (const [id, names] of Object.entries(mainGamesList)) {
-    if (!names || !Array.isArray(names) || names.length === 0) continue
-    let details = {}
-    try {
-      details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'))
-    } catch (e) {
-      if (e.code !== 'ENOENT') console.warn(`Could not read detail file for ${id}:`, e.message)
-    }
-    const groupId = customGroupMap.get(id) || getBaseId(id);
-    gamesToUpsert.push({
-      id, groupId, names,
-      publisher: details.publisher, releaseDate: details.releaseDate,
-      sizeInBytes: parseSizeToBytes(details.size), iconUrl: details.iconUrl,
-      bannerUrl: details.bannerUrl, screenshots: details.screenshots,
-			lastUpdated: gameUpdateMap[groupId]?.lastUpdated || new Date()
-    })
-  }
-
-  console.log(`Upserting ${gamesToUpsert.length} game records...`)
-  const batchSize = 500
-  for (let i = 0; i < gamesToUpsert.length; i += batchSize) {
-    const batch = gamesToUpsert.slice(i, i + batchSize)
-    await db.insert(games).values(batch).onConflictDoUpdate({
-      target: games.id,
-      set: {
-        names: sql`excluded.names`, publisher: sql`excluded.publisher`,
-        release_date: sql`excluded.release_date`, size_in_bytes: sql`excluded.size_in_bytes`,
-        icon_url: sql`excluded.icon_url`, banner_url: sql`excluded.banner_url`,
-        screenshots: sql`excluded.screenshots`, group_id: sql`excluded.group_id`,
-        last_updated: sql`excluded.last_updated`
-      }
-    })
-  }
-  console.log('Full database rebuild complete.');
-}
-
-async function doIncrementalUpdate() {
-  console.log('Starting STATE-BASED incremental database synchronization...');
-  const affectedGroupIds = new Set();
+  const allGroupIds = new Set();
+  const customGroupMap = new Map();
   const dataRepoPath = REPOS.nx_performance.path;
 
-  console.log('Syncing performance profiles...');
-  const perfDir = path.join(dataRepoPath, 'profiles');
-  const dbProfiles = await db.select().from(performanceProfiles);
-  const dbProfilesMap = new Map(dbProfiles.map(p => [`${p.groupId}-${p.gameVersion}-${p.suffix || ''}`, p]));
-  const localProfiles = new Set();
-
-  for (const groupDir of await fs.readdir(perfDir, { withFileTypes: true }).catch(() => [])) {
-    if (groupDir.isDirectory()) {
-      const groupId = groupDir.name;
-      for (const versionFile of await fs.readdir(path.join(perfDir, groupId)).catch(() => [])) {
-        const baseName = path.basename(versionFile, '.json');
-        const [gameVersion, ...suffixParts] = baseName.split('_');
-        const suffix = suffixParts.join('_') || null;
-        const key = `${groupId}-${gameVersion}-${suffix || ''}`;
-        localProfiles.add(key);
-
-        const filePath = `profiles/${groupId}/${versionFile}`;
-        const log = await git.cwd(dataRepoPath).log({ file: filePath, n: 1 });
-        const lastUpdated = log.latest ? new Date(log.latest.date) : new Date();
-
-        const dbRecord = dbProfilesMap.get(key);
-        if (!dbRecord || lastUpdated > dbRecord.lastUpdated) {
-          console.log(`Upserting performance profile for ${key}`);
-          await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
-          const content = JSON.parse(await fs.readFile(path.join(perfDir, groupId, versionFile), 'utf-8'));
-          const recordToUpsert = {
-            groupId,
-            gameVersion: content.gameVersion || gameVersion,
-            suffix: content.suffix || suffix,
-            profiles: content.profiles,
-            contributor: content.contributor,
-            sourcePrUrl: content.sourcePrUrl,
-            lastUpdated
-          };
-          await db.insert(performanceProfiles).values(recordToUpsert).onConflictDoUpdate({
-            target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
-            set: {
-              profiles: recordToUpsert.profiles,
-              contributor: recordToUpsert.contributor,
-              sourcePrUrl: recordToUpsert.sourcePrUrl,
-              lastUpdated: recordToUpsert.lastUpdated
-            }
-          });
-          affectedGroupIds.add(groupId);
+  const groupDirs = ['groups', 'profiles', 'graphics', 'videos'];
+  for (const dirName of groupDirs) {
+    const dirPath = path.join(dataRepoPath, dirName);
+    try {
+      for (const file of await fs.readdir(dirPath, { withFileTypes: true })) {
+        if (dirName === 'groups' && file.isFile() && path.extname(file.name) === '.json') {
+          const customGroupId = path.basename(file.name, '.json');
+          allGroupIds.add(customGroupId);
+          const titleIds = JSON.parse(await fs.readFile(path.join(dirPath, file.name), 'utf-8'));
+          for (const titleId of titleIds) customGroupMap.set(titleId, customGroupId);
+        } else if (dirName === 'profiles' && file.isDirectory()) {
+          allGroupIds.add(file.name);
+        } else if ((dirName === 'graphics' || dirName === 'videos') && file.isFile() && path.extname(file.name) === '.json') {
+          allGroupIds.add(path.basename(file.name, '.json'));
         }
       }
+    } catch (e) {
+      console.warn(`Could not process directory ${dirPath}. Skipping.`);
     }
   }
 
-  for (const [key, profile] of dbProfilesMap.entries()) {
-    if (!localProfiles.has(key)) {
-      console.log(`Deleting performance profile for ${key}`);
-      await db.delete(performanceProfiles).where(
-        and(
-          eq(performanceProfiles.groupId, profile.groupId),
-          eq(performanceProfiles.gameVersion, profile.gameVersion),
-          profile.suffix ? eq(performanceProfiles.suffix, profile.suffix) : isNull(performanceProfiles.suffix)
-        )
-      );
-      affectedGroupIds.add(profile.groupId);
-    }
+  const mainJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main.json');
+  const mainGamesList = JSON.parse(await fs.readFile(mainJsonPath, 'utf-8'));
+  for (const id of Object.keys(mainGamesList)) {
+    allGroupIds.add(customGroupMap.get(id) || getBaseId(id));
   }
+
+  const gameGroupsToUpsert = [];
+  for (const id of allGroupIds) {
+    const youtubeContributors = contributorMap.videos?.[id] || null;
+    gameGroupsToUpsert.push({ id, youtubeContributors });
+  }
+
+  if (gameGroupsToUpsert.length > 0) {
+    console.log(`Upserting ${gameGroupsToUpsert.length} game groups...`);
+    await db.insert(gameGroups).values(gameGroupsToUpsert).onConflictDoUpdate({
+      target: gameGroups.id,
+      set: {
+        youtubeContributors: sql`excluded.youtube_contributors`
+      }
+    });
+  }
+
+  const affectedGroupIds = new Set();
+
+  const syncConfig = { dataRepoPath, contributorMap, dateMap, affectedGroupIds, db };
+  await syncDataType({ ...syncConfig, type: 'performance', table: performanceProfiles });
+  await syncDataType({ ...syncConfig, type: 'graphics', table: graphicsSettings });
+  await syncDataType({ ...syncConfig, type: 'videos', table: youtubeLinks });
+
+  console.log('Syncing base game data...');
+  const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid');
   
-  for (const type of ['graphics', 'videos']) {
-    console.log(`Syncing ${type}...`);
-    const dataDir = path.join(dataRepoPath, type);
-    const table = type === 'graphics' ? graphicsSettings : youtubeLinks;
-    const dbRecords = await db.select().from(table);
-    const dbRecordsMap = new Map(dbRecords.map(r => [r.groupId, r]));
-    const localRecords = new Set();
+  const titledbRepoPath = REPOS.titledb_filtered.path;
+  const latestTitledbCommit = (await git.cwd(titledbRepoPath).log(['-n', '1'])).latest.hash;
+  const shouldSyncAllGames = (latestTitledbCommit !== dateMap.lastTitledbCommit); // dateMap will now double as our metadata store
 
-    for (const file of await fs.readdir(dataDir).catch(() => [])) {
-      const groupId = path.basename(file, '.json');
-      localRecords.add(groupId);
-
-      const filePath = `${type}/${file}`;
-      const log = await git.cwd(dataRepoPath).log({ file: filePath, n: 1 });
-      const lastUpdated = log.latest ? new Date(log.latest.date) : new Date();
-
-      const dbRecord = dbRecordsMap.get(groupId);
-      if (!dbRecord || lastUpdated > (dbRecord.lastUpdated || dbRecord.submittedAt)) {
-         console.log(`Upserting ${type} for ${groupId}`);
-         await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
-
-         const content = JSON.parse(await fs.readFile(path.join(dataDir, file), 'utf-8'));
-         if (type === 'graphics') {
-            await db.insert(graphicsSettings).values({
-              groupId, settings: content, contributor: content.contributor, lastUpdated
-            }).onConflictDoUpdate({ target: graphicsSettings.groupId, set: { settings: content, contributor: content.contributor, lastUpdated }});
-         } else {
-            await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
-            if (Array.isArray(content) && content.length > 0) {
-              const linksToInsert = content.reduce((acc, entry) => {
-                if (entry.url) {
-                  acc.push({
-                    groupId,
-                    url: entry.url,
-                    notes: entry.notes,
-                    submittedBy: entry.submittedBy,
-                    submittedAt: lastUpdated
-                  });
-                }
-                return acc;
-              }, []);
-              
-              if (linksToInsert.length > 0) {
-                await db.insert(youtubeLinks).values(linksToInsert);
-              }
-            }
-         }
-         affectedGroupIds.add(groupId);
-      }
+  let gamesToUpsert = [];
+  if (shouldSyncAllGames) {
+    console.log(' -> Changes detected in titledb_filtered. Syncing all game records.');
+    for (const [id, names] of Object.entries(mainGamesList)) {
+      if (!names || !Array.isArray(names) || names.length === 0) continue;
+      let details = {};
+      try {
+        details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
+      } catch (e) { /* ignore ENOENT */ }
+      const groupId = customGroupMap.get(id) || getBaseId(id);
+      gamesToUpsert.push({
+        id, groupId, names,
+        publisher: details.publisher, releaseDate: details.releaseDate,
+        sizeInBytes: parseSizeToBytes(details.size), iconUrl: details.iconUrl,
+        bannerUrl: details.bannerUrl, screenshots: details.screenshots
+      });
     }
-
-    for (const [groupId, record] of dbRecordsMap.entries()) {
-      if (!localRecords.has(groupId)) {
-        console.log(`Deleting ${type} for ${groupId}`);
-        await db.delete(table).where(eq(table.groupId, groupId));
-        affectedGroupIds.add(groupId);
-      }
+    dateMap.lastTitledbCommit = latestTitledbCommit; // Update the hash for the next run
+  } else {
+    console.log(' -> No changes in titledb_filtered. Syncing only affected groups.');
+    const affectedTitleIds = (await db.select({ id: games.id }).from(games).where(inArray(games.groupId, Array.from(affectedGroupIds)))).map(g => g.id);
+    for (const id of affectedTitleIds) {
+      const names = mainGamesList[id];
+      if (!names || !Array.isArray(names) || names.length === 0) continue;
+      let details = {};
+      try {
+        details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
+      } catch (e) { /* ignore ENOENT */ }
+      const groupId = customGroupMap.get(id) || getBaseId(id);
+      gamesToUpsert.push({
+        id, groupId, names,
+        publisher: details.publisher, releaseDate: details.releaseDate,
+        sizeInBytes: parseSizeToBytes(details.size), iconUrl: details.iconUrl,
+        bannerUrl: details.bannerUrl, screenshots: details.screenshots
+      });
     }
   }
 
-  if (affectedGroupIds.size > 0) {
-    const groupIdsArray = Array.from(affectedGroupIds);
+  if (gamesToUpsert.length > 0) {
+    console.log(`Upserting ${gamesToUpsert.length} game records...`);
+    const batchSize = 500;
+    for (let i = 0; i < gamesToUpsert.length; i += batchSize) {
+      const batch = gamesToUpsert.slice(i, i + batchSize);
+      await db.insert(games).values(batch).onConflictDoUpdate({
+        target: games.id,
+        set: {
+          names: sql`excluded.names`, publisher: sql`excluded.publisher`,
+          release_date: sql`excluded.release_date`, size_in_bytes: sql`excluded.size_in_bytes`,
+          icon_url: sql`excluded.icon_url`, banner_url: sql`excluded.banner_url`,
+          screenshots: sql`excluded.screenshots`, group_id: sql`excluded.group_id`
+        }
+      });
+    }
+  }
+
+  const allAffected = new Set([...affectedGroupIds, ...gamesToUpsert.map(g => g.groupId)]);
+  if (allAffected.size > 0) {
+    const groupIdsArray = Array.from(allAffected);
     console.log(`Updating timestamps for ${groupIdsArray.length} affected groups...`);
     await db.update(gameGroups).set({ lastUpdated: new Date() }).where(inArray(gameGroups.id, groupIdsArray));
     await db.update(games).set({ lastUpdated: new Date() }).where(inArray(games.groupId, groupIdsArray));
   }
 
-  console.log('Incremental database synchronization complete.');
+  console.log('Database synchronization complete.');
+}
+
+async function syncDataType(config) {
+  const { type, dataRepoPath, table, contributorMap, dateMap, affectedGroupIds, db } = config;
+  console.log(`- Syncing ${type}...`);
+
+  const dataDir = path.join(dataRepoPath, type === 'performance' ? 'profiles' : type);
+  const dbRecords = await db.select().from(table);
+  const localFileKeys = new Set();
+  
+  const dbRecordsMap = (type === 'performance')
+    ? new Map(dbRecords.map(p => [`${p.groupId}-${p.gameVersion}-${p.suffix || ''}`, p]))
+    : new Map(dbRecords.map(r => [r.groupId, r]));
+
+  const files = await fs.readdir(dataDir, { withFileTypes: true }).catch(() => []);
+  for (const file of files) {
+    if (type === 'performance' && file.isDirectory()) {
+      const groupId = file.name;
+      const versionFiles = await fs.readdir(path.join(dataDir, groupId)).catch(() => []);
+      for (const versionFile of versionFiles) {
+        const baseName = path.basename(versionFile, '.json');
+        const [gameVersion, ...suffixParts] = baseName.split('_');
+        const suffix = suffixParts.join('_') || null;
+        const fileKey = `${groupId}-${gameVersion}-${suffix || ''}`;
+        localFileKeys.add(fileKey);
+
+        const lastUpdated = dateMap.performance?.[groupId] || new Date();
+        const dbRecord = dbRecordsMap.get(fileKey);
+
+        if (!dbRecord || lastUpdated > dbRecord.lastUpdated) {
+          console.log(`Processing performance profile for ${fileKey}`);
+          await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
+          const content = JSON.parse(await fs.readFile(path.join(dataDir, groupId, versionFile), 'utf-8'));
+          
+          const contributorKey = `${groupId}-${gameVersion}-${suffix || ''}`;
+          const contributionInfo = contributorMap.performance?.[contributorKey] || {};
+
+          const recordData = {
+            groupId, gameVersion, suffix, profiles: content,
+            contributor: contributionInfo.contributors ? contributionInfo.contributors[0] : null, // Get first contributor from array
+            sourcePrUrl: contributionInfo.sourcePrUrl, 
+            lastUpdated
+          };
+          
+          if (dbRecord) {
+            await db.update(performanceProfiles).set(recordData).where(eq(performanceProfiles.id, dbRecord.id));
+          } else {
+            await db.insert(performanceProfiles).values(recordData);
+          }
+          affectedGroupIds.add(groupId);
+        }
+      }
+    } else if (path.extname(file.name) === '.json') {
+      const groupId = path.basename(file.name, '.json');
+      localFileKeys.add(groupId);
+      
+      const lastUpdated = dateMap[type]?.[groupId] || new Date();
+      const dbRecord = dbRecordsMap.get(groupId);
+      
+      if (!dbRecord || lastUpdated > (dbRecord.lastUpdated || dbRecord.submittedAt)) {
+        const content = JSON.parse(await fs.readFile(path.join(dataDir, file.name), 'utf-8'));
+
+        if (type === 'graphics') {
+          const historicalContributors = contributorMap.graphics?.[groupId] || [];
+          const fileContributors = Array.isArray(content.contributor) ? content.contributor : (content.contributor ? [content.contributor] : []);
+          const allContributors = [...new Set([...historicalContributors, ...fileContributors])];
+          await db.insert(graphicsSettings).values({
+            groupId, settings: content, contributor: allContributors.length > 0 ? allContributors : null, lastUpdated
+          }).onConflictDoUpdate({ target: graphicsSettings.groupId, set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, lastUpdated: sql`excluded.last_updated` }});
+        } else if (type === 'videos') {
+          await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
+          if (Array.isArray(content) && content.length > 0) {
+            const linksToInsert = content.filter(e => e.url).map(e => ({
+              groupId, url: e.url, notes: e.notes, submittedBy: e.submittedBy, submittedAt: lastUpdated
+            }));
+            if (linksToInsert.length > 0) await db.insert(youtubeLinks).values(linksToInsert);
+          }
+        }
+        affectedGroupIds.add(groupId);
+      }
+    }
+  }
+
+  for (const [key, record] of dbRecordsMap.entries()) {
+    if (!localFileKeys.has(key)) {
+      console.log(`Deleting ${type} for ${key}`);
+      const deleteCondition = eq(table.id, record.id);
+      await db.delete(table).where(deleteCondition);
+      affectedGroupIds.add(record.groupId);
+    }
+  }
 }
 
 (async () => {
   try {
     const isFullRebuild = process.argv.includes('--full-rebuild');
+    const useCache = !process.argv.includes('--no-cache');
     
+    const CACHE_DIR = '.cache';
+    const CONTRIBUTOR_MAP_CACHE = path.join(CACHE_DIR, 'contributorMap.json');
+    const METADATA_CACHE = path.join(CACHE_DIR, 'metadata.json');
+    const DATE_MAP_CACHE = path.join(CACHE_DIR, 'dateMap.json');
+
     await db.execute(sql`SELECT 1;`); console.log('DB connection successful.')
     await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`)
     await fs.mkdir(DATA_DIR, { recursive: true })
     await Promise.all(Object.values(REPOS).map(repo => cloneOrPull(repo.path, repo.url)))
     
-    if (isFullRebuild) {
-      await doFullRebuild();
-    } else {
-      await doIncrementalUpdate();
+    let cachedMap = null;
+    let cachedMetadata = null;
+
+    if (useCache && !isFullRebuild) {
+      try {
+        cachedMap = JSON.parse(await fs.readFile(CONTRIBUTOR_MAP_CACHE, 'utf-8'));
+        cachedMetadata = JSON.parse(await fs.readFile(METADATA_CACHE, 'utf-8'));
+        console.log('Successfully loaded contributor map and metadata from cache.');
+      } catch {
+        console.log('Contributor map or metadata cache not found. Will perform a full build.');
+        cachedMap = null;
+        cachedMetadata = null;
+      }
     }
+
+    const { contributorMap, latestMergedAt } = await buildFullContributorMap(cachedMap, cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null);
+    
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+    await fs.writeFile(CONTRIBUTOR_MAP_CACHE, JSON.stringify(contributorMap, null, 2));
+    if (latestMergedAt) {
+      await fs.writeFile(METADATA_CACHE, JSON.stringify({ lastProcessedDate: latestMergedAt.toISOString() }));
+    }
+    console.log('Contributor map has been built/updated and cached.');
+
+
+    let dateMap;
+    if (useCache && !isFullRebuild) {
+      try {
+        await fs.access(DATE_MAP_CACHE);
+        console.log('Loading date map from cache...');
+        dateMap = JSON.parse(await fs.readFile(DATE_MAP_CACHE, 'utf-8'), (key, value) => {
+          if (key.toLowerCase().includes('date') && typeof value === 'string') {
+            return new Date(value);
+          }
+          return value;
+        });
+      } catch {
+        console.log('Date map cache not found.');
+        cachedMap = null;
+      }
+    }
+
+        if (!useCache || !dateMap) {
+      console.log('Building date map...');
+      dateMap = await buildDateMap();
+      dateMap.lastTitledbCommit = (await git.cwd(REPOS.titledb_filtered.path).log(['-n', '1'])).latest.hash;
+      await fs.mkdir(CACHE_DIR, { recursive: true });
+      await fs.writeFile(DATE_MAP_CACHE, JSON.stringify(dateMap));
+      console.log('Date map has been built and cached.');
+    }
+
+    if (isFullRebuild) {
+      console.log('Starting FULL database rebuild process...');
+      await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`)
+    }
+    
+    await syncDatabase(contributorMap, dateMap);
 
   } catch (error) {
     console.error('An unexpected error occurred:', error)
