@@ -26,13 +26,14 @@ export const performanceProfiles = pgTable('performance_profiles', {
 	id: serial('id').primaryKey(),
 	groupId: text('group_id').notNull().references(() => gameGroups.id),
 	gameVersion: text('game_version').notNull(),
+	suffix: text('suffix'),
 	profiles: jsonb('profiles').notNull(),
 	contributor: text('contributor'),
 	sourcePrUrl: text('source_pr_url'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 }, (table) => {
 	return {
-		groupId_version_unq: uniqueIndex('groupId_version_unq').on(table.groupId, table.gameVersion)
+		groupId_version_unq: uniqueIndex('groupId_version_unq').on(table.groupId, table.gameVersion, table.suffix)
 	};
 });
 

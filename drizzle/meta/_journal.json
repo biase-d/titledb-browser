@@ -15,6 +15,13 @@
       "when": 1754119957483,
       "tag": "0001_windy_energizer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1754322365036,
+      "tag": "0002_first_iron_lad",
+      "breakpoints": true
     }
   ]
 }
