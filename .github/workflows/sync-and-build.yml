@@ -40,6 +40,8 @@ jobs:
         with:
           path: .cache
           key: ${{ runner.os }}-build-artifacts-${{ steps.data_commit.outputs.sha }}
+          restore-keys: |
+            ${{ runner.os }}-build-artifacts-
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -56,12 +58,7 @@ jobs:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
 
       - name: Run build script to sync database
-        run: |
-          if [ "${{ steps.build_cache.outputs.cache-hit }}" != "true" ]; then
-            node scripts/build.js --no-cache
-          else
-            node scripts/build.js
-          fi
+        run: node scripts/build.js
         env:
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
