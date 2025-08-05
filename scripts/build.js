@@ -61,12 +61,15 @@ async function buildDateMap () {
           const groupId = file.name;
           const versionFiles = await fs.readdir(path.join(dirPath, groupId));
           for (const versionFile of versionFiles) {
+            const baseName = path.basename(versionFile, '.json');
+            const [gameVersion, ...suffixParts] = baseName.split('$');
+            const suffix = suffixParts.join('$') || '';
+            const key = `${groupId}-${gameVersion}-${suffix}`;
+
             const filePath = `profiles/${groupId}/${versionFile}`;
             const log = await git.cwd(dataRepoPath).log({ file: filePath, n: 1 });
             if (log.latest) {
-               if (!dateMap.performance[groupId] || new Date(log.latest.date) > dateMap.performance[groupId]) {
-                 dateMap.performance[groupId] = new Date(log.latest.date);
-               }
+              dateMap.performance[key] = new Date(log.latest.date);
             }
           }
         } else if (isJsonFile) {
@@ -187,7 +190,7 @@ function parseSizeToBytes (sizeStr) {
   return Math.round(value * (units[unit] || 1))
 }
 
-async function syncDatabase (contributorMap, dateMap) {
+async function syncDatabase (contributorMap, dateMap, metadata) {
   console.log('Starting database synchronization...');
   
   const allGroupIds = new Set();
@@ -221,21 +224,6 @@ async function syncDatabase (contributorMap, dateMap) {
     allGroupIds.add(customGroupMap.get(id) || getBaseId(id));
   }
 
-  const gameGroupsToUpsert = [];
-  for (const id of allGroupIds) {
-    const youtubeContributors = contributorMap.videos?.[id] || null;
-    gameGroupsToUpsert.push({ id, youtubeContributors });
-  }
-
-  if (gameGroupsToUpsert.length > 0) {
-    console.log(`Upserting ${gameGroupsToUpsert.length} game groups...`);
-    await db.insert(gameGroups).values(gameGroupsToUpsert).onConflictDoUpdate({
-      target: gameGroups.id,
-      set: {
-        youtubeContributors: sql`excluded.youtube_contributors`
-      }
-    });
-  }
 
   const affectedGroupIds = new Set();
 
@@ -248,12 +236,12 @@ async function syncDatabase (contributorMap, dateMap) {
   const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid');
   
   const titledbRepoPath = REPOS.titledb_filtered.path;
-  const latestTitledbCommit = (await git.cwd(titledbRepoPath).log(['-n', '1'])).latest.hash;
-  const shouldSyncAllGames = (latestTitledbCommit !== dateMap.lastTitledbCommit); // dateMap will now double as our metadata store
+  const currentTitledbHash = (await git.cwd(titledbRepoPath).log(['-n', '1', '--pretty=format:%H'])).latest.hash;
 
   let gamesToUpsert = [];
-  if (shouldSyncAllGames) {
+  if (metadata.titledbFilteredHash !== currentTitledbHash) {
     console.log(' -> Changes detected in titledb_filtered. Syncing all game records.');
+    metadata.titledbFilteredHash = currentTitledbHash;
     for (const [id, names] of Object.entries(mainGamesList)) {
       if (!names || !Array.isArray(names) || names.length === 0) continue;
       let details = {};
@@ -268,25 +256,8 @@ async function syncDatabase (contributorMap, dateMap) {
         bannerUrl: details.bannerUrl, screenshots: details.screenshots
       });
     }
-    dateMap.lastTitledbCommit = latestTitledbCommit; // Update the hash for the next run
   } else {
-    console.log(' -> No changes in titledb_filtered. Syncing only affected groups.');
-    const affectedTitleIds = (await db.select({ id: games.id }).from(games).where(inArray(games.groupId, Array.from(affectedGroupIds)))).map(g => g.id);
-    for (const id of affectedTitleIds) {
-      const names = mainGamesList[id];
-      if (!names || !Array.isArray(names) || names.length === 0) continue;
-      let details = {};
-      try {
-        details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
-      } catch (e) { /* ignore ENOENT */ }
-      const groupId = customGroupMap.get(id) || getBaseId(id);
-      gamesToUpsert.push({
-        id, groupId, names,
-        publisher: details.publisher, releaseDate: details.releaseDate,
-        sizeInBytes: parseSizeToBytes(details.size), iconUrl: details.iconUrl,
-        bannerUrl: details.bannerUrl, screenshots: details.screenshots
-      });
-    }
+    console.log(' -> titledb_filtered has not changed. Skipping game data sync.');
   }
 
   if (gamesToUpsert.length > 0) {
@@ -338,8 +309,19 @@ async function syncDataType(config) {
 
   const files = await fs.readdir(dataDir, { withFileTypes: true }).catch(() => []);
   for (const file of files) {
+    let groupId;
     if (type === 'performance' && file.isDirectory()) {
-      const groupId = file.name;
+      groupId = file.name;
+    } else if (path.extname(file.name) === '.json') {
+      groupId = path.basename(file.name, '.json');
+    }
+
+    if (groupId) {
+      await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
+    }
+
+    if (type === 'performance' && file.isDirectory()) {
+      groupId = file.name;
       const versionFiles = await fs.readdir(path.join(dataDir, groupId)).catch(() => []);
       for (const versionFile of versionFiles) {
         // This inner loop handles the performance profile logic
@@ -349,10 +331,13 @@ async function syncDataType(config) {
         const fileKey = `${groupId}-${gameVersion}-${suffix || ''}`;
         localFileKeys.add(fileKey);
 
-        const lastUpdated = dateMap.performance?.[groupId] || new Date();
+        const lastUpdated = dateMap.performance?.[fileKey] || new Date();
         const dbRecord = dbRecordsMap.get(fileKey);
 
-        if (!dbRecord || lastUpdated > dbRecord.lastUpdated) {
+        // Compare timestamps by seconds to avoid millisecond precision issues from cache
+        const hasChanged = !dbRecord || Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbRecord.lastUpdated.getTime() / 1000);
+
+        if (hasChanged) {
           console.log(`Processing performance profile for ${fileKey}`);
           await db.insert(gameGroups).values({ id: groupId }).onConflictDoNothing();
           const content = JSON.parse(await fs.readFile(path.join(dataDir, groupId, versionFile), 'utf-8'));
@@ -381,8 +366,12 @@ async function syncDataType(config) {
       
       const lastUpdated = dateMap[type]?.[groupId] || new Date();
       const dbRecord = dbRecordsMap.get(groupId);
+
+      const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
+      const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
       
-      if (!dbRecord || lastUpdated > (dbRecord.lastUpdated || dbRecord.submittedAt)) {
+      if (hasChanged) {
+        console.log(`Processing ${type} for ${groupId}`);
         const content = JSON.parse(await fs.readFile(path.join(dataDir, file.name), 'utf-8'));
 
         if (type === 'graphics') {
@@ -425,6 +414,7 @@ async function syncDataType(config) {
     const CONTRIBUTOR_MAP_CACHE = path.join(CACHE_DIR, 'contributorMap.json');
     const METADATA_CACHE = path.join(CACHE_DIR, 'metadata.json');
     const DATE_MAP_CACHE = path.join(CACHE_DIR, 'dateMap.json');
+    let metadata = {};
 
     await db.execute(sql`SELECT 1;`); console.log('DB connection successful.')
     await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`)
@@ -448,12 +438,15 @@ async function syncDataType(config) {
 
     const { contributorMap, latestMergedAt } = await buildFullContributorMap(cachedMap, cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null);
     
+    metadata = {
+      lastProcessedDate: latestMergedAt ? latestMergedAt.toISOString() : cachedMetadata?.lastProcessedDate,
+      titledbFilteredHash: cachedMetadata?.titledbFilteredHash
+    };
+
     await fs.mkdir(CACHE_DIR, { recursive: true });
     await fs.writeFile(CONTRIBUTOR_MAP_CACHE, JSON.stringify(contributorMap, null, 2));
-    if (latestMergedAt) {
-      await fs.writeFile(METADATA_CACHE, JSON.stringify({ lastProcessedDate: latestMergedAt.toISOString() }));
-    }
-    console.log('Contributor map has been built/updated and cached.');
+    await fs.writeFile(METADATA_CACHE, JSON.stringify(metadata));
+    console.log('Contributor map and metadata have been built/updated and cached.');
 
 
     let dateMap;
@@ -489,7 +482,8 @@ async function syncDataType(config) {
       await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`)
     }
     
-    await syncDatabase(contributorMap, dateMap);
+    await syncDatabase(contributorMap, dateMap, metadata);
+    await fs.writeFile(METADATA_CACHE, JSON.stringify(metadata));
 
   } catch (error) {
     console.error('An unexpected error occurred:', error)
