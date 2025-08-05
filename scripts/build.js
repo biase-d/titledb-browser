@@ -308,10 +308,18 @@ async function syncDatabase (contributorMap, dateMap) {
 
   const allAffected = new Set([...affectedGroupIds, ...gamesToUpsert.map(g => g.groupId)]);
   if (allAffected.size > 0) {
-    const groupIdsArray = Array.from(allAffected);
-    console.log(`Updating timestamps for ${groupIdsArray.length} affected groups...`);
-    await db.update(gameGroups).set({ lastUpdated: new Date() }).where(inArray(gameGroups.id, groupIdsArray));
-    await db.update(games).set({ lastUpdated: new Date() }).where(inArray(games.groupId, groupIdsArray));
+    console.log(`Updating timestamps for ${allAffected.size} affected groups...`);
+    const updatePromises = [];
+    for (const groupId of allAffected) {
+      const lastUpdate = dateMap.performance[groupId] || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
+      
+      updatePromises.push(
+        db.update(gameGroups).set({ lastUpdated: lastUpdate }).where(eq(gameGroups.id, groupId)),
+        db.update(games).set({ lastUpdated: lastUpdate }).where(eq(games.groupId, groupId))
+      );
+    }
+    await Promise.all(updatePromises);
+  }
   }
 
   console.log('Database synchronization complete.');
