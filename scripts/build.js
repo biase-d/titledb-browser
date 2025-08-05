@@ -282,7 +282,17 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
     console.log(`Updating timestamps for ${allAffected.size} affected groups...`);
     const updatePromises = [];
     for (const groupId of allAffected) {
-      const lastUpdate = dateMap.performance[groupId] || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
+      let mostRecentPerfDate = null;
+      for (const key in dateMap.performance) {
+        if (key.startsWith(groupId)) {
+          const date = dateMap.performance[key];
+          if (!mostRecentPerfDate || date > mostRecentPerfDate) {
+            mostRecentPerfDate = date;
+          }
+        }
+      }
+      
+      const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
       
       updatePromises.push(
         db.update(gameGroups).set({ lastUpdated: lastUpdate }).where(eq(gameGroups.id, groupId)),
@@ -353,7 +363,15 @@ async function syncDataType(config) {
           };
           
           if (dbRecord) {
-            await db.update(performanceProfiles).set(recordData).where(eq(performanceProfiles.id, dbRecord.id));
+            await db.update(performanceProfiles).set({
+              groupId: recordData.groupId,
+              gameVersion: recordData.gameVersion,
+              suffix: recordData.suffix,
+              profiles: recordData.profiles,
+              contributor: recordData.contributor,
+              sourcePrUrl: recordData.sourcePrUrl,
+              lastUpdated: recordData.lastUpdated
+            }).where(eq(performanceProfiles.id, dbRecord.id));
           } else {
             await db.insert(performanceProfiles).values(recordData);
           }
