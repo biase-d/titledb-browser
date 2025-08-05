@@ -320,7 +320,6 @@ async function syncDatabase (contributorMap, dateMap) {
     }
     await Promise.all(updatePromises);
   }
-  }
 
   console.log('Database synchronization complete.');
 }
