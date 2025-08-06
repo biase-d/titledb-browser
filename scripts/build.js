@@ -265,14 +265,12 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
           }
         }
       }
-      const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
       
       gamesToUpsert.push({
         id, groupId, names,
         publisher: details.publisher, releaseDate: details.releaseDate,
         sizeInBytes: parseSizeToBytes(details.size), iconUrl: details.iconUrl,
-        bannerUrl: details.bannerUrl, screenshots: details.screenshots,
-        lastUpdated: lastUpdate
+        bannerUrl: details.bannerUrl, screenshots: details.screenshots
       });
     }
   } else {
@@ -294,8 +292,7 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
           icon_url: sql`excluded.icon_url`,
           banner_url: sql`excluded.banner_url`,
           screenshots: sql`excluded.screenshots`,
-          group_id: sql`excluded.group_id`,
-          last_updated: sql`excluded.last_updated`
+          group_id: sql`excluded.group_id`
         }
       });
     }
