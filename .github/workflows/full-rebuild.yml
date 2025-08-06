@@ -20,6 +20,7 @@ jobs:
         with:
           repository: biase-d/nx-performance
           path: data/nx-performance
+          fetch-depth: 0
 
       - name: Checkout titledb_filtered data repository
         uses: actions/checkout@v4
