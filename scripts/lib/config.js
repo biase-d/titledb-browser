@@ -19,7 +19,8 @@ export const DATA_SOURCES = {
     getKey: (groupId, file) => {
       const baseName = path.basename(file.name, '.json');
       const [gameVersion, ...suffixParts] = baseName.split('$');
-      return `${groupId}-${gameVersion}-${suffixParts.join('$') || ''}`;
+      const suffix = suffixParts.join('$');
+      return suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
     },
     /**
      * Builds a database-ready record from the file content and metadata
@@ -28,13 +29,14 @@ export const DATA_SOURCES = {
      * @param {any} metadata - The contributor and PR URL info
      * @returns {object} The record object for insertion into the database
      */
-    buildRecord: (keyParts, content, metadata) => ({
+    buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
       gameVersion: keyParts[1],
       suffix: keyParts[2] || null,
       profiles: content,
       contributor: metadata.contributors ? metadata.contributors[0] : null,
       sourcePrUrl: metadata.sourcePrUrl,
+      lastUpdated,
     })
   },
   graphics: {
@@ -42,10 +44,11 @@ export const DATA_SOURCES = {
     path: 'graphics',
     isHierarchical: false,
     getKey: (groupId, file) => groupId,
-    buildRecord: (keyParts, content, metadata) => ({
+    buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
       settings: content,
       contributor: metadata.contributors,
+      lastUpdated,
     })
   },
   videos: {

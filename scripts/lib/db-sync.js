@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { sql, inArray, eq } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import { simpleGit } from 'simple-git';
 import { games, gameGroups, performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
 import { DATA_SOURCES } from './config.js';
@@ -10,37 +10,61 @@ import { discoverDataSources, parseSizeToBytes } from './data-sources.js';
 function getBaseId(titleId) { return titleId.substring(0, 13) + '000'; }
 
 /**
- * The main database synchronization function
- * Orchestrates the syncing of all data types
+ * The main database synchronization function.
+ * Orchestrates the syncing of all data types.
  */
 export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata) {
   console.log('Starting database synchronization...');
 
-  // Discover all data sources and mappings
+  // Discover all data sources, groups, and title mappings
   const { allGroupIds, customGroupMap, mainGamesList } = await discoverDataSources(REPOS);
 
-  // Ensure all game groups exist in the database
+  // Ensure all game group parent rows exist in the database
   if (allGroupIds.size > 0) {
     console.log(`Ensuring ${allGroupIds.size} game groups exist...`);
     const groupsToInsert = Array.from(allGroupIds).map(id => ({ id }));
     await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
   }
 
-  // Sync each data type defined in the config
-  // The syncDataType function will now also handle timestamp updates internally
+  // Sync the base game data from titledb_filtered. This must happen before timestamping
+  await syncBaseGameData(db, REPOS, mainGamesList, customGroupMap, metadata);
+
+  // Sync the performance, graphics, and video data from nx-performance
   const affectedGroupIds = new Set();
   for (const [type, config] of Object.entries(DATA_SOURCES)) {
     await syncDataType({ db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds });
   }
-
-  // Sync the base game data from titledb_filtered
-  await syncBaseGameData(db, REPOS, mainGamesList, customGroupMap, metadata);
   
+  // Apply authoritative timestamps ONLY to groups that have performance data
+  if (affectedGroupIds.size > 0) {
+    console.log(`Updating timestamps for ${affectedGroupIds.size} affected groups...`);
+    const updatePromises = [];
+    for (const groupId of affectedGroupIds) {
+      let mostRecentDate = dateMap.graphics[groupId] || dateMap.videos[groupId];
+      for (const key in dateMap.performance) {
+        if (key.startsWith(groupId)) {
+          const date = dateMap.performance[key];
+          if (!mostRecentDate || date > mostRecentDate) {
+            mostRecentDate = date;
+          }
+        }
+      }
+      
+      if (mostRecentDate) {
+        updatePromises.push(
+          db.update(gameGroups).set({ lastUpdated: mostRecentDate }).where(eq(gameGroups.id, groupId)),
+          db.update(games).set({ lastUpdated: mostRecentDate }).where(eq(games.groupId, groupId))
+        );
+      }
+    }
+    await Promise.all(updatePromises);
+  }
+
   console.log('Database synchronization complete.');
 }
 
 /**
- * A generic function to sync a specific data type
+ * A generic function to sync a specific data type (performance, graphics, videos)
  */
 async function syncDataType(context) {
   const { db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds } = context;
@@ -51,83 +75,71 @@ async function syncDataType(context) {
   const localFileKeys = new Set();
 
   const dbRecordsMap = new Map(dbRecords.map(r => {
-    const key = (type === 'performance') ? `${r.groupId}-${r.gameVersion}-${r.suffix || ''}` : r.groupId;
+    const key = (type === 'performance')
+      ? (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`)
+      : r.groupId;
     return [key, r];
   }));
 
   const files = await fs.readdir(dataDir, { withFileTypes: true }).catch(() => []);
   for (const file of files) {
-    if (config.isHierarchical && file.isDirectory()) {
-      const groupId = file.name;
-      const subFiles = await fs.readdir(path.join(dataDir, groupId)).catch(() => []);
-      for (const subFile of subFiles) {
-        if (path.extname(subFile) !== '.json') continue;
-        const fileKey = config.getKey(groupId, { name: subFile });
-        localFileKeys.add(fileKey);
-
-        const lastUpdated = dateMap.performance?.[fileKey] || new Date();
-        const dbRecord = dbRecordsMap.get(fileKey);
-        const hasChanged = !dbRecord || Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbRecord.lastUpdated.getTime() / 1000);
-
-        if (hasChanged) {
-          console.log(`Processing ${type} for ${fileKey}`);
-          const content = JSON.parse(await fs.readFile(path.join(dataDir, groupId, subFile), 'utf-8'));
-          const metadata = contributorMap.performance?.[fileKey] || {};
-          const recordData = config.buildRecord(fileKey.split('-'), content, metadata);
-          recordData.lastUpdated = lastUpdated;
-
-          await db.insert(config.table)
-            .values(recordData)
-            .onConflictDoUpdate({
-              target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
-              set: {
-                profiles: sql`excluded.profiles`,
-                contributor: sql`excluded.contributor`,
-                sourcePrUrl: sql`excluded.source_pr_url`,
-                lastUpdated: sql`excluded.last_updated`,
-              }
-            });
-
-          affectedGroupIds.add(groupId);
-          // Update parent table timestamps immediately
-          await db.update(gameGroups).set({ lastUpdated }).where(eq(gameGroups.id, groupId));
-          await db.update(games).set({ lastUpdated }).where(eq(games.groupId, groupId));
-        }
-      }
-    } else if (!config.isHierarchical && path.extname(file.name) === '.json') {
-      const groupId = path.basename(file.name, '.json');
-      const fileKey = config.getKey(groupId, file);
+    const processFile = async (groupId, fileName) => {
+      const fileKey = config.getKey(groupId, { name: fileName });
       localFileKeys.add(fileKey);
 
-      const lastUpdated = dateMap[type]?.[fileKey] || new Date();
+      const lastUpdated = (type === 'performance' ? dateMap.performance?.[fileKey] : dateMap[type]?.[groupId]) || new Date();
       const dbRecord = dbRecordsMap.get(fileKey);
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
       const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
-      
-      if (!hasChanged) continue; // Explicitly skip if no changes are detected
+
+      if (!hasChanged) return;
 
       console.log(`Processing ${type} for ${fileKey}`);
-      const content = JSON.parse(await fs.readFile(path.join(dataDir, file.name), 'utf-8'));
-      const metadata = { contributors: contributorMap[type]?.[fileKey] || [] };
-      const recordData = config.buildRecord([fileKey], content, metadata);
       
-      if (type === 'videos') {
+      const filePath = config.isHierarchical
+        ? path.join(dataDir, groupId, fileName)
+        : path.join(dataDir, fileName);
+        
+      const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+      const metadata = (type === 'performance') ? (contributorMap.performance?.[fileKey] || {}) : { contributors: contributorMap[type]?.[fileKey] || [] };
+      const keyParts = fileKey.split('-');
+      const recordData = config.buildRecord(keyParts, content, metadata, lastUpdated);
+      
+      if (type === 'performance') {
+        await db.insert(performanceProfiles).values(recordData).onConflictDoUpdate({
+          target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
+          set: {
+            profiles: sql`excluded.profiles`,
+            contributor: sql`excluded.contributor`,
+            sourcePrUrl: sql`excluded.source_pr_url`,
+            lastUpdated: sql`excluded.last_updated`,
+          }
+        });
+      } else if (type === 'graphics') {
+        await db.insert(graphicsSettings).values(recordData).onConflictDoUpdate({
+          target: graphicsSettings.groupId,
+          set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, lastUpdated: sql`excluded.last_updated` }
+        });
+      } else if (type === 'videos') {
         await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
         if (Array.isArray(recordData) && recordData.length > 0) {
           const linksToInsert = recordData.map(r => ({ ...r, submittedAt: lastUpdated }));
           await db.insert(youtubeLinks).values(linksToInsert);
         }
-      } else { // Graphics
-        recordData.lastUpdated = lastUpdated;
-        await db.insert(config.table).values(recordData).onConflictDoUpdate({
-          target: config.table.groupId,
-          set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, lastUpdated: sql`excluded.last_updated` }
-        });
       }
       affectedGroupIds.add(groupId);
-      // Update parent table timestamps immediately
-      await db.update(gameGroups).set({ lastUpdated }).where(eq(gameGroups.id, groupId));
-      await db.update(games).set({ lastUpdated }).where(eq(games.groupId, groupId));
+    };
+
+    if (config.isHierarchical && file.isDirectory()) {
+      const subFiles = await fs.readdir(path.join(dataDir, file.name)).catch(() => []);
+      for (const subFile of subFiles) {
+        if (path.extname(subFile) === '.json') {
+          await processFile(file.name, subFile);
+        }
+      }
+    } else if (!config.isHierarchical && path.extname(file.name) === '.json') {
+      const groupId = path.basename(file.name, '.json');
+      await processFile(groupId, file.name); // Pass groupId and the full filename
     }
   }
 
