@@ -124,7 +124,7 @@
 			</fieldset>
 
 			<!-- Docked Mode -->
-			<fieldset>
+			<fieldset class='docked'>
 				<legend>Docked Mode</legend>
 				<div class="structured-grid">
 					<ResolutionSettingsControls bind:settingsData={settings.docked.resolution} />
@@ -166,6 +166,10 @@
 </div>
 
 <style>
+	fieldset.docked {
+		background-image: radial-gradient(color-mix(in srgb, var(--border-color) 30%, transparent) 1px, transparent 1px);
+		background-size: 10px 10px;
+	}
 	.container {
 		margin-top: 2rem;
 		padding-top: 1.5rem;

@@ -25,7 +25,7 @@
 	});
 </script>
 
-<fieldset>
+<fieldset class="{mode.toLowerCase()}">
 	<legend>{mode}</legend>
 
 	<div class="form-grid">
@@ -174,6 +174,11 @@
 		padding: 1rem 1.5rem 1.5rem;
 		margin-bottom: 1.5rem;
 		background-color: var(--input-bg);
+	}
+
+	fieldset.docked {
+		background-image: radial-gradient(color-mix(in srgb, var(--border-color) 30%, transparent) 1px, transparent 1px);
+		background-size: 10px 10px;
 	}
 	legend {
 		font-weight: 600;
