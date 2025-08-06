@@ -199,8 +199,9 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
   const customGroupMap = new Map();
   const dataRepoPath = REPOS.nx_performance.path;
 
-  const groupDirs = ['groups', 'profiles', 'graphics', 'videos'];
-  for (const dirName of groupDirs) {
+  // Gather all group IDs from your nx-performance repo
+  const perfDataDirs = ['groups', 'profiles', 'graphics', 'videos'];
+  for (const dirName of perfDataDirs) {
     const dirPath = path.join(dataRepoPath, dirName);
     try {
       for (const file of await fs.readdir(dirPath, { withFileTypes: true })) {
@@ -215,56 +216,47 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
           allGroupIds.add(path.basename(file.name, '.json'));
         }
       }
-    } catch (e) {
-      console.warn(`Could not process directory ${dirPath}. Skipping.`);
-    }
+    } catch (e) { /* Gulp */ }
   }
 
   const mainJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main.json');
   const mainGamesList = JSON.parse(await fs.readFile(mainJsonPath, 'utf-8'));
+  // Also add group IDs from the main list, as some may not have perf data yet
   for (const id of Object.keys(mainGamesList)) {
     allGroupIds.add(customGroupMap.get(id) || getBaseId(id));
   }
   
+  // Ensure all game groups exist
   if (allGroupIds.size > 0) {
     console.log(`Ensuring ${allGroupIds.size} game groups exist...`);
     const groupsToInsert = Array.from(allGroupIds).map(id => ({ id }));
     await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
   }
 
+  // Sync nx-performance data
   const affectedGroupIds = new Set();
   const syncConfig = { dataRepoPath, contributorMap, dateMap, affectedGroupIds, db };
   await syncDataType({ ...syncConfig, type: 'performance', table: performanceProfiles });
   await syncDataType({ ...syncConfig, type: 'graphics', table: graphicsSettings });
   await syncDataType({ ...syncConfig, type: 'videos', table: youtubeLinks });
 
+  // Sync base game data from titledb_filtered
   console.log('Syncing base game data...');
   const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid');
   const titledbRepoPath = REPOS.titledb_filtered.path;
   const currentTitledbHash = (await git.cwd(titledbRepoPath).log(['-n', '1', '--pretty=format:%H'])).latest.hash;
 
-  let gamesToUpsert = [];
   if (metadata.titledbFilteredHash !== currentTitledbHash) {
     console.log(' -> Changes detected in titledb_filtered. Syncing all game records.');
     metadata.titledbFilteredHash = currentTitledbHash;
+    const gamesToUpsert = [];
     for (const [id, names] of Object.entries(mainGamesList)) {
       if (!names || !Array.isArray(names) || names.length === 0) continue;
       let details = {};
       try {
         details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
-      } catch (e) { /* ignore ENOENT */ }
+      } catch (e) { /* ignore */ }
       const groupId = customGroupMap.get(id) || getBaseId(id);
-
-      // Get the correct historical date for this game's group
-      let mostRecentPerfDate = null;
-      for (const key in dateMap.performance) {
-        if (key.startsWith(groupId)) {
-          const date = dateMap.performance[key];
-          if (!mostRecentPerfDate || date > mostRecentPerfDate) {
-            mostRecentPerfDate = date;
-          }
-        }
-      }
       
       gamesToUpsert.push({
         id, groupId, names,
@@ -273,36 +265,36 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
         bannerUrl: details.bannerUrl, screenshots: details.screenshots
       });
     }
+    
+    if (gamesToUpsert.length > 0) {
+      console.log(`Upserting ${gamesToUpsert.length} game records...`);
+      const batchSize = 500;
+      for (let i = 0; i < gamesToUpsert.length; i += batchSize) {
+        const batch = gamesToUpsert.slice(i, i + batchSize);
+        await db.insert(games).values(batch).onConflictDoUpdate({
+          target: games.id,
+          set: {
+            names: sql`excluded.names`,
+            publisher: sql`excluded.publisher`,
+            release_date: sql`excluded.release_date`,
+            size_in_bytes: sql`excluded.size_in_bytes`,
+            icon_url: sql`excluded.icon_url`,
+            banner_url: sql`excluded.banner_url`,
+            screenshots: sql`excluded.screenshots`,
+            group_id: sql`excluded.group_id`
+          }
+        });
+      }
+    }
   } else {
     console.log(' -> titledb_filtered has not changed. Skipping game data sync.');
   }
 
-  if (gamesToUpsert.length > 0) {
-    console.log(`Upserting ${gamesToUpsert.length} game records...`);
-    const batchSize = 500;
-    for (let i = 0; i < gamesToUpsert.length; i += batchSize) {
-      const batch = gamesToUpsert.slice(i, i + batchSize);
-      await db.insert(games).values(batch).onConflictDoUpdate({
-        target: games.id,
-        set: {
-          names: sql`excluded.names`,
-          publisher: sql`excluded.publisher`,
-          release_date: sql`excluded.release_date`,
-          size_in_bytes: sql`excluded.size_in_bytes`,
-          icon_url: sql`excluded.icon_url`,
-          banner_url: sql`excluded.banner_url`,
-          screenshots: sql`excluded.screenshots`,
-          group_id: sql`excluded.group_id`
-        }
-      });
-    }
-  }
-
-  const allAffected = new Set([...affectedGroupIds, ...gamesToUpsert.map(g => g.groupId)]);
-  if (allAffected.size > 0) {
-    console.log(`Updating timestamps for ${allAffected.size} affected groups...`);
+  // Set authoritative timestamps ONLY for groups with nx-performance data
+  if (affectedGroupIds.size > 0) {
+    console.log(`Updating timestamps for ${affectedGroupIds.size} affected groups...`);
     const updatePromises = [];
-    for (const groupId of allAffected) {
+    for (const groupId of affectedGroupIds) {
       let mostRecentPerfDate = null;
       for (const key in dateMap.performance) {
         if (key.startsWith(groupId)) {
@@ -312,12 +304,14 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
           }
         }
       }
-      const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
+      const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId];
       
-      updatePromises.push(
-        db.update(gameGroups).set({ lastUpdated: lastUpdate }).where(eq(gameGroups.id, groupId)),
-        db.update(games).set({ lastUpdated: lastUpdate }).where(eq(games.groupId, groupId))
-      );
+      if (lastUpdate) { // Only update if a valid date was found
+        updatePromises.push(
+          db.update(gameGroups).set({ lastUpdated: lastUpdate }).where(eq(gameGroups.id, groupId)),
+          db.update(games).set({ lastUpdated: lastUpdate }).where(eq(games.groupId, groupId))
+        );
+      }
     }
     await Promise.all(updatePromises);
   }
