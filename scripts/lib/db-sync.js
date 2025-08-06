@@ -80,17 +80,18 @@ async function syncDataType(context) {
           const recordData = config.buildRecord(fileKey.split('-'), content, metadata);
           recordData.lastUpdated = lastUpdated;
 
-          if (dbRecord) {
-            // Only update the fields that can actually change
-            await db.update(config.table).set({
-              profiles: recordData.profiles,
-              contributor: recordData.contributor,
-              sourcePrUrl: recordData.sourcePrUrl,
-              lastUpdated: recordData.lastUpdated
-            }).where(eq(config.table.id, dbRecord.id));
-          } else {
-            await db.insert(config.table).values(recordData);
-          }
+          await db.insert(config.table)
+            .values(recordData)
+            .onConflictDoUpdate({
+              target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
+              set: {
+                profiles: sql`excluded.profiles`,
+                contributor: sql`excluded.contributor`,
+                sourcePrUrl: sql`excluded.source_pr_url`,
+                lastUpdated: sql`excluded.last_updated`,
+              }
+            });
+
           affectedGroupIds.add(groupId);
           // Update parent table timestamps immediately
           await db.update(gameGroups).set({ lastUpdated }).where(eq(gameGroups.id, groupId));
