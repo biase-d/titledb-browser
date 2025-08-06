@@ -268,10 +268,15 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
       await db.insert(games).values(batch).onConflictDoUpdate({
         target: games.id,
         set: {
-          names: sql`excluded.names`, publisher: sql`excluded.publisher`,
-          release_date: sql`excluded.release_date`, size_in_bytes: sql`excluded.size_in_bytes`,
-          icon_url: sql`excluded.icon_url`, banner_url: sql`excluded.banner_url`,
-          screenshots: sql`excluded.screenshots`, group_id: sql`excluded.group_id`
+          names: sql`excluded.names`,
+          publisher: sql`excluded.publisher`,
+          release_date: sql`excluded.release_date`,
+          size_in_bytes: sql`excluded.size_in_bytes`,
+          icon_url: sql`excluded.icon_url`,
+          banner_url: sql`excluded.banner_url`,
+          screenshots: sql`excluded.screenshots`,
+          group_id: sql`excluded.group_id`,
+          last_updated: sql`excluded.last_updated`
         }
       });
     }
