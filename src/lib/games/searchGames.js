@@ -121,23 +121,38 @@ export async function searchGames(searchParams) {
 
 	let recentUpdates = [];
 	if (page === 1 && !isSearchingOrFiltering) {
-		const recentProfiles = await db.execute(sql`
-			WITH ranked_profiles AS (
-				SELECT "group_id", ROW_NUMBER() OVER(PARTITION BY "group_id" ORDER BY "last_updated" DESC) as rn FROM "performance_profiles"
+		const recentGroupsQuery = sql`
+			WITH all_updates AS (
+				SELECT group_id, last_updated FROM ${performanceProfiles}
+				UNION ALL
+				SELECT group_id, last_updated FROM ${graphicsSettings}
+			),
+			latest_updates AS (
+				SELECT group_id, MAX(last_updated) as max_last_updated
+				FROM all_updates
+				GROUP BY group_id
 			)
-			SELECT "group_id" FROM ranked_profiles WHERE rn = 1 ORDER BY (
-				SELECT "last_updated" FROM "performance_profiles" WHERE "group_id" = ranked_profiles."group_id" ORDER BY "last_updated" DESC LIMIT 1
-			) DESC LIMIT 12;
-		`);
+			SELECT group_id
+			FROM latest_updates
+			ORDER BY max_last_updated DESC
+			LIMIT 10;
+		`;
 		
-		if (recentProfiles.length > 0) {
-			const groupIds = recentProfiles.map(p => p.group_id);
-			recentUpdates = await db.select({
+		const recentGroupsResult = await db.execute(recentGroupsQuery);
+		const groupIds = Array.isArray(recentGroupsResult)
+			? recentGroupsResult.map(row => row.group_id).filter(Boolean)
+			: [];
+
+		if (groupIds.length > 0) {
+			const recentGames = await db.selectDistinctOn([games.groupId], {
 				id: games.id,
+				groupId: games.groupId,
 				names: games.names,
 				publisher: games.publisher,
 				iconUrl: games.iconUrl
 			}).from(games).where(inArray(games.groupId, groupIds));
+			
+			recentUpdates = groupIds.map(id => recentGames.find(g => g.groupId === id)).filter(Boolean);
 		}
 	}
 	
