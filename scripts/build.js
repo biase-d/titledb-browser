@@ -90,12 +90,15 @@ async function buildDateMap () {
 }
 
 async function buildFullContributorMap (cachedMap = null, lastProcessedDate = null) {
-  let contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {} };
+let contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {} };
   let latestMergedAt = lastProcessedDate;
 
-  if (contributorMap.graphics) {
-    for (const groupId in contributorMap.graphics) {
-      contributorMap.graphics[groupId] = new Set(contributorMap.graphics[groupId]);
+  for (const type of ['graphics', 'videos']) {
+    if (contributorMap[type]) {
+      for (const groupId in contributorMap[type]) {
+        const value = contributorMap[type][groupId];
+        contributorMap[type][groupId] = new Set(Array.isArray(value) ? value : []);
+      }
     }
   }
 
@@ -165,11 +168,10 @@ async function buildFullContributorMap (cachedMap = null, lastProcessedDate = nu
       }
     }
 
-    for (const groupId in contributorMap.graphics) {
-      contributorMap.graphics[groupId] = Array.from(contributorMap.graphics[groupId]);
-    }
-    for (const groupId in contributorMap.videos) {
-      contributorMap.videos[groupId] = Array.from(contributorMap.videos[groupId]);
+    for (const type of ['graphics', 'videos']) {
+      for (const groupId in contributorMap[type]) {
+        contributorMap[type][groupId] = Array.from(contributorMap[type][groupId]);
+      }
     }
 
   } catch (apiError) {
@@ -249,11 +251,24 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
         details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
       } catch (e) { /* ignore ENOENT */ }
       const groupId = customGroupMap.get(id) || getBaseId(id);
+      
+      let mostRecentPerfDate = null;
+      for (const key in dateMap.performance) {
+        if (key.startsWith(groupId)) {
+          const date = dateMap.performance[key];
+          if (!mostRecentPerfDate || date > mostRecentPerfDate) {
+            mostRecentPerfDate = date;
+          }
+        }
+      }
+      const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
+
       gamesToUpsert.push({
         id, groupId, names,
         publisher: details.publisher, releaseDate: details.releaseDate,
         sizeInBytes: parseSizeToBytes(details.size), iconUrl: details.iconUrl,
-        bannerUrl: details.bannerUrl, screenshots: details.screenshots
+        bannerUrl: details.bannerUrl, screenshots: details.screenshots,
+        lastUpdated: lastUpdate
       });
     }
   } else {
