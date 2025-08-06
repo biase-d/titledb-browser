@@ -225,10 +225,14 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
   for (const id of Object.keys(mainGamesList)) {
     allGroupIds.add(customGroupMap.get(id) || getBaseId(id));
   }
-
+  
+  if (allGroupIds.size > 0) {
+    console.log(`Ensuring ${allGroupIds.size} game groups exist...`);
+    const groupsToInsert = Array.from(allGroupIds).map(id => ({ id }));
+    await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
+  }
 
   const affectedGroupIds = new Set();
-
   const syncConfig = { dataRepoPath, contributorMap, dateMap, affectedGroupIds, db };
   await syncDataType({ ...syncConfig, type: 'performance', table: performanceProfiles });
   await syncDataType({ ...syncConfig, type: 'graphics', table: graphicsSettings });
@@ -236,7 +240,6 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
 
   console.log('Syncing base game data...');
   const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid');
-  
   const titledbRepoPath = REPOS.titledb_filtered.path;
   const currentTitledbHash = (await git.cwd(titledbRepoPath).log(['-n', '1', '--pretty=format:%H'])).latest.hash;
 
@@ -251,7 +254,8 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
         details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
       } catch (e) { /* ignore ENOENT */ }
       const groupId = customGroupMap.get(id) || getBaseId(id);
-      
+
+      // Get the correct historical date for this game's group
       let mostRecentPerfDate = null;
       for (const key in dateMap.performance) {
         if (key.startsWith(groupId)) {
@@ -262,7 +266,7 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
         }
       }
       const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
-
+      
       gamesToUpsert.push({
         id, groupId, names,
         publisher: details.publisher, releaseDate: details.releaseDate,
@@ -311,7 +315,6 @@ async function syncDatabase (contributorMap, dateMap, metadata) {
           }
         }
       }
-      
       const lastUpdate = mostRecentPerfDate || dateMap.graphics[groupId] || dateMap.videos[groupId] || new Date();
       
       updatePromises.push(
