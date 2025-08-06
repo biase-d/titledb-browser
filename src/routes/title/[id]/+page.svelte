@@ -120,11 +120,14 @@
 
 	function formatSize(bytes) {
 		if (!bytes || isNaN(bytes)) return 'N/A';
-		if (bytes === 0) return '0 Byte';
+		if (bytes === 0) return '0 Bytes';
 		const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
 		const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-		return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+		const value = bytes / Math.pow(1024, i);
+		const formattedValue = value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
+		return `${formattedValue} ${sizes[i]}`;
 	}
+	
 </script>
 
 <svelte:head>
