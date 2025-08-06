@@ -477,6 +477,7 @@
 		border-radius: var(--border-radius);
 		padding: 6px 10px;
 		font-size: 0.9rem;
+		color: var(--text-primary);
 	}
 	.contribute-button {
 		background-color: var(--input-bg);
