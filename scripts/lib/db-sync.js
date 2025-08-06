@@ -81,7 +81,13 @@ async function syncDataType(context) {
           recordData.lastUpdated = lastUpdated;
 
           if (dbRecord) {
-            await db.update(config.table).set(recordData).where(eq(config.table.id, dbRecord.id));
+            // Only update the fields that can actually change
+            await db.update(config.table).set({
+              profiles: recordData.profiles,
+              contributor: recordData.contributor,
+              sourcePrUrl: recordData.sourcePrUrl,
+              lastUpdated: recordData.lastUpdated
+            }).where(eq(config.table.id, dbRecord.id));
           } else {
             await db.insert(config.table).values(recordData);
           }
@@ -105,30 +111,30 @@ async function syncDataType(context) {
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
       const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
       
-      if (hasChanged) {
-        console.log(`Processing ${type} for ${fileKey}`);
-        const content = JSON.parse(await fs.readFile(path.join(dataDir, file.name), 'utf-8'));
-        const metadata = { contributors: contributorMap[type]?.[fileKey] || [] };
-        const recordData = config.buildRecord([fileKey], content, metadata);
-        
-        if (type === 'videos') {
-          await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
-          if (Array.isArray(recordData) && recordData.length > 0) {
-            const linksToInsert = recordData.map(r => ({ ...r, submittedAt: lastUpdated }));
-            await db.insert(youtubeLinks).values(linksToInsert);
-          }
-        } else { // Graphics
-          recordData.lastUpdated = lastUpdated;
-          await db.insert(config.table).values(recordData).onConflictDoUpdate({
-            target: config.table.groupId,
-            set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, lastUpdated: sql`excluded.last_updated` }
-          });
+      if (!hasChanged) continue; // Explicitly skip if no changes are detected
+
+      console.log(`Processing ${type} for ${fileKey}`);
+      const content = JSON.parse(await fs.readFile(path.join(dataDir, file.name), 'utf-8'));
+      const metadata = { contributors: contributorMap[type]?.[fileKey] || [] };
+      const recordData = config.buildRecord([fileKey], content, metadata);
+      
+      if (type === 'videos') {
+        await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
+        if (Array.isArray(recordData) && recordData.length > 0) {
+          const linksToInsert = recordData.map(r => ({ ...r, submittedAt: lastUpdated }));
+          await db.insert(youtubeLinks).values(linksToInsert);
         }
-        affectedGroupIds.add(groupId);
-        // Update parent table timestamps immediately
-        await db.update(gameGroups).set({ lastUpdated }).where(eq(gameGroups.id, groupId));
-        await db.update(games).set({ lastUpdated }).where(eq(games.groupId, groupId));
+      } else { // Graphics
+        recordData.lastUpdated = lastUpdated;
+        await db.insert(config.table).values(recordData).onConflictDoUpdate({
+          target: config.table.groupId,
+          set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, lastUpdated: sql`excluded.last_updated` }
+        });
       }
+      affectedGroupIds.add(groupId);
+      // Update parent table timestamps immediately
+      await db.update(gameGroups).set({ lastUpdated }).where(eq(gameGroups.id, groupId));
+      await db.update(games).set({ lastUpdated }).where(eq(games.groupId, groupId));
     }
   }
 
