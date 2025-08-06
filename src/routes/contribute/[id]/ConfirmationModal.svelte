@@ -120,7 +120,11 @@
 		}
 
 		// YouTube Link Changes
-		const normalizeLinks = (links) => links.map(l => ({ url: l.url, notes: l.notes || '' })).sort((a,b) => a.url.localeCompare(b.url));
+		const normalizeLinks = (links) => links
+			.filter(l => l.url && l.url.trim() !== '')
+			.map(l => ({ url: l.url, notes: l.notes || '' }))
+			.sort((a,b) => a.url.localeCompare(b.url));
+			
 		const normalizedNew = normalizeLinks(youtubeLinks);
 		const normalizedOriginal = normalizeLinks(originalYoutubeLinks);
 

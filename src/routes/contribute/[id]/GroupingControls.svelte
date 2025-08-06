@@ -70,11 +70,11 @@
 	async function addCustomId () {
 		const id = customIdInput.trim().toUpperCase()
 
-		if (!/^0[5-8]00[0-9A-F]{10}$/.test(id)) {
-			customIdError = 'Invalid Title ID format. Must be 16 hex characters'
+		if (!/^[0-9A-F]{16}$/.test(id)) {
+			customIdError = 'Invalid Title ID format. Must be 16 hexadecimal characters.'
 			return
 		}
-
+		
 		if (isAlreadyInGroup({ id })) {
 			customIdError = 'This title is already in the group'
 			return
