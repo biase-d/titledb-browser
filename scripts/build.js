@@ -511,7 +511,7 @@ async function syncDataType(config) {
 
     if (isFullRebuild) {
       console.log('Starting FULL database rebuild process...');
-      await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`)
+      //await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`)
     }
     
     await syncDatabase(contributorMap, dateMap, metadata);
