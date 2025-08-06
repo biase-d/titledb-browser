@@ -8,18 +8,20 @@
 	let totalContributions = $derived(data.totalContributions || 0);
 	let sessionUser = $derived(data.session?.user);
 	
-	let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLowerCase());
+let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLowerCase());
 
-	const iconPool = ['mdi:star', 'mdi:trophy', 'mdi:medal', 'mdi:sparkles', 'mdi:diamond-stone', 'mdi:crown', 'mdi:lightning-bolt'];
 	const badges = [
-		{ threshold: 1, name: 'First Contribution', color: '#a1a1aa' },
-		{ threshold: 5, name: 'Bronze Contributor', color: '#cd7f32' },
-		{ threshold: 15, name: 'Silver Contributor', color: '#c0c0c0' },
-		{ threshold: 30, name: 'Gold Contributor', color: '#ffd700' },
-		{ threshold: 50, name: 'Platinum Contributor', color: '#e5e4e2' },
-		{ threshold: 100, name: 'Diamond Contributor', color: '#b9f2ff' },
-		{ threshold: 200, name: 'Master Contributor', color: '#ff00ff' }
-	].map((badge, i) => ({ ...badge, icon: iconPool[i % iconPool.length] }));
+		{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
+		{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:alligator' },
+		{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
+		{ threshold: 30, name: 'Spooky Robe Guy', color: '#e11d48', icon: 'mdi:ghost' },
+		{ threshold: 50, name: 'Big Buff Croc', color: '#78716c', icon: 'mdi:arm-flex' },
+		{ threshold: 100, name: 'Evil Gray Twin', color: '#4f46e5', icon: 'mdi:sword-cross' },
+		{ threshold: 200, name: 'King K. Roolish', color: '#facc15', icon: 'mdi:crown' },
+		{ threshold: 300, name: 'Big Purple Pterodactyl', color: '#8b5cf6', icon: 'mdi:bird' },
+		{ threshold: 400, name: 'Ancient Angel Borb', color: '#d1d5db', icon: 'mdi:shield-star' },
+		{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' }
+	];
 
 	let unlockedBadges = $derived(badges.filter(badge => totalContributions >= badge.threshold));
 	let nextBadge = $derived(badges.find(badge => totalContributions < badge.threshold));
