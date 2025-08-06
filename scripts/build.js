@@ -28,11 +28,11 @@ const REPOS = {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await Promise.all(Object.values(REPOS).map(repo => cloneOrPull(repo.path, repo.url)));
 
-    const { cachedMap, cachedMetadata, cachedDateMap } = await loadCache(useCache && !isFullRebuild);
+    const { cachedMap, cachedMetadata } = await loadCache(useCache && !isFullRebuild);
 
     const { contributorMap, latestMergedAt } = await buildFullContributorMap(cachedMap, cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null);
     
-    const dateMap = cachedDateMap || await buildDateMapOptimized(REPOS.nx_performance.path);
+    const dateMap = await buildDateMapOptimized(REPOS.nx_performance.path);
     
     const metadata = {
       lastProcessedDate: latestMergedAt ? latestMergedAt.toISOString() : cachedMetadata?.lastProcessedDate,
@@ -41,12 +41,13 @@ const REPOS = {
 
     if (isFullRebuild) {
       console.log('Starting FULL database rebuild process...');
+      // TRUNCATE is only necessary for a full rebuild to clear old data
       await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`);
     }
     
     await syncDatabase(db, REPOS, contributorMap, dateMap, metadata);
     
-    await saveCache(contributorMap, metadata, dateMap);
+    await saveCache(contributorMap, metadata);
 
   } catch (error) {
     console.error('An unexpected error occurred:', error);

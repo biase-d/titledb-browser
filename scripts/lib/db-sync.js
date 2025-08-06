@@ -65,11 +65,7 @@ async function syncDataType(context) {
         const fileKey = config.getKey(groupId, { name: subFile });
         localFileKeys.add(fileKey);
 
-        const lastUpdated = dateMap.performance?.[fileKey]; // DO NOT FALLBACK
-        if (!lastUpdated) {
-            console.warn(`Could not find date for performance key: ${fileKey}. Skipping timestamp update.`);
-            continue; // Skip processing if we don't have a valid date
-        }
+        const lastUpdated = dateMap.performance?.[fileKey] || new Date();
         const dbRecord = dbRecordsMap.get(fileKey);
         const hasChanged = !dbRecord || Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbRecord.lastUpdated.getTime() / 1000);
 
@@ -103,11 +99,7 @@ async function syncDataType(context) {
       const fileKey = config.getKey(groupId, file);
       localFileKeys.add(fileKey);
 
-      const lastUpdated = dateMap[type]?.[fileKey];
-      if (!lastUpdated) {
-          console.warn(`Could not find date for ${type} key: ${fileKey}. Skipping timestamp update.`);
-          continue; // Skip processing if we don't have a valid date
-      }
+      const lastUpdated = dateMap[type]?.[fileKey] || new Date();
       const dbRecord = dbRecordsMap.get(fileKey);
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
       const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
