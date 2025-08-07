@@ -28,7 +28,7 @@ export const performanceProfiles = pgTable('performance_profiles', {
 	gameVersion: text('game_version').notNull(),
 	suffix: text('suffix'),
 	profiles: jsonb('profiles').notNull(),
-	contributor: text('contributor'),
+	contributor: text('contributor').array(),
 	sourcePrUrl: text('source_pr_url'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 }, (table) => {
