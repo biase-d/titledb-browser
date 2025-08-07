@@ -103,7 +103,11 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
           const [gameVersion, ...suffixParts] = fileBaseName.split('$');
           const suffix = suffixParts.join('$');
           const key = suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
-          contributorMap.performance[key] = prInfo;
+          
+          // Only assign the contributor info if we haven't already assigned it from a newer PR
+          if (!contributorMap.performance[key]) {
+            contributorMap.performance[key] = prInfo;
+          }
         } else if ((match = filePath.match(/^graphics\/([A-F0-9]{16})\.json/))) {
           const groupId = match[1];
           if (!contributorMap.graphics[groupId]) {
