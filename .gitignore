@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 
 # Personal
 todo.txt
+debug-*
+audit-*
+*.bak
