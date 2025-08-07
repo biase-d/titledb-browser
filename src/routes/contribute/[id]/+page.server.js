@@ -178,9 +178,12 @@ export const actions = {
 			}
 
 			if (!isGraphicsEmpty(graphicsData)) {
-				const contributor = originalGraphicsData?.contributor || user.login;
-				if (contributor) allContributors.add(contributor);
-				const fileContent = { ...graphicsData, contributor };
+				const existingContributors = Array.isArray(originalGraphicsData?.contributor) ? originalGraphicsData.contributor : [];
+				const newContributors = [...new Set([...existingContributors, user.login])];
+
+				newContributors.forEach(c => allContributors.add(c));
+
+				const fileContent = { ...graphicsData, contributor: newContributors };
 
 				filesToCommit.push({
 					path: `graphics/${groupId}.json`,
