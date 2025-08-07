@@ -105,10 +105,12 @@
 			}
 		}
 
-		const graphicsChanged = JSON.stringify(graphicsData) !== JSON.stringify(originalGraphics || {});
+		// Compare just the settings part of the original graphics object
+		const graphicsChanged = JSON.stringify(graphicsData) !== JSON.stringify(originalGraphics?.settings || {});
 		if (graphicsChanged) {
 			const newIsEmpty = isGraphicsEmpty(graphicsData);
-			const originalIsEmpty = isGraphicsEmpty(originalGraphics);
+			// Pass just the settings part to the check
+			const originalIsEmpty = isGraphicsEmpty(originalGraphics?.settings);
 
 			if (newIsEmpty && !originalIsEmpty) {
 				summary.push('Cleared graphics settings.');
