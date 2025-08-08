@@ -1,6 +1,6 @@
 import { db } from '$lib/db';
 import { games, performanceProfiles, graphicsSettings, gameGroups } from '$lib/db/schema';
-import { desc, eq, sql, inArray, or, and } from 'drizzle-orm';
+import { desc, eq, sql, inArray, or, and, count, countDistinct } from 'drizzle-orm';
 
 const PAGE_SIZE = 50;
 
@@ -114,13 +114,18 @@ if (q) {
 		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
 		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
 		.where(where);
-	
+
+	const uniqueContributorsQuery = db
+		.select({ contributor: sql`unnest(${performanceProfiles.contributor})`.as('contributor') })
+		.from(performanceProfiles)
+		.groupBy(sql`contributor`);
+
 	const statsQuery = db.select({
-		totalGames: sql`count(distinct ${performanceProfiles.groupId})`.mapWith(Number),
-		totalProfiles: sql`count(*)`.mapWith(Number),
-		totalContributors: sql`count(distinct ${performanceProfiles.contributor})`.mapWith(Number)
+		totalGames: countDistinct(performanceProfiles.groupId),
+		totalProfiles: count(performanceProfiles.id),
+		totalContributors: sql`(select count(*) from (${uniqueContributorsQuery}))`.mapWith(Number)
 	}).from(performanceProfiles);
-	
+
 	const [queryResult, countResult, statsResult] = await Promise.all([query, countQuery, statsQuery]);
 
 	const uniqueResults = Array.from(new Map(queryResult.map(item => [item.groupId, item])).values()).slice(0, PAGE_SIZE);
