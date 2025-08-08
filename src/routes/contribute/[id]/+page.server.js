@@ -2,9 +2,39 @@ import { getGameDetails } from '$lib/games/getGameDetails';
 import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/github.js';
 import { error, redirect, fail } from '@sveltejs/kit';
 import { isEqual } from 'lodash-es';
+import stringify from 'json-stable-stringify';
 
 /**
- * Checks if a graphics object is effectively empty
+ * Recursively clones and prunes an object, removing keys that have empty values
+ * An empty value is considered to be: null, undefined, "", [], or {}
+ * @param {any} value The value to prune
+ * @returns {any} The pruned value, or undefined if the value itself is empty
+ */
+function pruneEmptyValues(value) {
+	if (typeof value !== 'object' || value === null) {
+		return value === '' || value === null ? undefined : value;
+	}
+
+	if (Array.isArray(value)) {
+		const prunedArray = value
+			.map(item => pruneEmptyValues(item))
+			.filter(item => item !== undefined);
+		return prunedArray.length > 0 ? prunedArray : undefined;
+	}
+
+	const prunedObj = {};
+	let keyCount = 0;
+	for (const key of Object.keys(value)) {
+		const prunedValue = pruneEmptyValues(value[key]);
+		if (prunedValue !== undefined) {
+			prunedObj[key] = prunedValue;
+			keyCount++;
+		}
+	}
+
+	return keyCount > 0 ? prunedObj : undefined;
+}
+
  * @param {any} graphics
  * @returns {boolean}
  */
@@ -155,7 +185,8 @@ export const actions = {
 				const originalProfile = originalProfilesMap.get(key);
 				if (originalProfile?.contributor) allContributors.add(originalProfile.contributor);
 
-				const fileContent = submittedProfile.profiles;
+				const fileContent = pruneEmptyValues(submittedProfile.profiles);
+				if (!fileContent) continue;
 
 				const fileName = submittedProfile.suffix
 					? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json`
@@ -163,7 +194,7 @@ export const actions = {
 
 				filesToCommit.push({
 					path: `profiles/${groupId}/${fileName}`,
-					content: JSON.stringify(fileContent, null, 2),
+					content: stringify(fileContent, { space: 2 }),
 					sha: shas.performance?.[key]
 				});
 			}
@@ -176,18 +207,19 @@ export const actions = {
 					filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: null, sha: shas.performance?.[key] });
 				}
 			}
-
-			if (!isGraphicsEmpty(graphicsData)) {
+			const prunedGraphicsData = pruneEmptyValues(graphicsData);
+			
+			if (prunedGraphicsData && !isGraphicsEmpty(prunedGraphicsData)) {
 				const existingContributors = Array.isArray(originalGraphicsData?.contributor) ? originalGraphicsData.contributor : [];
 				const newContributors = [...new Set([...existingContributors, user.login])];
 
 				newContributors.forEach(c => allContributors.add(c));
 
-				const fileContent = { ...graphicsData, contributor: newContributors };
+				const fileContent = { ...prunedGraphicsData, contributor: newContributors };
 
 				filesToCommit.push({
 					path: `graphics/${groupId}.json`,
-					content: JSON.stringify(fileContent, null, 2),
+					content: stringify(fileContent, { space: 2 }),
 					sha: shas.graphics
 				});
 			} else if (originalGraphicsData && Object.keys(originalGraphicsData).length > 0) {
@@ -207,7 +239,7 @@ export const actions = {
 
 				filesToCommit.push({
 					path: `videos/${groupId}.json`,
-					content: JSON.stringify(youtubeFileContent, null, 2),
+					content: stringify(youtubeFileContent, { space: 2 }),
 					sha: shas.youtube
 				});
 			} else if (originalYoutubeLinks.length > 0) {
@@ -220,7 +252,7 @@ export const actions = {
 			if (!isEqual(originalIds, updatedIds)) {
 				filesToCommit.push({
 					path: `groups/${groupId}.json`,
-					content: JSON.stringify(updatedGroupData.map(g => g.id), null, 2),
+					content: stringify(updatedGroupData.map(g => g.id), { space: 2 }),
 					sha: shas.group
 				});
 			}
