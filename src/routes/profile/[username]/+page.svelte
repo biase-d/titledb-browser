@@ -1,5 +1,22 @@
 <script>
 	import Icon from "@iconify/svelte";
+	import { page } from "$app/state";
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+
+	const badges = [
+		{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' },
+		{ threshold: 400, name: 'Ancient Angel Borb', color: '#d1d5db', icon: 'mdi:shield-star' },
+		{ threshold: 300, name: 'Big Purple Pterodactyl', color: '#8b5cf6', icon: 'mdi:bird' },
+		{ threshold: 200, name: 'King K. Roolish', color: '#facc15', icon: 'mdi:crown' },
+		{ threshold: 100, name: 'Evil Gray Twin', color: '#4f46e5', icon: 'mdi:sword-cross' },
+		{ threshold: 50, name: 'Big Buff Croc', color: '#78716c', icon: 'mdi:arm-flex' },
+		{ threshold: 30, name: 'Spooky Robe Guy', color: '#e11d48', icon: 'mdi:ghost' },
+		{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
+		{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:alligator' },
+		{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' }
+	];
 
 	let { data } = $props();
 	
@@ -7,25 +24,29 @@
 	let contributions = $derived(data.contributions || []);
 	let totalContributions = $derived(data.totalContributions || 0);
 	let sessionUser = $derived(data.session?.user);
+	let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLowerCase());
+	let currentTierName = $derived(data.currentTierName);
+	let pagination = $derived(data.pagination);
 	
-let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLowerCase());
-
-	const badges = [
-		{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
-		{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:alligator' },
-		{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
-		{ threshold: 30, name: 'Spooky Robe Guy', color: '#e11d48', icon: 'mdi:ghost' },
-		{ threshold: 50, name: 'Big Buff Croc', color: '#78716c', icon: 'mdi:arm-flex' },
-		{ threshold: 100, name: 'Evil Gray Twin', color: '#4f46e5', icon: 'mdi:sword-cross' },
-		{ threshold: 200, name: 'King K. Roolish', color: '#facc15', icon: 'mdi:crown' },
-		{ threshold: 300, name: 'Big Purple Pterodactyl', color: '#8b5cf6', icon: 'mdi:bird' },
-		{ threshold: 400, name: 'Ancient Angel Borb', color: '#d1d5db', icon: 'mdi:shield-star' },
-		{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' }
-	];
-
-	let unlockedBadges = $derived(badges.filter(badge => totalContributions >= badge.threshold));
-	let nextBadge = $derived(badges.find(badge => totalContributions < badge.threshold));
+	let nextBadge = $derived(badges.slice().reverse().find(badge => totalContributions < badge.threshold));
 	let progressToNext = $derived(nextBadge ? Math.floor((totalContributions / nextBadge.threshold) * 100) : 100);
+
+	let viewMode = $state('grid');
+
+	onMount(() => {
+		const savedView = localStorage.getItem('profileViewMode');
+		if (savedView === 'grid' || savedView === 'list') viewMode = savedView;
+	});
+
+	$effect(() => {
+		if (browser) localStorage.setItem('profileViewMode', viewMode);
+	});
+
+	function changePage(newPage) {
+		const url = new URL(page.url);
+		url.searchParams.set('page', newPage.toString());
+		goto(url, { keepData: false, noScroll: true });
+	}
 </script>
 
 <svelte:head>
@@ -33,39 +54,46 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 </svelte:head>
 
 <div class="profile-container">
-	<div class="profile-header">
-		{#if isOwnProfile && sessionUser?.image}
-			<img src={sessionUser.image} alt={username} class="avatar" />
-		{/if}
-		<div class="header-text">
-			<h1>{username}</h1>
-			<p>Community Contributor</p>
-		</div>
-		{#if isOwnProfile}
-			<form action="/auth/signout" method="post" class="signout-form">
-				<button type="submit" class="signout-button">Sign Out</button>
-			</form>
-		{/if}
-	</div>
-
-	<div class="stats-bar">
-		<div class="stat-item">
-			<span class="stat-value">{totalContributions}</span>
-			<span class="stat-label">Total Contributions</span>
-		</div>
-		<div class="stat-item">
-			<span class="stat-value">{contributions.length}</span>
-			<span class="stat-label">Unique Games</span>
-		</div>
-		{#if unlockedBadges.length > 0}
-			<div class="stat-item badges-container">
-				{#each unlockedBadges as badge}
-					<span class="badge" style="--badge-color: {badge.color};" title="{badge.name} ({badge.threshold}+ contributions)">
-						<Icon icon={badge.icon} />
-					</span>
-				{/each}
+	<div 
+		class="profile-card"
+		data-tier={currentTierName?.toLowerCase().replace(/\s+/g, '-')}
+	>
+		<div class="profile-header">
+			{#if isOwnProfile && sessionUser?.image}
+				<img src={sessionUser.image} alt={username} class="avatar" />
+			{/if}
+			<div class="header-text">
+				<div class="title-with-badges">
+					<h1>{username}</h1>
+					<div class="badges-header-container">
+						{#each badges as badge}
+							{#if totalContributions >= badge.threshold}
+								<span class="badge" style="--badge-color: {badge.color};" title="{badge.name} ({badge.threshold}+ contributions)">
+									<Icon icon={badge.icon} />
+								</span>
+							{/if}
+						{/each}
+					</div>
+				</div>
+				<p>Community Contributor</p>
 			</div>
-		{/if}
+			{#if isOwnProfile}
+				<form action="/auth/signout" method="post" class="signout-form">
+					<button type="submit" class="signout-button">Sign Out</button>
+				</form>
+			{/if}
+		</div>
+
+		<div class="stats-bar">
+			<div class="stat-item">
+				<span class="stat-value">{totalContributions}</span>
+				<span class="stat-label">Total Contributions</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-value">{pagination?.totalItems || 0}</span>
+				<span class="stat-label">Unique Games</span>
+			</div>
+		</div>
 	</div>
 
 	{#if nextBadge}
@@ -78,44 +106,71 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 		</div>
 	{/if}
 
-	<h2 class="section-title">Contributions</h2>
+	<div class="section-header">
+		<h2 class="section-title">Contributions</h2>
+		<div class="view-switcher">
+			<button class:active={viewMode === 'list'} onclick={() => viewMode = 'list'} title="List View"><Icon icon="mdi:view-list" /></button>
+			<button class:active={viewMode === 'grid'} onclick={() => viewMode = 'grid'} title="Grid View"><Icon icon="mdi:view-grid" /></button>
+		</div>
+	</div>
 
 	{#if contributions.length > 0}
-		<div class="contributions-grid">
+		<div class="contributions-container {viewMode}">
 			{#each contributions as item (item.game.id)}
-				<a href={`/title/${item.game.id}`} class="game-card">
-					<div class="card-icon" style="background-image: url({item.game.iconUrl || '/favicon.svg'})"></div>
-					<div class="card-info">
-						<p class="card-title">{item.game.name}</p>
-						<div class="card-tags">
-							{#each item.versions as v}
-								<div
-									class="version-tag"
-									role="link"
-									tabindex="0"
-									onclick={(e) => {
-										e.stopPropagation();
-										window.open(v.sourcePrUrl, '_blank');
-									}}
-									onkeydown={(e) => {
-										if (e.key === 'Enter') {
+				{#if viewMode === 'list'}
+					<a href={`/title/${item.game.id}`} class="list-item">
+						<div class="list-item-info">
+							<p class="list-item-title">{item.game.name}</p>
+							<div class="card-tags">
+								{#each item.versions as v}
+									<div class="version-tag-wrapper">
+										<Icon icon="mdi:chart-line-variant" /> v{v.version}
+									</div>
+								{/each}
+								{#if item.hasGraphics}
+									<span class="info-tag"><Icon icon="mdi:palette-outline" /> Graphics</span>
+								{/if}
+								{#if item.hasYoutube}
+									<span class="info-tag"><Icon icon="mdi:youtube" /> Videos</span>
+								{/if}
+							</div>
+						</div>
+					</a>
+				{:else}
+					<a href={`/title/${item.game.id}`} class="game-card">
+						<div class="card-icon" style="background-image: url({item.game.iconUrl || '/favicon.svg'})"></div>
+						<div class="card-info">
+							<p class="card-title">{item.game.name}</p>
+							<div class="card-tags">
+								{#each item.versions as v}
+									<div
+										class="version-tag"
+										role="link"
+										tabindex="0"
+										onclick={(e) => {
 											e.stopPropagation();
 											window.open(v.sourcePrUrl, '_blank');
-										}
-									}}
-								>
-									<Icon icon="mdi:chart-line-variant" /> v{v.version}
-								</div>
-							{/each}
-							{#if item.hasGraphics}
-								<span class="info-tag"><Icon icon="mdi:palette-outline" /> Graphics</span>
-							{/if}
-							{#if item.hasYoutube}
-								<span class="info-tag"><Icon icon="mdi:youtube" /> Videos</span>
-							{/if}
+										}}
+										onkeydown={(e) => {
+											if (e.key === 'Enter') {
+												e.stopPropagation();
+												window.open(v.sourcePrUrl, '_blank');
+											}
+										}}
+									>
+										<Icon icon="mdi:chart-line-variant" /> v{v.version}
+									</div>
+								{/each}
+								{#if item.hasGraphics}
+									<span class="info-tag"><Icon icon="mdi:palette-outline" /> Graphics</span>
+								{/if}
+								{#if item.hasYoutube}
+									<span class="info-tag"><Icon icon="mdi:youtube" /> Videos</span>
+								{/if}
+							</div>
 						</div>
-					</div>
-				</a>
+					</a>
+				{/if}
 			{/each}
 		</div>
 	{:else}
@@ -124,17 +179,64 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 			<p>{username} hasn't submitted any performance data that has been merged.</p>
 		</div>
 	{/if}
+	
+	{#if pagination && pagination.totalPages > 1}
+		<div class="pagination">
+			<button disabled={pagination.currentPage <= 1} onclick={() => changePage(pagination.currentPage - 1)}>← Previous</button>
+			<span>Page {pagination.currentPage} of {pagination.totalPages}</span>
+			<button disabled={pagination.currentPage >= pagination.totalPages} onclick={() => changePage(pagination.currentPage + 1)}>Next →</button>
+		</div>
+	{/if}
 </div>
 
 <style>
+	@keyframes glow {
+		from { box-shadow: 0 0 2px 0px var(--glow-color); }
+		to { box-shadow: 0 0 8px 2px var(--glow-color); }
+	}
+
 	.profile-container {
 		max-width: 1024px;
 		margin: 0 auto;
 	}
 
+	.profile-card {
+		position: relative;
+		padding: 1.5rem;
+		border: 1px solid var(--border-color);
+		border-radius: var(--border-radius);
+		transition: border-color 0.3s ease;
+		background-color: var(--surface-color);
+		margin-bottom: 2rem;
+	}
+	@media(min-width: 640px) {
+		.profile-card {
+			padding: 2rem;
+		}
+	}
+
+	/* Tier-based animated borders using data attributes */
+	.profile-card[data-tier="spooky-robe-guy"] { border-color: #e11d48; }
+	.profile-card[data-tier="evil-gray-twin"] { border-color: #4f46e5; }
+	.profile-card[data-tier="big-purple-pterodactyl"] {
+		--glow-color: #8b5cf655;
+		animation: glow 3s infinite alternate ease-in-out;
+		border-color: #8b5cf6;
+	}
+	.profile-card[data-tier="creative-right-hand"] {
+		--glow-color: #fde04755;
+		animation: glow 2.5s infinite alternate ease-in-out;
+		border-color: #fde047;
+	}
+	.profile-card[data-tier="ancient-angel-borb"] {
+		--glow-color: #d1d5db55;
+		animation: glow 3.5s infinite alternate ease-in-out;
+		border-color: #d1d5db;
+	}
+
 	.profile-header {
 		display: flex;
-		align-items: center;
+		align-items: flex-start; /* Align to top for wrapping badges */
 		gap: 1.5rem;
 		margin-bottom: 2rem;
 	}
@@ -148,6 +250,19 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 	.header-text h1 {
 		margin: 0;
 		font-size: 2rem;
+	}
+	
+	.title-with-badges {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.badges-header-container {
+		display: flex;
+		gap: 0.5rem;
 	}
 
 	.header-text p {
@@ -194,17 +309,9 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 		color: var(--text-secondary);
 		text-transform: uppercase;
 	}
-
-	.badges-container {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-
+	
 	.badge {
-		font-size: 1.75rem;
+		font-size: 1.5rem;
 		color: var(--badge-color);
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 	}
@@ -244,18 +351,72 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 		text-shadow: 0 0 2px black;
 	}
 
-	.section-title {
+	.section-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 		margin: 2.5rem 0 1.5rem;
 		padding-bottom: 0.5rem;
-		font-size: 1.5rem;
-		font-weight: 600;
 		border-bottom: 1px solid var(--border-color);
 	}
 
-	.contributions-grid {
+	.section-title {
+		font-size: 1.5rem;
+		font-weight: 600;
+		margin: 0;
+	}
+
+	.view-switcher {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.view-switcher button {
+		padding: 0.5rem;
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
+		background: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		line-height: 1;
+	}
+
+	.view-switcher button.active {
+		background-color: var(--primary-color);
+		border-color: var(--primary-color);
+		color: white;
+	}
+	
+	.contributions-container.grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 		gap: 1.5rem;
+	}
+	
+	.contributions-container.list .list-item {
+		display: flex;
+		align-items: center;
+		padding: 1rem;
+		background-color: var(--surface-color);
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.list-item-title {
+		font-weight: 600;
+		margin: 0 0 0.5rem 0;
+	}
+	
+	.version-tag-wrapper {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 4px 8px;
+		font-size: 0.8rem;
+		font-weight: 500;
+		background-color: var(--input-bg);
+		color: var(--text-secondary);
+		border: 1px solid var(--border-color);
+		border-radius: 6px;
 	}
 
 	.game-card {
@@ -314,6 +475,7 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 	.version-tag {
 		color: var(--primary-color);
 		border-color: var(--primary-color);
+		cursor: pointer;
 	}
 
 	.version-tag:hover {
@@ -333,5 +495,28 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 		background-color: var(--surface-color);
 		border: 2px dashed var(--border-color);
 		border-radius: var(--border-radius);
+	}
+	
+	.pagination {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 1rem;
+		margin-top: 2.5rem;
+	}
+
+	.pagination button {
+		padding: 8px 16px;
+		font-weight: 500;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
+		color: var(--primary-color);
+		border-radius: 6px;
+		cursor: pointer;
+	}
+
+	.pagination button:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
 	}
 </style>
