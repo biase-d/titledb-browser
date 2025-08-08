@@ -87,12 +87,32 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 					<div class="card-icon" style="background-image: url({item.game.iconUrl || '/favicon.svg'})"></div>
 					<div class="card-info">
 						<p class="card-title">{item.game.name}</p>
-						<div class="versions-list">
+						<div class="card-tags">
 							{#each item.versions as v}
-								<a href={v.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="version-tag" onclick={(e) => e.stopPropagation()}>
-									v{v.version} <Icon icon="mdi:open-in-new" />
-								</a>
+								<div
+									class="version-tag"
+									role="link"
+									tabindex="0"
+									onclick={(e) => {
+										e.stopPropagation();
+										window.open(v.sourcePrUrl, '_blank');
+									}}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.stopPropagation();
+											window.open(v.sourcePrUrl, '_blank');
+										}
+									}}
+								>
+									<Icon icon="mdi:chart-line-variant" /> v{v.version}
+								</div>
 							{/each}
+							{#if item.hasGraphics}
+								<span class="info-tag"><Icon icon="mdi:palette-outline" /> Graphics</span>
+							{/if}
+							{#if item.hasYoutube}
+								<span class="info-tag"><Icon icon="mdi:youtube" /> Videos</span>
+							{/if}
 						</div>
 					</div>
 				</a>
@@ -270,13 +290,15 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 		font-weight: 600;
 	}
 
-	.versions-list {
+	.card-tags {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+		margin-top: auto;
 	}
 
-	.version-tag {
+	.version-tag,
+	.info-tag {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
@@ -289,9 +311,20 @@ let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLow
 		border-radius: 6px;
 	}
 
-	.version-tag:hover {
-		border-color: var(--primary-color);
+	.version-tag {
 		color: var(--primary-color);
+		border-color: var(--primary-color);
+	}
+
+	.version-tag:hover {
+		background-color: var(--primary-color);
+		color: white;
+	}
+
+	.info-tag {
+		background-color: var(--input-bg);
+		color: var(--text-secondary);
+		border: 1px solid var(--border-color);
 	}
 
 	.empty-state {

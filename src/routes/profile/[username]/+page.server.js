@@ -1,6 +1,6 @@
 import { db } from '$lib/db';
 import { games, performanceProfiles } from '$lib/db/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 
 /** @type {import('./$types').PageServerLoad} */
@@ -8,9 +8,9 @@ export const load = async ({ params, parent }) => {
 	const { session } = await parent();
 	const { username } = params;
 
-	// Find all performance profiles submitted by the user
+	// Find all performance profiles where the contributor array contains the username
 	const userProfiles = await db.query.performanceProfiles.findMany({
-		where: eq(performanceProfiles.contributor, username),
+		where: sql`${performanceProfiles.contributor} @> ARRAY[${username}]`,
 		columns: {
 			groupId: true,
 			gameVersion: true,
