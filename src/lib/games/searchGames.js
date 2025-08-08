@@ -115,18 +115,31 @@ if (q) {
 		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
 		.where(where);
 
-	const uniqueContributorsQuery = db
-		.select({ contributor: sql`unnest(${performanceProfiles.contributor})`.as('contributor') })
-		.from(performanceProfiles)
-		.groupBy(sql`contributor`);
-
-	const statsQuery = db.select({
+	const mainStatsQuery = db.select({
 		totalGames: countDistinct(performanceProfiles.groupId),
-		totalProfiles: count(performanceProfiles.id),
-		totalContributors: sql`(select count(*) from (${uniqueContributorsQuery}))`.mapWith(Number)
+		totalProfiles: count()
 	}).from(performanceProfiles);
 
-	const [queryResult, countResult, statsResult] = await Promise.all([query, countQuery, statsQuery]);
+	const uniqueContributorsQuery = db.select({
+		count: count()
+	}).from(
+		db.selectDistinct({ c: sql`unnest(${performanceProfiles.contributor})` })
+			.from(performanceProfiles)
+			.as('unique_contribs')
+	);
+	
+	const [queryResult, countResult, mainStatsResult, contributorStatsResult] = await Promise.all([
+		query,
+		countQuery,
+		mainStatsQuery,
+		uniqueContributorsQuery
+	]);
+
+	const statsResult = [{
+		totalGames: mainStatsResult[0]?.totalGames || 0,
+		totalProfiles: mainStatsResult[0]?.totalProfiles || 0,
+		totalContributors: contributorStatsResult[0]?.count || 0
+	}];
 
 	const uniqueResults = Array.from(new Map(queryResult.map(item => [item.groupId, item])).values()).slice(0, PAGE_SIZE);
 
