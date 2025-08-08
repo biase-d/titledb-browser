@@ -35,6 +35,7 @@ function pruneEmptyValues(value) {
 	return keyCount > 0 ? prunedObj : undefined;
 }
 
+/*
  * @param {any} graphics
  * @returns {boolean}
  */
