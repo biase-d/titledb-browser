@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
+import { games, performanceProfiles, graphicsSettings, gameGroups } from '$lib/db/schema';
 import { desc, eq, sql, inArray, or, and } from 'drizzle-orm';
 
 const PAGE_SIZE = 50;
@@ -22,12 +22,21 @@ export async function searchGames(searchParams) {
 	);
 
 	const whereClauses = [];
-	if (q) {
-		const searchConditions = [sql`similarity(array_to_string(${games.names}, ' '), CAST(${q} AS text)) > 0.1`];
-		if (/^[0-9A-F]{16}$/i.test(q)) {
-			searchConditions.push(eq(games.id, q.toUpperCase()));
+	const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q);
+
+if (q) {
+		if (isTitleIdSearch) {
+			whereClauses.push(eq(games.id, q.toUpperCase()));
+		} else {
+			// For text search, filter by titles that contain ALL of the search words
+			const searchWords = q.split(' ').filter(word => word.length > 0);
+			if (searchWords.length > 0) {
+				const allWordsCondition = and(
+					...searchWords.map(word => sql`array_to_string(${games.names}, ' ') ILIKE ${'%' + word + '%'}`)
+				);
+				whereClauses.push(allWordsCondition);
+			}
 		}
-		whereClauses.push(or(...searchConditions));
 	}
 	
 	if (dockedFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'docked'->>'target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps') = ${dockedFps}`);
@@ -40,28 +49,28 @@ export async function searchGames(searchParams) {
 	if (!isSearchingOrFiltering) {
 		whereClauses.push(sql`${latestProfileSubquery.groupId} IS NOT NULL OR ${graphicsSettings.groupId} IS NOT NULL`);
 	}
-	
+
 	const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
 
 	const getOrderBy = () => {
-		if (q) {
-			const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q);
-			return sql`
-				CASE
-					WHEN ${games.id} = ${isTitleIdSearch ? q.toUpperCase() : null} THEN 3
-					WHEN array_to_string(${games.names}, ' ') ILIKE ${'%' + q + '%'} THEN 2
-					ELSE 1
-				END DESC,
-				similarity(array_to_string(${games.names}, ' '), CAST(${q} AS text)) DESC
-			`;
+		if (isTitleIdSearch) {
+			return desc(games.id);
 		}
+		if (q) {
+			return sql`word_similarity(array_to_string(${games.names}, ' '), ${q}) DESC`;
+		}
+
 		switch (sort) {
-			case 'name-asc': return sql`${games.names}[1] ASC`;
-			case 'size-desc': return desc(games.sizeInBytes);
-			case 'date-desc': default: return desc(games.lastUpdated);
+			case 'name-asc':
+				return sql`${games.names}[1] ASC`;
+			case 'size-desc':
+				return desc(games.sizeInBytes);
+			case 'date-desc':
+			default:
+				return desc(games.lastUpdated);
 		}
 	};
-	
+
 	const query = db.with(latestProfileSubquery)
 		.select({
 			id: games.id,
@@ -117,31 +126,23 @@ export async function searchGames(searchParams) {
 	const uniqueResults = Array.from(new Map(queryResult.map(item => [item.groupId, item])).values()).slice(0, PAGE_SIZE);
 
 	const totalItems = parseInt(countResult[0]?.count || '0', 10);
-	const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+		const totalPages = Math.ceil(totalItems / PAGE_SIZE);
 
 	let recentUpdates = [];
 	if (page === 1 && !isSearchingOrFiltering) {
-		const recentGroupsQuery = sql`
-			WITH all_updates AS (
-				SELECT group_id, last_updated FROM ${performanceProfiles}
-				UNION ALL
-				SELECT group_id, last_updated FROM ${graphicsSettings}
-			),
-			latest_updates AS (
-				SELECT group_id, MAX(last_updated) as max_last_updated
-				FROM all_updates
-				GROUP BY group_id
-			)
-			SELECT group_id
-			FROM latest_updates
-			ORDER BY max_last_updated DESC
-			LIMIT 10;
-		`;
-		
-		const recentGroupsResult = await db.execute(recentGroupsQuery);
-		const groupIds = Array.isArray(recentGroupsResult)
-			? recentGroupsResult.map(row => row.group_id).filter(Boolean)
-			: [];
+		const recentGroups = await db
+			.selectDistinct({ groupId: gameGroups.id, lastUpdated: gameGroups.lastUpdated })
+			.from(gameGroups)
+			.leftJoin(performanceProfiles, eq(gameGroups.id, performanceProfiles.groupId))
+			.leftJoin(graphicsSettings, eq(gameGroups.id, graphicsSettings.groupId))
+			.where(or(
+				sql`${performanceProfiles.groupId} IS NOT NULL`,
+				sql`${graphicsSettings.groupId} IS NOT NULL`
+			))
+			.orderBy(desc(gameGroups.lastUpdated))
+			.limit(10);
+
+		const groupIds = recentGroups.map(row => row.groupId).filter(Boolean);
 
 		if (groupIds.length > 0) {
 			const recentGames = await db.selectDistinctOn([games.groupId], {
