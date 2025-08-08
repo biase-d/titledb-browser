@@ -123,6 +123,18 @@
 	let bannerImages = $derived(createImageSet(game.bannerUrl));
 	let iconImages = $derived(createImageSet(game.iconUrl));
 
+	let isUnreleased = $derived((() => {
+		if (!game.releaseDate) return false;
+		const dateStr = game.releaseDate.toString();
+		const year = parseInt(dateStr.substring(0, 4), 10);
+		const month = parseInt(dateStr.substring(4, 6), 10) - 1;
+		const day = parseInt(dateStr.substring(6, 8), 10);
+		const release = new Date(year, month, day);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		return release > today;
+	})());
+
 	function formatDate(dateInt) {
 		if (!dateInt) return 'N/A';
 		const dateStr = dateInt.toString();
@@ -198,6 +210,13 @@
 				{/if}
 				<div class="title-info">
 					<h1>{name}</h1>
+
+					{#if isUnreleased}
+						<div class="unreleased-notice">
+							<Icon icon="mdi:clock-outline" />
+							<span>This game has not been released yet. Any submitted data may be from a demo or pre-release version</span>
+						</div>
+					{/if}
 
 					{#if otherTitlesInGroup.length > 0}
 						<div class="other-versions">
@@ -386,6 +405,19 @@
 		overflow: hidden;
 		color: white;
 		margin-bottom: 2rem;
+	}
+	.unreleased-notice {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		background: rgba(245, 158, 11, 0.2);
+		color: #f59e0b;
+		border: 1px solid rgba(245, 158, 11, 0.4);
+		border-radius: var(--border-radius);
+		font-size: 0.9rem;
+		font-weight: 500;
+		margin-bottom: 1.5rem;
 	}
 	.banner-image {
 		position: absolute;

@@ -48,7 +48,7 @@
 	</main>
 
 	<footer>
-		<p>🏗️ Work in progress</p>
+		<p>🏗️ Work in progress - Almost there</p>
 		<p>a <a href='https://github.com/biase-d'>biase-d</a> project</p>
 	</footer>
 </div>
