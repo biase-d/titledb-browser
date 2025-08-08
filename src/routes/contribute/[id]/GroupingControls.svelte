@@ -84,18 +84,17 @@
 		searchLoading = true
 
 		try {
-			const res = await fetch(`/api/v1/games/search?q=${encodeURIComponent(id)}`)
-			let titleData
+			const res = await fetch(`/api/v1/games/${id}`)
+			let titleData;
 			if (res.ok) {
-				const results = await res.json()
-				if (results.length > 0) {
-					titleData = { id: results[0].id, name: results[0].name }
-				} else {
-					titleData = { id, name: 'Custom Title' }
-				}
+				const { game } = await res.json();
+				titleData = { id: game.id, name: game.names[0] };
+			} else if (res.status === 404) {
+				titleData = { id, name: `Custom Title (ID not in database)` };
 			} else {
-				titleData = { id, name: 'Custom Title' }
+				throw new Error(`Server responded with status ${res.status}`);
 			}
+			
 			addToGroup(titleData)
 			customIdInput = ''
 		} catch (e) {

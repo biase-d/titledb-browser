@@ -16,26 +16,15 @@ export async function getGameDetails(titleId) {
 		return null;
 	}
 
-	const groupId = game.groupId;
+	const { groupId } = game;
 
-	// Fetch the parent game group to get the complete list of YouTube contributors
-	const groupInfo = await db.query.gameGroups.findFirst({
-		where: eq(gameGroups.id, groupId)
-	});
-
-	// Fetch all other titles sharing the same group ID
-	const allTitlesInGroup = await db.query.games.findMany({
-		where: eq(games.groupId, groupId),
-		columns: {
-			id: true,
-			names: true
-		}
-	});
-
-	// Fetch all performance profiles for the group
-	const allPerformanceProfiles = await db.query.performanceProfiles.findMany({
-		where: eq(performanceProfiles.groupId, groupId)
-	});
+	const [groupInfo, allTitlesInGroup, allPerformanceProfiles, graphics, links] = await Promise.all([
+		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
+		db.query.games.findMany({ where: eq(games.groupId, groupId), columns: { id: true, names: true } }),
+		db.query.performanceProfiles.findMany({ where: eq(performanceProfiles.groupId, groupId) }),
+		db.query.graphicsSettings.findFirst({ where: eq(graphicsSettings.groupId, groupId) }),
+		db.query.youtubeLinks.findMany({ where: eq(youtubeLinks.groupId, groupId) })
+	]);
 
 	// Sort profiles by semantic version in descending order (latest first)
 	allPerformanceProfiles.sort((a, b) => {
@@ -51,14 +40,6 @@ export async function getGameDetails(titleId) {
 			}
 		}
 		return 0;
-	});
-
-	const graphics = await db.query.graphicsSettings.findFirst({
-		where: eq(graphicsSettings.groupId, groupId)
-	});
-
-	const links = await db.query.youtubeLinks.findMany({
-		where: eq(youtubeLinks.groupId, groupId)
 	});
 
 	// The latest profile's info is used for the main contributor display
