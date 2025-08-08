@@ -4,10 +4,7 @@ import { sql, eq } from 'drizzle-orm';
 import { simpleGit } from 'simple-git';
 import { games, gameGroups, performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
 import { DATA_SOURCES } from './config.js';
-import { discoverDataSources, parseSizeToBytes } from './data-sources.js';
-
-// Helper function, as it's used in this module
-function getBaseId(titleId) { return titleId.substring(0, 13) + '000'; }
+import { discoverDataSources, parseSizeToBytes, getBaseId } from './data-sources.js';
 
 /**
  * The main database synchronization function.
@@ -16,8 +13,8 @@ function getBaseId(titleId) { return titleId.substring(0, 13) + '000'; }
 export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata) {
   console.log('Starting database synchronization...');
 
-  // Discover all data sources, groups, and title mappings
-  const { allGroupIds, customGroupMap, mainGamesList } = await discoverDataSources(REPOS);
+  // Discover all data sources, groups, title mappings, and data files
+  const { allGroupIds, customGroupMap, mainGamesList, discoveredFiles } = await discoverDataSources(REPOS);
 
   // Ensure all game group parent rows exist in the database
   if (allGroupIds.size > 0) {
@@ -31,31 +28,22 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
 
   // Sync the performance, graphics, and video data from nx-performance
   const affectedGroupIds = new Set();
+  const groupLatestUpdate = new Map(); // Tracks the most recent update timestamp for each group
+
   for (const [type, config] of Object.entries(DATA_SOURCES)) {
-    await syncDataType({ db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds });
+    const filesToProcess = discoveredFiles[type] || [];
+    await syncDataType({ db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds, groupLatestUpdate, filesToProcess });
   }
-  
-  // Apply authoritative timestamps ONLY to groups that have performance data
-  if (affectedGroupIds.size > 0) {
-    console.log(`Updating timestamps for ${affectedGroupIds.size} affected groups...`);
+
+  // Apply authoritative timestamps to all groups that were affected by the data sync
+  if (groupLatestUpdate.size > 0) {
+    console.log(`Updating timestamps for ${groupLatestUpdate.size} affected groups...`);
     const updatePromises = [];
-    for (const groupId of affectedGroupIds) {
-      let mostRecentDate = dateMap.graphics[groupId] || dateMap.videos[groupId];
-      for (const key in dateMap.performance) {
-        if (key.startsWith(groupId)) {
-          const date = dateMap.performance[key];
-          if (!mostRecentDate || date > mostRecentDate) {
-            mostRecentDate = date;
-          }
-        }
-      }
-      
-      if (mostRecentDate) {
-        updatePromises.push(
-          db.update(gameGroups).set({ lastUpdated: mostRecentDate }).where(eq(gameGroups.id, groupId)),
-          db.update(games).set({ lastUpdated: mostRecentDate }).where(eq(games.groupId, groupId))
-        );
-      }
+    for (const [groupId, mostRecentDate] of groupLatestUpdate.entries()) {
+      updatePromises.push(
+        db.update(gameGroups).set({ lastUpdated: mostRecentDate }).where(eq(gameGroups.id, groupId)),
+        db.update(games).set({ lastUpdated: mostRecentDate }).where(eq(games.groupId, groupId))
+      );
     }
     await Promise.all(updatePromises);
   }
@@ -67,7 +55,7 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
  * A generic function to sync a specific data type (performance, graphics, videos)
  */
 async function syncDataType(context) {
-  const { db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds } = context;
+  const { db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds, groupLatestUpdate, filesToProcess } = context;
   console.log(`- Syncing ${type}...`);
 
   const dataDir = path.join(REPOS.nx_performance.path, config.path);
@@ -75,19 +63,22 @@ async function syncDataType(context) {
   const localFileKeys = new Set();
 
   const dbRecordsMap = new Map(dbRecords.map(r => {
-    const key = (type === 'performance')
-      ? (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`)
-      : r.groupId;
+    const key = config.getKeyFromRecord(r);
     return [key, r];
   }));
 
-  const files = await fs.readdir(dataDir, { withFileTypes: true }).catch(() => []);
-  for (const file of files) {
-    const processFile = async (groupId, fileName) => {
-      const fileKey = config.getKey(groupId, { name: fileName });
-      localFileKeys.add(fileKey);
+  const processFile = async (groupId, fileName) => {
+    const fileKey = config.getKey(groupId, { name: fileName });
+    localFileKeys.add(fileKey);
 
+    try {
       const lastUpdated = (type === 'performance' ? dateMap.performance?.[fileKey] : dateMap[type]?.[groupId]) || new Date();
+
+      const existingDate = groupLatestUpdate.get(groupId);
+      if (!existingDate || lastUpdated > existingDate) {
+        groupLatestUpdate.set(groupId, lastUpdated);
+      }
+
       const dbRecord = dbRecordsMap.get(fileKey);
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
       const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
@@ -95,60 +86,38 @@ async function syncDataType(context) {
       if (!hasChanged) return;
 
       console.log(`Processing ${type} for ${fileKey}`);
-      
-      const filePath = config.isHierarchical
-        ? path.join(dataDir, groupId, fileName)
-        : path.join(dataDir, fileName);
-        
+
+      const filePath = config.isHierarchical ? path.join(dataDir, groupId, fileName) : path.join(dataDir, fileName);
       const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
       const metadata = (type === 'performance') ? (contributorMap.performance?.[fileKey] || {}) : { contributors: contributorMap[type]?.[fileKey] || [] };
       const keyParts = fileKey.split('-');
       const recordData = config.buildRecord(keyParts, content, metadata, lastUpdated);
-      
-      if (type === 'performance') {
-        await db.insert(performanceProfiles).values(recordData).onConflictDoUpdate({
-          target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
-          set: {
-            profiles: sql`excluded.profiles`,
-            contributor: sql`excluded.contributor`,
-            sourcePrUrl: sql`excluded.source_pr_url`,
-            lastUpdated: sql`excluded.last_updated`,
-          }
-        });
-      } else if (type === 'graphics') {
-        await db.insert(graphicsSettings).values(recordData).onConflictDoUpdate({
-          target: graphicsSettings.groupId,
-          set: { settings: sql`excluded.settings`, contributor: sql`excluded.contributor`, lastUpdated: sql`excluded.last_updated` }
-        });
-      } else if (type === 'videos') {
-        await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
-        if (Array.isArray(recordData) && recordData.length > 0) {
-          const linksToInsert = recordData.map(r => ({ ...r, submittedAt: lastUpdated }));
-          await db.insert(youtubeLinks).values(linksToInsert);
-        }
+
+      if (type === 'videos') {
+        await config.upsert(db, recordData, groupId);
+      } else {
+        await config.upsert(db, recordData);
       }
       affectedGroupIds.add(groupId);
-    };
-
-    if (config.isHierarchical && file.isDirectory()) {
-      const subFiles = await fs.readdir(path.join(dataDir, file.name)).catch(() => []);
-      for (const subFile of subFiles) {
-        if (path.extname(subFile) === '.json') {
-          await processFile(file.name, subFile);
-        }
-      }
-    } else if (!config.isHierarchical && path.extname(file.name) === '.json') {
-      const groupId = path.basename(file.name, '.json');
-      await processFile(groupId, file.name); // Pass groupId and the full filename
+    } catch (error) {
+      console.error(`[SKIPPING] Failed to process file '${fileName}' for group ${groupId}: ${error.message}`);
     }
-  }
-
+  };
+  
+  const processingPromises = filesToProcess.map(({ groupId, fileName }) => processFile(groupId, fileName));
+  await Promise.all(processingPromises);
+  
   for (const [key, record] of dbRecordsMap.entries()) {
     if (!localFileKeys.has(key)) {
       console.log(`Deleting ${type} for ${key}`);
       const deleteCondition = (type === 'performance') ? eq(config.table.id, record.id) : eq(config.table.groupId, record.groupId);
       await db.delete(config.table).where(deleteCondition);
-      affectedGroupIds.add(record.groupId);
+      
+      const existingDate = groupLatestUpdate.get(record.groupId);
+      const now = new Date();
+      if (!existingDate || now > existingDate) {
+        groupLatestUpdate.set(record.groupId, now);
+      }
     }
   }
 }

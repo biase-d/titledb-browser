@@ -25,7 +25,7 @@ export async function cloneOrPull(repoPath, repoUrl) {
 function getContributorsFromCommit(commit) {
   const contributors = new Set();
   const coAuthorRegex = /Co-authored-by:.*<(?:\d+\+)?(?<username>[\w-]+)@users\.noreply\.github\.com>/g;
-  const commitMessage = commit.commit.message;
+  const commitMessage = commit.message;
   const coAuthorMatches = [...commitMessage.matchAll(coAuthorRegex)];
 
   for (const match of coAuthorMatches) {
@@ -39,63 +39,93 @@ function getContributorsFromCommit(commit) {
 /**
  * Builds or updates a map of contributors by fetching merged Pull Requests from the GitHub API
  * @param {object | null} cachedMap - The previously cached contributor map
- * @param {Date | null} lastProcessedDate - The timestamp of the last processed PR
+ * @param {Date | null} lastProcessedDate - The timestamp of the last processed PR merge
  * @returns {Promise<{contributorMap: object, latestMergedAt: Date}>}
  */
 export async function buildFullContributorMap(cachedMap = null, lastProcessedDate = null) {
   const contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {} };
   let latestMergedAt = lastProcessedDate;
 
+  // Initialize Sets from cached arrays for efficient additions
   for (const type of ['graphics', 'videos']) {
     if (contributorMap[type]) {
-      for (const groupId in contributorMap[type]) {
-        const value = contributorMap[type][groupId];
-        contributorMap[type][groupId] = new Set(Array.isArray(value) ? value : []);
+      for (const key in contributorMap[type]) {
+        contributorMap[type][key] = new Set(contributorMap[type][key]);
+      }
+    }
+  }
+  if (contributorMap.performance) {
+    for (const key in contributorMap.performance) {
+      const perfEntry = contributorMap.performance[key];
+      if (perfEntry && perfEntry.contributors) {
+        perfEntry.contributors = new Set(perfEntry.contributors);
       }
     }
   }
 
-  console.log('Building/updating contributor map from PR history...');
-  
-  try {
-    const prs = await octokit.paginate('GET /repos/{owner}/{repo}/pulls', { 
-      owner: 'biase-d', 
-      repo: 'nx-performance', 
-      state: 'closed', 
-      sort: 'updated',
-      direction: 'desc',
-      per_page: 100 
-    });
+  console.log('Building/updating contributor map from PR history using GraphQL API...');
 
-    const mergedPrs = prs.filter(pr => pr.merged_at);
-    if (!latestMergedAt) {
-      console.log(`Found ${mergedPrs.length} total merged PRs to process (full build).`);
-    } else {
-      console.log(`Checking for new PRs merged after ${latestMergedAt.toISOString()}`);
-    }
-    
-    for (const pr of mergedPrs) {
-      const mergedAt = new Date(pr.merged_at);
-      if (lastProcessedDate && mergedAt <= lastProcessedDate) {
-        console.log('No more new PRs to process.');
-        break; 
+  let searchQuery = 'repo:biase-d/nx-performance is:pr is:merged';
+  if (lastProcessedDate) {
+    searchQuery += ` merged:>${lastProcessedDate.toISOString()}`;
+    console.log(`Checking for new PRs merged after ${lastProcessedDate.toISOString()}`);
+  } else {
+    console.log('Processing all merged PRs (full build)...');
+  }
+
+  const PULL_REQUEST_QUERY = `
+    query paginate($cursor: String, $searchQuery: String!) {
+      search(query: $searchQuery, type: ISSUE, first: 50, after: $cursor) {
+        pageInfo { hasNextPage, endCursor }
+        nodes {
+          ... on PullRequest {
+            mergedAt
+            url
+            commits(last: 1) {
+              nodes {
+                commit {
+                  message
+                }
+              }
+            }
+            files(first: 100) {
+              nodes {
+                path
+              }
+            }
+          }
+        }
       }
+    }`;
 
+  try {
+    let hasNextPage = true;
+    let cursor = null;
+    const allPrNodes = [];
+
+    while (hasNextPage) {
+      const { search } = await octokit.graphql(PULL_REQUEST_QUERY, { searchQuery, cursor });
+      allPrNodes.push(...search.nodes);
+      hasNextPage = search.pageInfo.hasNextPage;
+      cursor = search.pageInfo.endCursor;
+    }
+
+    for (const pr of allPrNodes) {
+      const mergedAt = new Date(pr.mergedAt);
       if (!latestMergedAt || mergedAt > latestMergedAt) {
         latestMergedAt = mergedAt;
       }
-      
-      const { data: commits } = await octokit.pulls.listCommits({ owner: 'biase-d', repo: 'nx-performance', pull_number: pr.number, per_page: 1 });
-      if (commits.length === 0) continue;
 
-      const contributorsInPr = getContributorsFromCommit(commits[0]);
+      if (!pr.commits.nodes || pr.commits.nodes.length === 0) continue;
+
+      const lastCommit = pr.commits.nodes[0].commit;
+      const contributorsInPr = getContributorsFromCommit(lastCommit);
       if (contributorsInPr.length === 0) continue;
 
-      const prInfo = { contributors: contributorsInPr, sourcePrUrl: pr.html_url };
+      const prInfo = { contributors: contributorsInPr, sourcePrUrl: pr.url };
 
-      const { data: files } = await octokit.pulls.listFiles({ owner: 'biase-d', repo: 'nx-performance', pull_number: pr.number, per_page: 100 });
-      for (const file of files) {
-        const filePath = file.filename;
+      for (const file of pr.files.nodes) {
+        const filePath = file.path;
         let match;
         if ((match = filePath.match(/^profiles\/([A-F0-9]{16})\/(.+)\.json/))) {
           const groupId = match[1];
@@ -103,36 +133,41 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
           const [gameVersion, ...suffixParts] = fileBaseName.split('$');
           const suffix = suffixParts.join('$');
           const key = suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
-          
-          // Only assign the contributor info if we haven't already assigned it from a newer PR
+
           if (!contributorMap.performance[key]) {
-            contributorMap.performance[key] = prInfo;
+            contributorMap.performance[key] = { contributors: new Set(), sourcePrUrl: null };
           }
-        } else if ((match = filePath.match(/^graphics\/([A-F0-9]{16})\.json/))) {
-          const groupId = match[1];
-          if (!contributorMap.graphics[groupId]) {
-            contributorMap.graphics[groupId] = new Set();
+          prInfo.contributors.forEach(c => contributorMap.performance[key].contributors.add(c));
+          if (!contributorMap.performance[key].sourcePrUrl) {
+            contributorMap.performance[key].sourcePrUrl = prInfo.sourcePrUrl;
           }
-          prInfo.contributors.forEach(c => contributorMap.graphics[groupId].add(c));
-        } else if ((match = filePath.match(/^videos\/([A-F0-9]{16})\.json/))) {
-          const groupId = match[1];
-          if (!contributorMap.videos[groupId]) {
-            contributorMap.videos[groupId] = new Set();
+        } else if ((match = filePath.match(/^(graphics|videos)\/([A-F0-9]{16})\.json/))) {
+          const type = match[1];
+          const groupId = match[2];
+          if (!contributorMap[type][groupId]) {
+            contributorMap[type][groupId] = new Set();
           }
-          prInfo.contributors.forEach(c => contributorMap.videos[groupId].add(c));
+          prInfo.contributors.forEach(c => contributorMap[type][groupId].add(c));
         }
       }
     }
 
+    // Convert all Sets back to arrays for JSON serialization
     for (const type of ['graphics', 'videos']) {
-      for (const groupId in contributorMap[type]) {
-        contributorMap[type][groupId] = Array.from(contributorMap[type][groupId]);
+      for (const key in contributorMap[type]) {
+        contributorMap[type][key] = Array.from(contributorMap[type][key]);
       }
     }
-
+    for (const key in contributorMap.performance) {
+      if (contributorMap.performance[key].contributors instanceof Set) {
+        contributorMap.performance[key].contributors = Array.from(contributorMap.performance[key].contributors);
+      }
+    }
   } catch (apiError) {
     console.error(`Failed to build contributor map from GitHub API: ${apiError.message}`);
+    throw apiError; // Re-throw to halt the build process on API failure
   }
+
   console.log('-> Contributor map build/update complete.');
   return { contributorMap, latestMergedAt };
 }

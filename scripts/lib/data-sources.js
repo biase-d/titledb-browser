@@ -1,18 +1,31 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-function getBaseId(titleId) { return titleId.substring(0, 13) + '000'; }
+export function getBaseId(titleId) {
+  return titleId.substring(0, 13) + '000';
+}
 
 /**
  * Reads the data repositories to discover all game groups and title mappings
  * @param {object} REPOS - The repository configuration object
  * @returns {Promise<{allGroupIds: Set<string>, customGroupMap: Map<string, string>, mainGamesList: object}>}
  */
+/**
+ * Reads data repositories to discover game groups, title mappings, and all data files
+ * @param {object} REPOS - The repository configuration object
+ * @returns {Promise<{
+ *   allGroupIds: Set<string>,
+ *   customGroupMap: Map<string, string>,
+ *   mainGamesList: object,
+ *   discoveredFiles: { performance: {groupId: string, fileName: string}[], graphics: {groupId: string, fileName: string}[], videos: {groupId: string, fileName: string}[] }
+ * }>}
+ */
 export async function discoverDataSources(REPOS) {
-  console.log('Discovering data sources...');
+  console.log('Discovering data sources and files...');
   const allGroupIds = new Set();
   const customGroupMap = new Map();
   const dataRepoPath = REPOS.nx_performance.path;
+  const discoveredFiles = { performance: [], graphics: [], videos: [] };
 
   // Read custom group mappings
   const groupsDir = path.join(dataRepoPath, 'groups');
@@ -31,20 +44,35 @@ export async function discoverDataSources(REPOS) {
     console.warn('Could not process custom groups directory. Skipping.');
   }
 
-  // Discover group IDs from performance, graphics, and video data
-  const dataDirs = ['profiles', 'graphics', 'videos'];
-  for (const dirName of dataDirs) {
-    const dirPath = path.join(dataRepoPath, dirName);
+  // Discover all data files in one pass
+  const dataTypes = [
+    { name: 'performance', path: 'profiles', isHierarchical: true },
+    { name: 'graphics', path: 'graphics', isHierarchical: false },
+    { name: 'videos', path: 'videos', isHierarchical: false }
+  ];
+
+  for (const type of dataTypes) {
+    const dirPath = path.join(dataRepoPath, type.path);
     try {
-      for (const file of await fs.readdir(dirPath, { withFileTypes: true })) {
-        if (dirName === 'profiles' && file.isDirectory()) {
-          allGroupIds.add(file.name);
-        } else if (file.isFile() && path.extname(file.name) === '.json') {
-          allGroupIds.add(path.basename(file.name, '.json'));
+      const files = await fs.readdir(dirPath, { withFileTypes: true });
+      for (const file of files) {
+        if (type.isHierarchical && file.isDirectory()) {
+          const groupId = file.name;
+          allGroupIds.add(groupId);
+          const subFiles = await fs.readdir(path.join(dirPath, groupId));
+          for (const subFile of subFiles) {
+            if (path.extname(subFile) === '.json') {
+              discoveredFiles[type.name].push({ groupId, fileName: subFile });
+            }
+          }
+        } else if (!type.isHierarchical && file.isFile() && path.extname(file.name) === '.json') {
+          const groupId = path.basename(file.name, '.json');
+          allGroupIds.add(groupId);
+          discoveredFiles[type.name].push({ groupId, fileName: file.name });
         }
       }
     } catch (e) {
-      console.warn(`Could not process ${dirName} directory. Skipping.`);
+      console.warn(`Could not process ${type.name} directory. Skipping.`);
     }
   }
 
@@ -58,7 +86,7 @@ export async function discoverDataSources(REPOS) {
   }
 
   console.log(`Discovered ${allGroupIds.size} unique game groups.`);
-  return { allGroupIds, customGroupMap, mainGamesList };
+  return { allGroupIds, customGroupMap, mainGamesList, discoveredFiles };
 }
 
 /**

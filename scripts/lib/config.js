@@ -1,42 +1,36 @@
-import { performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
 import path from 'node:path';
+import { sql, eq } from 'drizzle-orm';
+import { performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
 
-/**
- * Configuration object that defines the properties and behavior of each data type to be synced
- * This declarative approach allows the sync logic to be generic and easily extensible
- */
 export const DATA_SOURCES = {
   performance: {
     table: performanceProfiles,
     path: 'profiles',
-    isHierarchical: true, // Data is in subdirectories like /profiles/{groupId}/
-    /**
-     * Generates a unique key for a performance profile file
-     * @param {string} groupId - The ID of the game group
-     * @param {import('fs').Dirent} file - The directory entry for the version file
-     * @returns {string} A unique key, e.g., "GROUPID-1.0.0-suffix"
-     */
+    isHierarchical: true,
     getKey: (groupId, file) => {
       const baseName = path.basename(file.name, '.json');
       const [gameVersion, ...suffixParts] = baseName.split('$');
       const suffix = suffixParts.join('$');
       return suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
     },
-    /**
-     * Builds a database-ready record from the file content and metadata
-     * @param {string[]} keyParts - The parts of the key [groupId, gameVersion, suffix]
-     * @param {any} content - The parsed JSON content of the file
-     * @param {any} metadata - The contributor and PR URL info
-     * @returns {object} The record object for insertion into the database
-     */
+    getKeyFromRecord: (r) => (r.suffix !== null ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
     buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
       gameVersion: keyParts[1],
       suffix: keyParts[2] || null,
       profiles: content,
-      contributor: metadata.contributors ? metadata.contributors[0] : null,
+      contributor: metadata.contributors || [],
       sourcePrUrl: metadata.sourcePrUrl,
       lastUpdated,
+    }),
+    upsert: (db, record) => db.insert(performanceProfiles).values(record).onConflictDoUpdate({
+      target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
+      set: {
+        profiles: sql`excluded.profiles`,
+        contributor: sql`excluded.contributor`,
+        sourcePrUrl: sql`excluded.source_pr_url`,
+        lastUpdated: sql`excluded.last_updated`,
+      }
     })
   },
   graphics: {
@@ -44,11 +38,20 @@ export const DATA_SOURCES = {
     path: 'graphics',
     isHierarchical: false,
     getKey: (groupId, file) => groupId,
+    getKeyFromRecord: (r) => r.groupId,
     buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
       settings: content,
-      contributor: metadata.contributors,
+      contributor: Array.isArray(metadata.contributors) ? metadata.contributors : Array.from(metadata.contributors || []),
       lastUpdated,
+    }),
+    upsert: (db, record) => db.insert(graphicsSettings).values(record).onConflictDoUpdate({
+      target: graphicsSettings.groupId,
+      set: {
+        settings: sql`excluded.settings`,
+        contributor: sql`excluded.contributor`,
+        lastUpdated: sql`excluded.last_updated`
+      }
     })
   },
   videos: {
@@ -56,15 +59,23 @@ export const DATA_SOURCES = {
     path: 'videos',
     isHierarchical: false,
     getKey: (groupId, file) => groupId,
-    buildRecord: (keyParts, content, metadata) => {
-      // Videos are a special case; they represent multiple rows
-      // We return an array of records
+    getKeyFromRecord: (r) => r.groupId,
+    buildRecord: (keyParts, content, metadata, lastUpdated) => {
+      // Videos represent multiple rows, so we return an array of records
       return content.filter(e => e.url).map(entry => ({
         groupId: keyParts[0],
         url: entry.url,
         notes: entry.notes,
         submittedBy: entry.submittedBy,
+        submittedAt: lastUpdated, // Use the file's last update time as the submission time
       }));
+    },
+    // Videos use a special "delete-then-insert" sync strategy
+    upsert: async (db, records, groupId) => {
+      await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
+      if (Array.isArray(records) && records.length > 0) {
+        await db.insert(youtubeLinks).values(records);
+      }
     }
   }
 };
