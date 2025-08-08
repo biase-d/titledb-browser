@@ -2,11 +2,27 @@
 	import { fade } from 'svelte/transition';
 	import Icon from '@iconify/svelte';
 	import { favorites } from '$lib/stores';
+	import { createImageSet } from '$lib/image';
 	import GraphicsDetail from './GraphicsDetail.svelte';
 	import YoutubeEmbeds from './YoutubeEmbeds.svelte';
 	import PerformanceDetail from './PerformanceDetail.svelte';
 
 	let { data } = $props();
+
+	let isCopied = $state(false);
+
+	async function handleCopy() {
+		if (isCopied) return;
+		try {
+			await navigator.clipboard.writeText(id);
+			isCopied = true;
+			setTimeout(() => {
+				isCopied = false;
+			}, 2000);
+		} catch (err) {
+			console.error('Failed to copy: ', err);
+		}
+	}
 
 	let game = $derived(data.game);
 	let session = $derived(data.session);
@@ -104,6 +120,8 @@
 	});
 
 	let lightboxImage = $state('');
+	let bannerImages = $derived(createImageSet(game.bannerUrl));
+	let iconImages = $derived(createImageSet(game.iconUrl));
 
 	function formatDate(dateInt) {
 		if (!dateInt) return 'N/A';
@@ -153,10 +171,31 @@
 			<a href="/" class="back-button">← Back</a>
 		</div>
 		<div class="banner-header">
-			<div class="banner-image" style="background-image: url({game.bannerUrl});"></div>
+			{#if bannerImages}
+				<img
+					src={bannerImages.src}
+					srcset={bannerImages.srcset}
+					alt=""
+					class="banner-image"
+					role="presentation"
+					loading="lazy"
+					sizes="(max-width: 900px) 100vw, 900px"
+				/>
+			{/if}
 			<div class="banner-overlay"></div>
 			<div class="header-content">
-				<img src={game.iconUrl} alt="{name} icon" class="game-icon" />
+				{#if iconImages}
+					<img
+						src={iconImages.src}
+						srcset={iconImages.srcset}
+						alt="{name} icon"
+						class="game-icon"
+						loading="lazy"
+						sizes="150px"
+					/>
+				{:else}
+					<div class="game-icon-placeholder"></div>
+				{/if}
 				<div class="title-info">
 					<h1>{name}</h1>
 
@@ -175,7 +214,17 @@
 						<span><strong>Publisher:</strong> {game.publisher || 'N/A'}</span>
 						<span><strong>Release Date:</strong> {formatDate(game.releaseDate)}</span>
 						<span><strong>Size:</strong> {formatSize(game.sizeInBytes)}</span>
-						<span><strong>Title ID:</strong> {id}</span>
+						<span class="title-id-wrapper">
+							<strong>Title ID:</strong>
+							{id}
+							<button onclick={handleCopy} class="copy-button" class:copied={isCopied} title="Copy Title ID">
+								{#if isCopied}
+									<Icon icon="mdi:check" width="16" height="16" />
+								{:else}
+									<Icon icon="mdi:content-copy" width="16" height="16" />
+								{/if}
+							</button>
+						</span>
 					</div>
 				</div>
 				<button class="favorite-button" onclick={() => favorites.toggle(id)} title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}>
@@ -197,9 +246,14 @@
 		{:else}
 			<div class="section-header performance-header">
 				<h2 class="section-title">Performance Profile</h2>
-				{#if currentProfileHasData && !isSingleContributor && performance?.contributor}
+				{#if currentProfileHasData && !isSingleContributor && performance?.contributor?.length > 0}
 					<div class="section-contributor-info">
-						<span>Submitted by <a href={`/profile/${performance.contributor}`}>{performance.contributor}</a></span>
+						<span>
+							Submitted by
+							{#each performance.contributor as contributor, i}
+								<a href={`/profile/${contributor}`}>{contributor}</a>{i < performance.contributor.length - 1 ? ', ' : ''}
+							{/each}
+						</span>
 						{#if performance.sourcePrUrl}
 							<a href={performance.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="source-link">(Source)</a>
 						{/if}
@@ -339,10 +393,15 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background-size: cover;
-		background-position: center;
+		object-fit: cover;
 		transform: scale(1.1);
 		filter: blur(8px) brightness(0.7);
+	}
+	.game-icon-placeholder {
+		width: 150px;
+		height: 150px;
+		background-color: var(--input-bg);
+		border-radius: var(--border-radius);
 	}
 	.banner-overlay {
 		position: absolute;
@@ -415,6 +474,31 @@
 		gap: 0.75rem;
 		font-size: 0.9rem;
 		margin-top: auto;
+	}
+	.title-id-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.copy-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		padding: 6px;
+		border-radius: 4px;
+		transition: all 0.2s ease;
+	}
+	.copy-button:hover {
+		background-color: var(--input-bg);
+		color: var(--text-primary);
+	}
+	.copy-button.copied {
+		color: #16a34a;
+		background-color: color-mix(in srgb, #16a34a 15%, transparent);
 	}
 	@media (min-width: 500px) {
 		.details-grid {
