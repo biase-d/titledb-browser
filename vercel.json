@@ -1,7 +1,7 @@
 {
   "images": {
     "sizes": [80, 150, 250, 400, 800, 1200],
-    "domains": ["img-eshop.cdn.nintendo.net"],
+    "domains": ["img-eshop.cdn.nintendo.net", "nintendo.com"],
     "minimumCacheTTL": 60,
     "formats": ["image/avif", "image/webp"]
   }
