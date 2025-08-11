@@ -11,9 +11,11 @@ export const DATA_SOURCES = {
       const baseName = path.basename(file.name, '.json');
       const [gameVersion, ...suffixParts] = baseName.split('$');
       const suffix = suffixParts.join('$');
-      return suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
+      const key = suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
+      const parts = [groupId, gameVersion, suffix || null];
+      return { key, parts };
     },
-    getKeyFromRecord: (r) => (r.suffix !== null ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
+    getKeyFromRecord: (r) => (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
     buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
       gameVersion: keyParts[1],
@@ -37,7 +39,7 @@ export const DATA_SOURCES = {
     table: graphicsSettings,
     path: 'graphics',
     isHierarchical: false,
-    getKey: (groupId, file) => groupId,
+    getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
     getKeyFromRecord: (r) => r.groupId,
     buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
@@ -58,7 +60,7 @@ export const DATA_SOURCES = {
     table: youtubeLinks,
     path: 'videos',
     isHierarchical: false,
-    getKey: (groupId, file) => groupId,
+    getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
     getKeyFromRecord: (r) => r.groupId,
     buildRecord: (keyParts, content, metadata, lastUpdated) => {
       // Videos represent multiple rows, so we return an array of records

@@ -68,7 +68,7 @@ async function syncDataType(context) {
   }));
 
   const processFile = async (groupId, fileName) => {
-    const fileKey = config.getKey(groupId, { name: fileName });
+    const { key: fileKey, parts: keyParts } = config.getKey(groupId, { name: fileName });
     localFileKeys.add(fileKey);
 
     try {
@@ -90,7 +90,6 @@ async function syncDataType(context) {
       const filePath = config.isHierarchical ? path.join(dataDir, groupId, fileName) : path.join(dataDir, fileName);
       const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
       const metadata = (type === 'performance') ? (contributorMap.performance?.[fileKey] || {}) : { contributors: contributorMap[type]?.[fileKey] || [] };
-      const keyParts = fileKey.split('-');
       const recordData = config.buildRecord(keyParts, content, metadata, lastUpdated);
 
       if (type === 'videos') {
