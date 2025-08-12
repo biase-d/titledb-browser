@@ -12,14 +12,14 @@ export const DATA_SOURCES = {
       const [gameVersion, ...suffixParts] = baseName.split('$');
       const suffix = suffixParts.join('$');
       const key = suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
-      const parts = [groupId, gameVersion, suffix || null];
+      const parts = [groupId, gameVersion, suffix || ''];
       return { key, parts };
     },
     getKeyFromRecord: (r) => (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
     buildRecord: (keyParts, content, metadata, lastUpdated) => ({
       groupId: keyParts[0],
       gameVersion: keyParts[1],
-      suffix: keyParts[2] || null,
+      suffix: keyParts[2],
       profiles: content,
       contributor: metadata.contributors || [],
       sourcePrUrl: metadata.sourcePrUrl,
