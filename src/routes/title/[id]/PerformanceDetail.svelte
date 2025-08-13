@@ -11,6 +11,7 @@
 			case 'Fixed':
 				return `Fixed at ${modeData.resolution || 'N/A'}`;
 			case 'Dynamic':
+				if (!modeData.min_res && !modeData.max_res) return 'Dynamic';
 				const min = modeData.min_res || '?';
 				const max = modeData.max_res || '?';
 				return `Dynamic ${min} ~ ${max}`;
@@ -45,7 +46,7 @@
 							{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
 						</div>
 					{/if}
-					{#if docked.target_fps}
+					{#if docked.fps_behavior}
 						<div class="perf-item">
 							<p class="label">Framerate</p>
 							<p class="value">{formatFramerate(docked)}</p>
@@ -68,7 +69,7 @@
 							{#if handheld.resolution_notes}<p class="subtext">{handheld.resolution_notes}</p>{/if}
 						</div>
 					{/if}
-					{#if handheld.target_fps}
+					{#if handheld.fps_behavior}
 						<div class="perf-item">
 							<p class="label">Framerate</p>
 							<p class="value">{formatFramerate(handheld)}</p>
