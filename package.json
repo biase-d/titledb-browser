@@ -1,5 +1,5 @@
 {
-	"name": "titleDB-Browser",
+	"name": "nx-performance-ui",
 	"private": true,
 	"version": "3.0.0",
 	"type": "module",
@@ -38,6 +38,7 @@
 	},
 	"dependencies": {
 		"@auth/sveltekit": "^1.10.0",
+		"@fontsource-variable/caveat": "^5.2.6",
 		"@fontsource/inter": "^5.2.6",
 		"@octokit/rest": "^22.0.0",
 		"@resvg/resvg-js": "^2.6.2",
