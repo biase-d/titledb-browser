@@ -57,12 +57,10 @@
 {/if}
 
 
-{#if lockType === 'Custom' || lockType === 'API'}
-	<div class="form-group form-group-full">
-		<label for="fps_notes">Notes</label>
-		<textarea id="fps_notes" bind:value={notes} placeholder="Any details about the FPS lock (e.g., custom methods, specific behaviors)..."></textarea>
-	</div>
-{/if}
+<div class="form-group form-group-full">
+	<label for="fps_notes">Notes</label>
+	<textarea id="fps_notes" bind:value={notes} placeholder="Any details about the FPS lock, custom methods, or specific behaviors..."></textarea>
+</div>
 
 <style>
 	.form-group {
