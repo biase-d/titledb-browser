@@ -186,18 +186,24 @@ export const actions = {
 				const originalProfile = originalProfilesMap.get(key);
 				if (originalProfile?.contributor) allContributors.add(originalProfile.contributor);
 
+				const isUpdateOfExisting = !!originalProfile;
+
 				const fileContent = pruneEmptyValues(submittedProfile.profiles);
-				if (!fileContent) continue;
+				if (!fileContent && !isUpdateOfExisting) continue;
 
 				const fileName = submittedProfile.suffix
 					? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json`
 					: `${submittedProfile.gameVersion}.json`;
 
-				filesToCommit.push({
-					path: `profiles/${groupId}/${fileName}`,
-					content: stringify(fileContent, { space: 2 }),
-					sha: shas.performance?.[key]
-				});
+				if (!fileContent && isUpdateOfExisting) {
+					filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: null, sha: shas.performance?.[key] });
+				} else if (fileContent) {
+					filesToCommit.push({
+						path: `profiles/${groupId}/${fileName}`,
+						content: stringify(fileContent, { space: 2 }),
+						sha: shas.performance?.[key]
+					});
+				}
 			}
 
 			for (const [key, originalProfile] of originalProfilesMap.entries()) {
