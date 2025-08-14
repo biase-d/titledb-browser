@@ -46,11 +46,12 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
   const contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {} };
   let latestMergedAt = lastProcessedDate;
 
-  // Initialize Sets from cached arrays for efficient additions
+  // Initialize Sets from cached arrays, normalizing old string values to arrays
   for (const type of ['graphics', 'videos']) {
     if (contributorMap[type]) {
       for (const key in contributorMap[type]) {
-        contributorMap[type][key] = new Set(contributorMap[type][key]);
+        const value = contributorMap[type][key];
+        contributorMap[type][key] = new Set(Array.isArray(value) ? value : (value ? [value] : []));
       }
     }
   }
@@ -58,7 +59,8 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
     for (const key in contributorMap.performance) {
       const perfEntry = contributorMap.performance[key];
       if (perfEntry && perfEntry.contributors) {
-        perfEntry.contributors = new Set(perfEntry.contributors);
+        const value = perfEntry.contributors;
+        perfEntry.contributors = new Set(Array.isArray(value) ? value : (value ? [value] : []));
       }
     }
   }

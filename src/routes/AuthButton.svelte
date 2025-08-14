@@ -4,14 +4,9 @@
 
 {#if session?.user}
 	<div class="user-profile">
-
 		<a href={`/profile/${session.user.login}`} class="profile-link">
-				<!--	{#if session.user.image}
-				<img src={session.user.image} alt={session.user.name} class="avatar" />
-			{/if}		-->
 			<span class="user-name">{session.user.name}</span>
 		</a>
-
 	</div>
 {:else}
 	<form action="/auth/signin/github" method="post">
@@ -29,38 +24,38 @@
 	.profile-link {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
+		gap: 0.5rem;
 		text-decoration: none;
-		padding: 4px;
-		border-radius: 999px;
+		padding: 0.25rem 0.5rem;
+		border-radius: var(--radius-sm);
 		transition: background-color 0.2s ease;
 	}
+
 	.profile-link:hover {
 		background-color: var(--input-bg);
+		text-decoration: none;
 	}
 
-	.avatar {
-		width: 32px;
-		height: 32px;
-		border-radius: 999px;
-		border: 2px solid var(--border-color);
-	}
 	.user-name {
 		font-weight: 500;
 		color: var(--text-primary);
 	}
-	.signout-button, .signin-button {
-		background: none;
-		border: 1px solid var(--border-color);
-		color: var(--text-secondary);
-		padding: 8px 16px;
-		border-radius: 6px;
-		cursor: pointer;
+
+	.signin-button {
+		font-size: 0.9rem;
 		font-weight: 500;
+		color: var(--text-secondary);
+		background-color: transparent;
+		border: 1px solid var(--border-color);
+		padding: 0.4rem 0.8rem;
+		border-radius: var(--radius-md);
+		cursor: pointer;
 		transition: all 0.2s ease;
 	}
-	.signout-button:hover, .signin-button:hover {
+
+	.signin-button:hover {
 		border-color: var(--primary-color);
 		color: var(--primary-color);
+		background-color: color-mix(in srgb, var(--primary-color) 10%, transparent);
 	}
 </style>

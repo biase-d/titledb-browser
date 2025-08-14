@@ -1,47 +1,25 @@
 <script>
 	import Icon from '@iconify/svelte';
 
-	let {
-		initialLinks = [],
-		onUpdate = (/** @type {{url: string, notes: string}[]} */ links) => {}
-	} = $props();
-
-	// Handle old drafts with string arrays and new data with object arrays
-	const normalizedLinks = initialLinks.map(link => 
-		typeof link === 'string' ? { url: link, notes: '' } : link
-	);
-	let links = $state([...normalizedLinks]);
+	let { links = $bindable() } = $props();
 
 	function hideAndReset() {
 		links = [];
-		onUpdate(links);
 	}
 
 	function addInitialLink() {
 		if (links.length === 0) {
-			links.push({ url: '', notes: '' });
-			onUpdate(links);
+			links = [{ url: '', notes: '' }];
 		}
 	}
 
 	function addLink() {
-		links.push({ url: '', notes: '' });
-		onUpdate(links);
+		links = [...links, { url: '', notes: '' }];
 	}
 
 	function removeLink(index) {
 		links.splice(index, 1);
-		onUpdate(links);
-	}
-
-	function updateUrl(index, value) {
-		links[index].url = value;
-		onUpdate(links);
-	}
-
-	function updateNotes(index, value) {
-		links[index].notes = value;
-		onUpdate(links);
+		links = links;
 	}
 </script>
 
@@ -55,10 +33,8 @@
 
 	<p>Add YouTube videos showcasing performance or graphical comparisons</p>
 
-	{#if links.length === 0}		
-		<button type="button" class="add-initial-btn" onclick={() => {
-			addInitialLink()
-		}}>
+	{#if links.length === 0}
+		<button type="button" class="add-initial-btn" onclick={addInitialLink}>
 			<Icon icon="mdi:plus" /> Add YouTube Video
 		</button>
 	{:else}
@@ -69,8 +45,7 @@
 					<input
 						type="url"
 						placeholder="https://www.youtube.com/watch?v=..."
-						value={link.url}
-						oninput={(e) => updateUrl(i, e.currentTarget.value)}
+						bind:value={link.url}
 					/>
 					{#if links.length > 1}
 						<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
@@ -78,11 +53,9 @@
 						</button>
 					{/if}
 				</div>
-				<p>Optional notes</p>
 				<textarea
 					placeholder="Optional notes (e.g., 'Docked gameplay', 'Comparison video')"
-					value={link.notes}
-					oninput={(e) => updateNotes(i, e.currentTarget.value)}
+					bind:value={link.notes}
 				></textarea>
 			</div>
 		{/each}
@@ -114,7 +87,7 @@
 		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
 		padding: 4px 12px;
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-md);
 		font-weight: 500;
 		cursor: pointer;
 	}
@@ -144,7 +117,7 @@
 		padding: 10px 12px;
 		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		color: var(--text-primary);
 	}
 	.link-entry textarea {
@@ -154,7 +127,7 @@
 		padding: 10px 12px;
 		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
-		border-radius: 6px;
+		border-radius: var(--radius-md);
 		color: var(--text-primary);
 	}
 	.remove-btn {
@@ -173,7 +146,7 @@
 		color: var(--primary-color);
 		border: 1px solid var(--primary-color);
 		padding: 0.5rem 1rem;
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-md);
 		cursor: pointer;
 		display: inline-flex;
 		align-items: center;
@@ -185,11 +158,11 @@
 		color: white;
 	}
 	.add-initial-btn {
-		background-color: var(--button-bg);
-		color: var(--button-text);
-		border: none;
+		background-color: transparent;
+		color: var(--primary-color);
+		border: 2px dashed var(--border-color);
+		border-radius: var(--radius-lg);
 		padding: 0.75rem 1.5rem;
-		border-radius: var(--border-radius);
 		cursor: pointer;
 		font-weight: 600;
 		display: inline-flex;

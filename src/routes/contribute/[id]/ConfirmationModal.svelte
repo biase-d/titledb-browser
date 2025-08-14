@@ -3,7 +3,8 @@
 	import PerformanceDetail from '../../title/[id]/PerformanceDetail.svelte';
 	import GraphicsDetail from '../../title/[id]/GraphicsDetail.svelte';
 	import Icon from '@iconify/svelte';
-	import { isEqual } from 'lodash-es';
+	import stringify from 'json-stable-stringify';
+	import { pruneEmptyValues } from '$lib/utils.js';
 
 	let {
 		show = false,
@@ -87,11 +88,11 @@
 				const contentChanged = JSON.stringify(newProfile.profiles) !== JSON.stringify(originalProfile.profiles);
 
 				if (contentChanged) {
-					if (newIsEmpty) {
+					if (newIsEmpty && !originalIsEmpty) {
 						summary.push(`Cleared performance data for v${version}.`);
-					} else if (originalIsEmpty) {
+					} else if (originalIsEmpty && !newIsEmpty) {
 						summary.push(`Added performance data to v${version}.`);
-					} else {
+					} else if (!newIsEmpty && !originalIsEmpty) {
 						summary.push(`Updated performance data for v${version}.`);
 					}
 				}
@@ -105,12 +106,11 @@
 			}
 		}
 
-		// Compare just the settings part of the original graphics object
-		const graphicsChanged = JSON.stringify(graphicsData) !== JSON.stringify(originalGraphics?.settings || {});
+		const prunedGraphicsData = pruneEmptyValues(graphicsData);
+		const graphicsChanged = stringify(prunedGraphicsData) !== stringify(originalGraphics || {});
 		if (graphicsChanged) {
-			const newIsEmpty = isGraphicsEmpty(graphicsData);
-			// Pass just the settings part to the check
-			const originalIsEmpty = isGraphicsEmpty(originalGraphics?.settings);
+			const newIsEmpty = isGraphicsEmpty(prunedGraphicsData);
+			const originalIsEmpty = isGraphicsEmpty(originalGraphics);
 
 			if (newIsEmpty && !originalIsEmpty) {
 				summary.push('Cleared graphics settings.');
@@ -127,10 +127,10 @@
 			.map(l => ({ url: l.url, notes: l.notes || '' }))
 			.sort((a,b) => a.url.localeCompare(b.url));
 			
-		const normalizedNew = normalizeLinks(youtubeLinks);
+ 		const normalizedNew = normalizeLinks(youtubeLinks);
 		const normalizedOriginal = normalizeLinks(originalYoutubeLinks);
 
-		if (!isEqual(normalizedNew, normalizedOriginal)) {
+		if (stringify(normalizedNew) !== stringify(normalizedOriginal)) {
 			const originalUrls = new Set(normalizedOriginal.map(l => l.url));
 			const newUrls = new Set(normalizedNew.map(l => l.url));
 			const addedCount = [...newUrls].filter(url => !originalUrls.has(url)).length;
@@ -153,18 +153,10 @@
 		}
 		
 		// Grouping Changes
-		const originalGroupIds = new Set(originalGroup.map(g => g.id));
-		const updatedGroupIds = new Set(updatedGroup.map(g => g.id));
-		let groupsChanged = originalGroupIds.size !== updatedGroupIds.size;
-		if (!groupsChanged) {
-			for (const id of originalGroupIds) {
-				if (!updatedGroupIds.has(id)) {
-					groupsChanged = true;
-					break;
-				}
-			}
-		}
-		if (groupsChanged) {
+		const originalGroupIds = originalGroup.map(g => g.id).sort();
+		const updatedGroupIds = updatedGroup.map(g => g.id).sort();
+		
+		if (stringify(originalGroupIds) !== stringify(updatedGroupIds)) {
 			summary.push('Adjusted regional game grouping.');
 		}
 
@@ -214,7 +206,13 @@
 			</div>
 			<div class="modal-footer">
 				<button class="cancel-btn" onclick={onCancel}>Cancel</button>
-				<button class="confirm-btn" onclick={() => onConfirm(changeSummary)}>Confirm & Submit</button>
+				<button
+					class="confirm-btn"
+					onclick={() => onConfirm(changeSummary)}
+					disabled={changeSummary.length === 0}
+				>
+					{changeSummary.length === 0 ? 'No Changes Detected' : 'Confirm & Submit'}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -337,9 +335,14 @@
 	background-color: var(--input-bg);
 	color: var(--text-primary);
 	border: 1px solid var(--border-color);
-}
-.confirm-btn {
+ }
+ .confirm-btn {
 	background-color: var(--primary-color);
-	color: white;
-}
+	color: var(--primary-action-text);
+ }
+ .confirm-btn:disabled {
+	background-color: var(--input-bg);
+	color: var(--text-secondary);
+	cursor: not-allowed;
+ }
 </style>

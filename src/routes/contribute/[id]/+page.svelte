@@ -25,7 +25,7 @@
 	);
 
 	let graphicsData = $state(existingGraphics || {});
-	let youtubeLinks = $state(existingYoutubeLinks || []);
+	let youtubeLinks = $state(JSON.parse(JSON.stringify(existingYoutubeLinks)) || []);
 	let isSubmitting = $state(false);
 	let showConfirmation = $state(false);
 	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
@@ -68,12 +68,13 @@
 			},
 			isNew: true // Flag to identify new, unsaved entries
 		});
+		performanceProfiles = performanceProfiles;
 	}
 
 	function removeVersion(index) {
 		performanceProfiles.splice(index, 1);
+		performanceProfiles = performanceProfiles;
 	}
-
 
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
@@ -117,16 +118,21 @@
 </svelte:head>
 
 <div class="form-container">
-	<a href={`/title/${id}`} class="back-link">← Back to Game Page</a>
-	<h1>Contribute Performance Data</h1>
-	<p class="subtitle">You are adding data for <strong class='game-name'>{name}</strong> ({id})</p>
+	<a href={`/title/${id}`} class="back-link">← Back to {name}</a>
+	<h1>Contribute Data</h1>
+	<p class="subtitle">You are suggesting edits for <strong class='game-name'>{name}</strong> ({id})</p>
 
 	{#if form?.success}
 		<div class="success-message">
-			<h2>Submission Successful!</h2>
-			<p>Your contribution has been submitted for review. Thank you!</p>
-			<a href={form.prUrl} target="_blank" rel="noopener noreferrer" class="pr-link">View Pull Request on GitHub</a>
-			<a href="/" class="back-link-main">Return to Home</a>
+			<Icon icon="mdi:check-decagram" />
+			<div class="success-content">
+				<h2>Submission Successful!</h2>
+				<p>Your contribution has been submitted for review. Thank you!</p>
+				<div class="success-actions">
+					<a href={form.prUrl} target="_blank" rel="noopener noreferrer" class="cta-button">View Pull Request</a>
+					<a href="/" class="secondary-button">Return Home</a>
+				</div>
+			</div>
 		</div>
 	{:else}
 		<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(newGroup) => { updatedGroup = newGroup; }} />
@@ -170,7 +176,7 @@
 							</div>
 							<div class="form-field">
 								<label for="version_suffix_{i}">
-									Region
+									Region / Suffix
 									<div class="tooltip">
 										<Icon icon="mdi:help-circle-outline" />
 										<span class="tooltip-text">
@@ -203,15 +209,15 @@
 				<Icon icon="mdi:plus-circle-outline" /> Add data for another version
 			</button>
 
-			<GraphicsControls initialSettings={existingGraphics?.settings} onUpdate={(newSettings) => { graphicsData = newSettings; }} />
-			<YoutubeControls initialLinks={existingYoutubeLinks} onUpdate={(newLinks) => { youtubeLinks = newLinks; }} />
+			<GraphicsControls bind:settings={graphicsData} />
+			<YoutubeControls bind:links={youtubeLinks} />
 
 			<div class="form-footer">
 				<button class="submit-button" type="button" onclick={() => showConfirmation = true} disabled={isSubmitting}>
 					{#if isSubmitting}
 						<Icon icon="line-md:loading-loop" /> Submitting...
 					{:else}
-						Submit for review
+						Submit for Review
 					{/if}
 				</button>
 			</div>
@@ -248,221 +254,104 @@
 </div>
 
 <style>
-	.game-name {
-		color: var(--primary-color);
-	}
+	.form-container { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+	.back-link { display: inline-block; margin-bottom: 2rem; color: var(--text-secondary); }
+	h1 { margin: 0; font-size: 2.5rem; }
+	.subtitle { margin: 0.5rem 0 2.5rem; font-size: 1.1rem; color: var(--text-secondary); }
+	.game-name { color: var(--primary-color); }
 
 	.success-message {
-		padding: 1.5rem;
-		text-align: center;
-		background-color: #dcfce7;
-		color: #166534;
-		border: 1px solid #4ade80;
-		border-radius: var(--border-radius);
-	}
-
-	.success-message h2 {
-		margin: 0 0 0.5rem;
-		color: var(--text-primary);
-	}
-
-	.success-message p {
-		margin-bottom: 1.5rem;
-		color: var(--text-secondary);
-	}
-
-	.pr-link {
-		display: inline-block;
-		padding: 10px 20px;
-		background-color: #16a34a;
-		color: white;
-		text-decoration: none;
-		border-radius: 6px;
-		font-weight: 500;
-	}
-
-	.back-link-main {
-		display: block;
-		margin-top: 1.5rem;
-		color: var(--text-secondary);
-	}
-
-	.error-message {
-		margin-top: 1rem;
-		padding: 1rem;
-		font-weight: 500;
-		color: #b91c1c;
-		background-color: #fee2e2;
-		border: 1px solid #f87171;
-		border-radius: var(--border-radius);
-	}
-
-	.form-container {
-		max-width: 800px;
-		margin: 0 auto;
-	}
-
-	.back-link {
-		display: inline-block;
-		margin-bottom: 2rem;
-		color: var(--text-secondary);
-	}
-
-	h1 {
-		margin: 0;
-		font-size: 2.5rem;
-		font-weight: 700;
-		color: var(--text-primary);
-	}
-
-	.subtitle {
-		margin: 0.5rem 0 2.5rem;
-		font-size: 1.1rem;
-		color: var(--text-secondary);
-	}
-
-	.version-section {
-		margin-bottom: 2.5rem;
-		padding: 1.5rem;
-		background-color: var(--input-bg);
-		border: 1px solid var(--border-color);
-		border-radius: var(--border-radius);
-	}
-
-	.version-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-	}
-
-	.version-header h4 {
-		margin: 0;
-		font-size: 1.1rem;
-	}
-
-	.version-input-wrapper {
-		display: flex;
-		align-items: flex-end;
-		gap: 1rem;
-		flex-wrap: wrap;
-	}
-
-	.form-field {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.form-field label {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.tooltip {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        color: var(--text-secondary);
-    }
-    .tooltip .tooltip-text {
-        visibility: hidden;
-        width: 250px;
-        background-color: #333;
-        color: #fff;
-        text-align: left;
-        border-radius: 6px;
-        padding: 8px;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -125px;
-        opacity: 0;
-        transition: opacity 0.3s;
-        font-size: 0.8rem;
-        line-height: 1.4;
-    }
-    .tooltip:hover .tooltip-text {
-        visibility: visible;
-        opacity: 1;
-    }
-
-	.version-input {
-		width: 120px;
-		padding: 8px 10px;
+		display: flex; gap: 1.5rem; padding: 1.5rem;
+		text-align: left;
 		background-color: var(--surface-color);
 		color: var(--text-primary);
 		border: 1px solid var(--border-color);
-		border-radius: 6px;
+		border-left: 4px solid #4ade80;
+		border-radius: var(--radius-lg);
+	}
+	.success-message > :global(svg) { font-size: 2.5rem; color: #4ade80; flex-shrink: 0; }
+	.success-message h2 { margin: 0 0 0.5rem; }
+	.success-message p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+	.success-actions { display: flex; gap: 1rem; }
+	.cta-button {
+		display: inline-block; background-color: var(--primary-color); color: var(--primary-action-text);
+		padding: 10px 20px; border-radius: var(--radius-md); font-weight: 600; text-decoration: none;
+	}
+	.secondary-button {
+		display: inline-block; background-color: var(--surface-color); color: var(--text-primary);
+		border: 1px solid var(--border-color);
+		padding: 10px 20px; border-radius: var(--radius-md); font-weight: 600; text-decoration: none;
 	}
 
+
+	.error-message {
+		margin-top: 1rem; padding: 1rem; font-weight: 500;
+		color: #b91c1c; background-color: #fee2e2; border: 1px solid #f87171;
+		border-radius: var(--radius-md);
+	}
+	.dark .error-message { background-color: #450a0a; color: #fca5a5; border-color: #991b1b; }
+
+
+	.version-section {
+		margin-bottom: 2.5rem; padding: 1.5rem;
+		background-color: var(--surface-color); border: 1px solid var(--border-color);
+		border-radius: var(--radius-lg);
+	}
+	.version-header {
+		display: flex; justify-content: space-between; align-items: flex-start;
+		margin-bottom: 1.5rem;
+	}
+	.version-header h4 { margin: 0; font-size: 1.1rem; }
+	.version-input-wrapper { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+
+	.form-field { display: flex; flex-direction: column; gap: 0.25rem; }
+	.form-field label { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.25rem; }
+	
+	.tooltip { position: relative; display: inline-flex; align-items: center; color: var(--text-secondary); }
+    .tooltip .tooltip-text {
+		visibility: hidden; width: 250px; background-color: var(--color-background-dark); color: var(--color-text-body-dark);
+        text-align: left; border-radius: var(--radius-md); padding: 0.75rem;
+        position: absolute; z-index: 1; bottom: 130%; left: 50%;
+        margin-left: -125px; opacity: 0; transition: opacity 0.3s;
+        font-size: 0.8rem; line-height: 1.4; box-shadow: var(--shadow-lg);
+	}
+    .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+	.version-input {
+		width: 120px; padding: 8px 10px;
+		background-color: var(--input-bg); color: var(--text-primary);
+		border: 1px solid var(--border-color); border-radius: var(--radius-md);
+	}
 	.remove-version-btn {
-		padding: 8px 12px;
-		background: transparent;
-		color: #ef4444;
-		border: 1px solid #ef4444;
-		border-radius: 6px;
-		cursor: pointer;
-		font-weight: 500;
-		height: 38px;
+		padding: 8px 12px; background: transparent; color: #ef4444;
+		border: 1px solid #ef4444; border-radius: var(--radius-md);
+		cursor: pointer; font-weight: 500; height: 38px;
 	}
+	.remove-version-btn:hover { background-color: color-mix(in srgb, #ef4444 10%, transparent); }
 
-	.mode-grid {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 2rem;
-	}
-
-	@media (min-width: 800px) {
-		.mode-grid {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
-
+	.mode-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+	@media (min-width: 800px) { .mode-grid { grid-template-columns: 1fr 1fr; } }
+	
 	.add-version-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		width: 100%;
-		margin-bottom: 2rem;
-		padding: 0.75rem;
-		background-color: transparent;
-		color: var(--primary-color);
-		border: 2px dashed var(--border-color);
-		border-radius: var(--border-radius);
-		font-weight: 600;
-		cursor: pointer;
+		display: flex; align-items: center; justify-content: center;
+		gap: 0.5rem; width: 100%; margin-bottom: 2rem; padding: 0.75rem;
+		background-color: transparent; color: var(--primary-color);
+		border: 2px dashed var(--border-color); border-radius: var(--radius-lg);
+		font-weight: 600; cursor: pointer; transition: all 0.2s ease;
 	}
+	.add-version-btn:hover { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, transparent); }
 
 	.form-footer {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		text-align: right;
+		margin-top: 2rem; padding-top: 1.5rem; text-align: right;
 		border-top: 1px solid var(--border-color);
 	}
-
 	.submit-button {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1.5rem;
-		font-size: 1rem;
-		font-weight: 600;
-		background-color: var(--primary-color);
-		color: white;
-		border: none;
-		border-radius: var(--border-radius);
-		cursor: pointer;
+		display: inline-flex; align-items: center; justify-content: center;
+		gap: 0.5rem; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600;
+		background-color: var(--primary-color); color: var(--primary-action-text);
+		border: none; border-radius: var(--radius-md); cursor: pointer;
+		transition: background-color 0.2s ease;
 	}
-
-	.submit-button:disabled {
-		opacity: 0.7;
-		cursor: not-allowed;
-	}
+	.submit-button:hover { background-color: var(--primary-color-hover); }
+	.submit-button:disabled { opacity: 0.7; cursor: not-allowed; }
 </style>
