@@ -28,7 +28,7 @@
 			<p>
 				Switch Performance is powered by contributors like you. Sign in with your GitHub account to
 				start submitting performance data, suggesting edits, and helping us build the most comprehensive
-				database for Nintendo Switch game performance.
+				database for Nintendo Switch game performance
 			</p>
 			<form action="/auth/signin/github" method="post">
 				<button type="submit" class="cta-button">
@@ -41,7 +41,7 @@
 		<div class="page-header">
 			<h1>Contribute Data</h1>
 			<p>
-				Help us expand the database! Here is a list of games that currently have no performance or graphics data.
+				Help us expand the database! Here is a list of games that currently have no performance or graphics data
 			</p>
 		</div>
 
