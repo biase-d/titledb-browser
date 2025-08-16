@@ -74,16 +74,16 @@ async function syncDataType(context) {
     try {
       const lastUpdated = (type === 'performance' ? dateMap.performance?.[fileKey] : dateMap[type]?.[groupId]) || new Date();
 
-      const existingDate = groupLatestUpdate.get(groupId);
-      if (!existingDate || lastUpdated > existingDate) {
-        groupLatestUpdate.set(groupId, lastUpdated);
-      }
-
       const dbRecord = dbRecordsMap.get(fileKey);
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
       const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
 
       if (!hasChanged) return;
+
+      const existingDate = groupLatestUpdate.get(groupId);
+      if (!existingDate || lastUpdated > existingDate) {
+        groupLatestUpdate.set(groupId, lastUpdated);
+      }
 
       console.log(`Processing ${type} for ${fileKey}`);
 

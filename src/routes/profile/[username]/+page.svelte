@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import CanvasFlair from './CanvasFlair.svelte';
 
 	const badges = [
 		{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' },
@@ -19,7 +20,7 @@
 	];
 
 	let { data } = $props();
-	
+
 	let username = $derived(data.username);
 	let contributions = $derived(data.contributions || []);
 	let totalContributions = $derived(data.totalContributions || 0);
@@ -27,7 +28,9 @@
 	let isOwnProfile = $derived(sessionUser?.login?.toLowerCase() === username.toLowerCase());
 	let currentTierName = $derived(data.currentTierName);
 	let pagination = $derived(data.pagination);
-	
+
+	let currentTierBadge = $derived(badges.find(b => b.name === currentTierName));
+
 	let nextBadge = $derived(badges.slice().reverse().find(badge => totalContributions < badge.threshold));
 	let progressToNext = $derived(nextBadge ? Math.floor((totalContributions / nextBadge.threshold) * 100) : 100);
 
@@ -50,32 +53,29 @@
 </script>
 
 <svelte:head>
-	<title>{username}'s Profile - Titledb Browser</title>
+	<title>{username}'s Profile - Switch Performance</title>
 </svelte:head>
 
 <div class="profile-container">
-	<div 
+	<div
 		class="profile-card"
 		data-tier={currentTierName?.toLowerCase().replace(/\s+/g, '-')}
 	>
+		{#if currentTierBadge}
+			<CanvasFlair tier={currentTierBadge} animated={currentTierBadge.threshold >= 50} />
+		{/if}
 		<div class="profile-header">
-			{#if isOwnProfile && sessionUser?.image}
-				<img src={sessionUser.image} alt={username} class="avatar" />
-			{/if}
 			<div class="header-text">
-				<div class="title-with-badges">
-					<h1>{username}</h1>
-					<div class="badges-header-container">
-						{#each badges as badge}
-							{#if totalContributions >= badge.threshold}
-								<span class="badge" style="--badge-color: {badge.color};" title="{badge.name} ({badge.threshold}+ contributions)">
-									<Icon icon={badge.icon} />
-								</span>
-							{/if}
-						{/each}
-					</div>
+				<h1>{username}</h1>
+				<div class="badges-header-container">
+					{#each badges as badge}
+						{#if totalContributions >= badge.threshold}
+							<span class="badge" style="--badge-color: {badge.color};" title="{badge.name} ({badge.threshold}+ contributions)">
+								<Icon icon={badge.icon} />
+							</span>
+						{/if}
+					{/each}
 				</div>
-				<p>Community Contributor</p>
 			</div>
 			{#if isOwnProfile}
 				<form action="/auth/signout" method="post" class="signout-form">
@@ -94,9 +94,8 @@
 				<span class="stat-label">Unique Games</span>
 			</div>
 		</div>
-	</div>
 
-	{#if nextBadge}
+		{#if nextBadge}
 		<div class="progress-section">
 			<p><strong>Next Goal:</strong> {nextBadge.name} ({nextBadge.threshold} contributions)</p>
 			<div class="progress-bar-container">
@@ -105,6 +104,7 @@
 			</div>
 		</div>
 	{/if}
+	</div>
 
 	<div class="section-header">
 		<h2 class="section-title">Contributions</h2>
@@ -119,13 +119,14 @@
 			{#each contributions as item (item.game.id)}
 				{#if viewMode === 'list'}
 					<a href={`/title/${item.game.id}`} class="list-item">
+						<img src={item.game.iconUrl || '/favicon.svg'} alt="" class="list-item-icon" />
 						<div class="list-item-info">
 							<p class="list-item-title">{item.game.name}</p>
 							<div class="card-tags">
 								{#each item.versions as v}
-									<div class="version-tag-wrapper">
+									<a href={v.sourcePrUrl} target="_blank" rel="noopener noreferrer" class="version-tag-wrapper" onclick={e => e.stopPropagation()}>
 										<Icon icon="mdi:chart-line-variant" /> v{v.version}
-									</div>
+									</a>
 								{/each}
 								{#if item.hasGraphics}
 									<span class="info-tag"><Icon icon="mdi:palette-outline" /> Graphics</span>
@@ -143,23 +144,14 @@
 							<p class="card-title">{item.game.name}</p>
 							<div class="card-tags">
 								{#each item.versions as v}
-									<div
+									<a
+										href={v.sourcePrUrl}
+										target="_blank" rel="noopener noreferrer"
 										class="version-tag"
-										role="link"
-										tabindex="0"
-										onclick={(e) => {
-											e.stopPropagation();
-											window.open(v.sourcePrUrl, '_blank');
-										}}
-										onkeydown={(e) => {
-											if (e.key === 'Enter') {
-												e.stopPropagation();
-												window.open(v.sourcePrUrl, '_blank');
-											}
-										}}
+										onclick={e => e.stopPropagation()}
 									>
 										<Icon icon="mdi:chart-line-variant" /> v{v.version}
-									</div>
+									</a>
 								{/each}
 								{#if item.hasGraphics}
 									<span class="info-tag"><Icon icon="mdi:palette-outline" /> Graphics</span>
@@ -175,11 +167,11 @@
 		</div>
 	{:else}
 		<div class="empty-state">
-			<h2>No Contributions Yet</h2>
+			<h3>No Contributions Yet</h3>
 			<p>{username} hasn't submitted any performance data that has been merged.</p>
 		</div>
 	{/if}
-	
+
 	{#if pagination && pagination.totalPages > 1}
 		<div class="pagination">
 			<button disabled={pagination.currentPage <= 1} onclick={() => changePage(pagination.currentPage - 1)}>← Previous</button>
@@ -196,327 +188,166 @@
 	}
 
 	.profile-container {
-		max-width: 1024px;
+		max-width: 1200px;
 		margin: 0 auto;
+		padding: 1.5rem;
+	}
+
+	@media (min-width: 640px) {
+		.profile-container {
+			padding: 2.5rem;
+		}
 	}
 
 	.profile-card {
 		position: relative;
-		padding: 1.5rem;
+		padding: 2rem;
 		border: 1px solid var(--border-color);
-		border-radius: var(--border-radius);
-		transition: border-color 0.3s ease;
+		border-radius: var(--radius-lg);
 		background-color: var(--surface-color);
 		margin-bottom: 2rem;
-	}
-	@media(min-width: 640px) {
-		.profile-card {
-			padding: 2rem;
-		}
+		overflow: hidden;
 	}
 
-	/* Tier-based animated borders using data attributes */
+	/* Tier-based animated borders */
 	.profile-card[data-tier="spooky-robe-guy"] { border-color: #e11d48; }
 	.profile-card[data-tier="evil-gray-twin"] { border-color: #4f46e5; }
-	.profile-card[data-tier="big-purple-pterodactyl"] {
-		--glow-color: #8b5cf655;
-		animation: glow 3s infinite alternate ease-in-out;
-		border-color: #8b5cf6;
-	}
-	.profile-card[data-tier="creative-right-hand"] {
-		--glow-color: #fde04755;
-		animation: glow 2.5s infinite alternate ease-in-out;
-		border-color: #fde047;
-	}
-	.profile-card[data-tier="ancient-angel-borb"] {
-		--glow-color: #d1d5db55;
-		animation: glow 3.5s infinite alternate ease-in-out;
-		border-color: #d1d5db;
-	}
+	.profile-card[data-tier="big-purple-pterodactyl"] { --glow-color: #8b5cf655; animation: glow 3s infinite alternate ease-in-out; border-color: #8b5cf6; }
+	.profile-card[data-tier="creative-right-hand"] { --glow-color: #fde04755; animation: glow 2.5s infinite alternate ease-in-out; border-color: #fde047; }
+	.profile-card[data-tier="ancient-angel-borb"] { --glow-color: #d1d5db55; animation: glow 3.5s infinite alternate ease-in-out; border-color: #d1d5db; }
 
 	.profile-header {
+		position: relative;
+		z-index: 1;
 		display: flex;
-		align-items: flex-start; /* Align to top for wrapping badges */
+		align-items: center;
 		gap: 1.5rem;
 		margin-bottom: 2rem;
 	}
 
-	.avatar {
-		width: 80px;
-		height: 80px;
-		border-radius: 999px;
-	}
-
 	.header-text h1 {
-		margin: 0;
-		font-size: 2rem;
-	}
-	
-	.title-with-badges {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-		margin-bottom: 0.25rem;
+		margin: 0 0 0.5rem;
+		font-size: 2.25rem;
 	}
 
-	.badges-header-container {
-		display: flex;
-		gap: 0.5rem;
-	}
+	.badges-header-container { display: flex; gap: 0.5rem; }
 
-	.header-text p {
-		margin: 0;
-		color: var(--text-secondary);
-	}
+	.badge { font-size: 1.75rem; color: var(--badge-color); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
 
-	.signout-form {
-		margin-left: auto;
-	}
-
+	.signout-form { margin-left: auto; }
 	.signout-button {
-		padding: 8px 16px;
-		font-weight: 500;
-		background: none;
-		color: var(--text-secondary);
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-		cursor: pointer;
+		padding: 8px 16px; font-weight: 500; background: none;
+		color: var(--text-secondary); border: 1px solid var(--border-color);
+		border-radius: var(--radius-md); cursor: pointer;
 	}
 
 	.stats-bar {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-		gap: 1rem;
-		padding: 1.5rem;
-		background-color: var(--surface-color);
+		display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 1.5rem; padding: 1.5rem;
+		background-color: var(--background-color);
 		border: 1px solid var(--border-color);
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-lg);
 	}
+	.stat-item { text-align: left; }
+	.stat-value { font-size: 2rem; font-weight: 600; color: var(--text-primary); }
+	.stat-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
 
-	.stat-item {
-		text-align: center;
-	}
-
-	.stat-value {
-		font-size: 2rem;
-		font-weight: 600;
-		color: var(--primary-color);
-	}
-
-	.stat-label {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-	}
-	
-	.badge {
-		font-size: 1.5rem;
-		color: var(--badge-color);
-		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-	}
-
-	.progress-section {
-		margin-top: 2rem;
-	}
-
-	.progress-section p {
-		margin: 0 0 0.5rem;
-		font-size: 0.9rem;
-	}
-
+	.progress-section { margin-top: 1.5rem; position: relative; z-index: 1; }
+	.progress-section p { margin: 0 0 0.5rem; font-size: 0.9rem; }
 	.progress-bar-container {
-		position: relative;
-		width: 100%;
-		height: 12px;
-		background-color: var(--input-bg);
-		border-radius: 999px;
-		overflow: hidden;
+		position: relative; width: 100%; height: 14px;
+		background-color: var(--input-bg); border-radius: 999px;
+		overflow: hidden; border: 1px solid var(--border-color);
 	}
-
-	.progress-bar {
-		height: 100%;
-		background-color: var(--primary-color);
-		border-radius: 999px;
-	}
-
+	.progress-bar { height: 100%; background-color: var(--primary-color); }
 	.progress-text {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		font-size: 0.7rem;
-		font-weight: bold;
-		color: white;
-		text-shadow: 0 0 2px black;
+		position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+		font-size: 0.7rem; font-weight: bold; color: var(--primary-action-text);
+		text-shadow: 0 0 3px rgba(0,0,0,0.5);
 	}
 
 	.section-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin: 2.5rem 0 1.5rem;
-		padding-bottom: 0.5rem;
+		display: flex; justify-content: space-between; align-items: center;
+		margin-bottom: 1.5rem; padding-bottom: 0.75rem;
 		border-bottom: 1px solid var(--border-color);
 	}
-
-	.section-title {
-		font-size: 1.5rem;
-		font-weight: 600;
-		margin: 0;
-	}
-
-	.view-switcher {
-		display: flex;
-		gap: 0.5rem;
-	}
-
+	.section-title { font-size: 1.5rem; font-weight: 600; margin: 0; }
+	.view-switcher { display: flex; gap: 0.5rem; }
 	.view-switcher button {
-		padding: 0.5rem;
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-		background: none;
-		color: var(--text-secondary);
-		cursor: pointer;
-		line-height: 1;
+		padding: 0.5rem; border: 1px solid var(--border-color);
+		border-radius: var(--radius-md); background: none;
+		color: var(--text-secondary); cursor: pointer; line-height: 1;
 	}
-
 	.view-switcher button.active {
 		background-color: var(--primary-color);
 		border-color: var(--primary-color);
 		color: white;
 	}
-	
+
 	.contributions-container.grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 		gap: 1.5rem;
 	}
-	
-	.contributions-container.list .list-item {
-		display: flex;
-		align-items: center;
-		padding: 1rem;
-		background-color: var(--surface-color);
-		border-bottom: 1px solid var(--border-color);
-	}
 
-	.list-item-title {
-		font-weight: 600;
-		margin: 0 0 0.5rem 0;
-	}
-	
+	/* List view specific */
+	.contributions-container.list { display: flex; flex-direction: column; gap: 0.5rem; }
+	.list-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+	.list-item:hover { text-decoration: none; border-color: var(--primary-color); }
+	.list-item-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
+	.list-item-info { flex-grow: 1; }
+	.list-item-title { font-weight: 600; margin: 0 0 0.5rem 0; color: var(--text-primary); }
 	.version-tag-wrapper {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 4px 8px;
-		font-size: 0.8rem;
-		font-weight: 500;
+		display: inline-flex; align-items: center; gap: 0.25rem;
+		padding: 4px 8px; font-size: 0.8rem; font-weight: 500;
 		background-color: var(--input-bg);
-		color: var(--text-secondary);
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-	}
-
-	.game-card {
-		display: flex;
-		flex-direction: column;
-		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
-		box-shadow: var(--box-shadow);
-		transition: transform 0.2s;
-	}
-
-	.game-card:hover {
-		transform: translateY(-3px);
-	}
-
-	.card-icon {
-		aspect-ratio: 1 / 1;
-		background-size: cover;
-		background-position: center;
-		background-color: var(--input-bg);
-		border-top-left-radius: var(--border-radius);
-		border-top-right-radius: var(--border-radius);
-	}
-
-	.card-info {
-		flex-grow: 1;
-		padding: 1rem;
-	}
-
-	.card-title {
-		margin: 0 0 0.75rem;
-		font-weight: 600;
-	}
-
-	.card-tags {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-top: auto;
-	}
-
-	.version-tag,
-	.info-tag {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 4px 8px;
-		font-size: 0.8rem;
-		font-weight: 500;
-		background-color: var(--input-bg);
-		color: var(--text-secondary);
-		border: 1px solid var(--border-color);
-		border-radius: 6px;
-	}
-
-	.version-tag {
+		border: 1px solid var(--border-color); border-radius: var(--radius-md);
 		color: var(--primary-color);
-		border-color: var(--primary-color);
-		cursor: pointer;
 	}
-
-	.version-tag:hover {
+	.version-tag-wrapper:hover {
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--primary-action-text);
+		text-decoration: none;
 	}
 
-	.info-tag {
-		background-color: var(--input-bg);
-		color: var(--text-secondary);
-		border: 1px solid var(--border-color);
+	/* Card view specific */
+	.game-card { display: flex; flex-direction: column; background-color: var(--surface-color); border-radius: var(--radius-lg); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); transition: transform 0.2s; }
+	.game-card:hover { transform: translateY(-3px); text-decoration: none; border-color: var(--primary-color); }
+	.card-icon { aspect-ratio: 1 / 1; background-size: cover; background-position: center; background-color: var(--input-bg); border-bottom: 1px solid var(--border-color); border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg); }
+	.card-info { flex-grow: 1; padding: 1rem; display: flex; flex-direction: column; }
+	.card-title { margin: 0 0 0.75rem; font-weight: 600; color: var(--text-primary); }
+	.card-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: auto; }
+	.version-tag, .info-tag {
+		display: inline-flex; align-items: center; gap: 0.25rem;
+		padding: 4px 8px; font-size: 0.8rem; font-weight: 500;
+		border: 1px solid var(--border-color); border-radius: var(--radius-md);
 	}
+	.version-tag { color: var(--primary-color); }
+	.version-tag:hover {
+		background-color: var(--primary-color); color: var(--primary-action-text);
+		text-decoration: none;
+	}
+	.info-tag { background-color: var(--input-bg); color: var(--text-secondary); }
 
 	.empty-state {
-		padding: 4rem 2rem;
-		text-align: center;
+		padding: 4rem 2rem; text-align: center;
 		background-color: var(--surface-color);
 		border: 2px dashed var(--border-color);
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-lg);
 	}
-	
-	.pagination {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		gap: 1rem;
-		margin-top: 2.5rem;
-	}
+	.empty-state h3 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+	.empty-state p { color: var(--text-secondary); }
 
+	.pagination {
+		display: flex; justify-content: center; align-items: center;
+		gap: 1rem; margin-top: 2.5rem;
+	}
 	.pagination button {
-		padding: 8px 16px;
-		font-weight: 500;
+		padding: 8px 16px; font-weight: 500;
 		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
 		color: var(--primary-color);
-		border-radius: 6px;
-		cursor: pointer;
+		border-radius: var(--radius-md); cursor: pointer;
 	}
-
-	.pagination button:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
+	.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>

@@ -1,24 +1,10 @@
- powered by [`sv`](https://github.com/sveltejs/cli).
+# Switch Performance
 
-## Developing
-_powered by [`sv`](https://github.com/sveltejs/cli)_
+A community-powered project for browsing and contributing Nintendo Switch performance data. This project provides a user-friendly interface for the data collected in the [nx-performance](https://github.com/biase-d/nx-performance) repository
 
-Start a development server:
-
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
+## Features
+-   **Fast Search**: Instantly search thousands of game titles
+-   **Detailed Performance Data**: View resolution, FPS targets, and stability for both docked and handheld modes
+-   **Community Contributions**: Submit new performance data or suggest edits via a streamlined GitHub PR process
+-   **Personalization**: Mark games as favorites for quick access
+-   **Contributor Profiles**: See all contributions made by community members

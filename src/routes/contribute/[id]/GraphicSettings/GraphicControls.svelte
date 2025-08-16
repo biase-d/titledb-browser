@@ -3,30 +3,31 @@
 	import ResolutionSettingsControls from './ResolutionSettingsControls.svelte';
 	import FpsSettingsControls from './FpsSettingsControls.svelte';
 
-	let {
-		initialSettings = null,
-		onUpdate = (/** @type {any} */ settings) => {}
-	} = $props();
+	let { settings = $bindable() } = $props();
 
-	let settings = $state({
+	let internalSettings = $state({
 		docked: {
-			resolution: initialSettings?.docked?.resolution || {},
-			framerate: initialSettings?.docked?.framerate || {},
-			custom: initialSettings?.docked?.custom || {}
+			resolution: settings.docked?.resolution || {},
+			framerate: settings.docked?.framerate || {},
+			custom: settings.docked?.custom || {}
 		},
 		handheld: {
-			resolution: initialSettings?.handheld?.resolution || {},
-			framerate: initialSettings?.handheld?.framerate || {},
-			custom: initialSettings?.handheld?.custom || {}
+			resolution: settings.handheld?.resolution || {},
+			framerate: settings.handheld?.framerate || {},
+			custom: settings.handheld?.custom || {}
 		},
-		shared: initialSettings?.shared || {}
+		shared: settings.shared || {}
 	});
 
-	let isVisible = $state(!!initialSettings);
+	let isVisible = $state(Object.keys(settings).length > 0);
+	
+	$effect(() => {
+		settings = isVisible ? internalSettings : {};
+	});
 
 	$effect(() => {
 		if (isVisible) {
-			const cleanSettings = JSON.parse(JSON.stringify(settings));
+			const cleanSettings = JSON.parse(JSON.stringify(internalSettings));
 
 			const filterEmpty = (customObj) => {
                 if (!customObj) return {};
@@ -50,37 +51,35 @@
 	function hideAndReset() {
 		isVisible = false;
 		// Reset state to a blank slate
-		settings.docked = { resolution: {}, framerate: {}, custom: {} };
-		settings.handheld = { resolution: {}, framerate: {}, custom: {} };
-		settings.shared = {};
-		// Explicitly tell the parent that there is no data anymore.
-		onUpdate({});
+		internalSettings.docked = { resolution: {}, framerate: {}, custom: {} };
+		internalSettings.handheld = { resolution: {}, framerate: {}, custom: {} };
+		internalSettings.shared = {};
 	}
 
 	function addField(section) {
-		settings[section][''] = { value: '', notes: '' };
+		internalSettings[section][''] = { value: '', notes: '' };
 	}
 	function updateKey(section, oldKey, newKey) {
 		if (oldKey === newKey || newKey === '') return;
-		const value = settings[section][oldKey];
-		delete settings[section][oldKey];
-		settings[section][newKey] = value;
+		const value = internalSettings[section][oldKey];
+		delete internalSettings[section][oldKey];
+		internalSettings[section][newKey] = value;
 	}
 	function removeField(section, key) {
-		delete settings[section][key];
+		delete internalSettings[section][key];
 	}
 
 	function addCustomField(mode) {
-		settings[mode].custom[''] = { value: '', notes: '' };
+		internalSettings[mode].custom[''] = { value: '', notes: '' };
 	}
 	function updateCustomKey(mode, oldKey, newKey) {
 		if (oldKey === newKey || newKey === '') return;
-		const value = settings[mode].custom[oldKey];
-		delete settings[mode].custom[oldKey];
-		settings[mode].custom[newKey] = value;
+		const value = internalSettings[mode].custom[oldKey];
+		delete internalSettings[mode].custom[oldKey];
+		internalSettings[mode].custom[newKey] = value;
 	}
 	function removeCustomField(mode, key) {
-		delete settings[mode].custom[key];
+		delete internalSettings[mode].custom[key];
 	}
 </script>
 
@@ -104,13 +103,13 @@
 			<fieldset>
 				<legend>Handheld Mode</legend>
 				<div class="structured-grid">
-					<ResolutionSettingsControls bind:settingsData={settings.handheld.resolution} />
+					<ResolutionSettingsControls bind:settingsData={internalSettings.handheld.resolution} />
 				</div>
 				<hr />
 				<div class="structured-grid">
-					<FpsSettingsControls bind:settingsData={settings.handheld.framerate} />
+					<FpsSettingsControls bind:settingsData={internalSettings.handheld.framerate} />
 				</div>
-				{#each Object.entries(settings.handheld.custom) as [key, fieldData]}
+				{#each Object.entries(internalSettings.handheld.custom) as [key, fieldData]}
 					<div class="field-wrapper">
 						<div class="field-row">
 							<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
@@ -127,13 +126,13 @@
 			<fieldset class='docked'>
 				<legend>Docked Mode</legend>
 				<div class="structured-grid">
-					<ResolutionSettingsControls bind:settingsData={settings.docked.resolution} />
+					<ResolutionSettingsControls bind:settingsData={internalSettings.docked.resolution} />
 				</div>
 				<hr />
 				<div class="structured-grid">
-					<FpsSettingsControls bind:settingsData={settings.docked.framerate} />
+					<FpsSettingsControls bind:settingsData={internalSettings.docked.framerate} />
 				</div>
-				{#each Object.entries(settings.docked.custom) as [key, fieldData]}
+				{#each Object.entries(internalSettings.docked.custom) as [key, fieldData]}
 					<div class="field-wrapper">
 						<div class="field-row">
 							<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
@@ -149,7 +148,7 @@
 			<!-- Shared Settings -->
 			<fieldset>
 				<legend>Shared (Applies to Both)</legend>
-				{#each Object.entries(settings.shared) as [key, fieldData]}
+				{#each Object.entries(internalSettings.shared) as [key, fieldData]}
 					<div class="field-wrapper">
 						<div class="field-row">
 							<input type="text" placeholder="Shared Setting" value={key} onchange={(e) => updateKey('shared', key, e.currentTarget.value)} />

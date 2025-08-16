@@ -30,13 +30,15 @@
 	}
 </script>
 
-{#if !performance || performance.docked == {} && performance.handheld == {}}
-	<p class="no-data-message">No performance data has been submitted for this version</p>
+{#if !performance || (!performance.docked && !performance.handheld)}
+	<div class="notice-card">
+		<p>No performance data has been submitted for this version.</p>
+	</div>
 {:else}
 	<div class="perf-card">
 		{#if performance.docked}
 			{@const docked = performance.docked}
-			<div>
+			<div class="mode-section">
 				<h3 class="perf-mode-title">Docked</h3>
 				<div class="perf-grid">
 					{#if hasResolutionData(docked)}
@@ -59,7 +61,7 @@
 
 		{#if performance.handheld}
 			{@const handheld = performance.handheld}
-			<div class="perf-mode-separator">
+			<div class="mode-section perf-mode-separator">
 				<h3 class="perf-mode-title">Handheld</h3>
 				<div class="perf-grid">
 					{#if hasResolutionData(handheld)}
@@ -85,39 +87,45 @@
 <style>
 	.perf-card {
 		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
-		padding: 1.5rem 2rem;
+		border-radius: var(--radius-lg);
+		padding: 2rem;
 		border: 1px solid var(--border-color);
 	}
+
 	.perf-mode-title {
 		font-size: 1.25rem;
 		font-weight: 600;
-        margin-bottom: 1rem;
+		margin: 0 0 1.5rem 0;
 	}
+
 	.perf-grid {
 		display: grid;
 		gap: 1.5rem;
 	}
+
 	@media (min-width: 640px) {
 		.perf-grid {
 			grid-template-columns: 1fr 1fr;
 			gap: 2rem;
 		}
 	}
+
 	.perf-item p {
-        padding-bottom: 1rem;
 		margin: 0;
 	}
+
 	.label {
 		font-size: 0.875rem;
 		color: var(--text-secondary);
-		display: flex;
-		align-items: cent
+		margin-bottom: 0.25rem;
 	}
+
 	.value {
 		font-weight: 600;
 		font-size: 1.1rem;
+		color: var(--text-primary);
 	}
+
 	.subtext {
 		font-size: 0.9rem;
 		color: var(--text-secondary);
@@ -125,16 +133,21 @@
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
+
 	.perf-mode-separator {
 		margin-top: 2rem;
 		padding-top: 2rem;
 		border-top: 1px solid var(--border-color);
 	}
-	.no-data-message {
+	
+	.notice-card {
 		padding: 2rem;
 		text-align: center;
 		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
-		border: 1px solid var(--border-color);
+		border-radius: var(--radius-lg);
+		border: 1px dashed var(--border-color);
+	}
+	.notice-card p {
+		margin: 0;
 	}
 </style>

@@ -13,7 +13,7 @@
 
 <div class="section-container">
 	{#if links.length === 0}
-		<p class="no-data-message">No videos have been submitted for this title yet</p>
+		<p class="notice-card">No videos have been submitted for this title yet</p>
 	{:else}
 		<div class="videos-grid">
 			{#each links as link}
@@ -25,13 +25,14 @@
 								src="https://www.youtube.com/embed/{videoId}"
 								title="YouTube video player"
 								frameborder="0"
-								allow="fullscreen"
+								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+								allowfullscreen
 							></iframe>
 						</div>
 						{#if link.notes}
 							<p class="video-notes">{link.notes}</p>
 						{/if}
-					</div>	
+					</div>
 				{/if}
 			{/each}
 		</div>
@@ -39,42 +40,26 @@
 </div>
 
 <style>
-	.section-container {
-		margin-top: 1rem;
-	}
-	.no-data-message {
-	padding: 2rem;
-	text-align: center;
-	background-color: var(--surface-color);
-	border-radius: var(--border-radius);
-	border: 1px solid var(--border-color);
-	}
 	.videos-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 1.5rem;
+		grid-template-columns: 1fr;
+		gap: 2rem;
 	}
-	@media (min-width: 768px) {
+	@media (min-width: 1024px) {
 		.videos-grid {
-			grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+			grid-template-columns: 1fr 1fr;
 		}
 	}
 	.video-container {
-		display: flex;
-		flex-direction: column;
+		background-color: var(--surface-color);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--border-color);
+		overflow: hidden;
 	}
 	.video-wrapper {
 		position: relative;
 		padding-bottom: 56.25%; /* 16:9 aspect ratio */
 		height: 0;
-		overflow: hidden;
-		border-radius: var(--border-radius);
-	}
-	.video-notes {
-		margin: 0.75rem 0 0;
-		padding: 0.75rem;
-		font-size: 0.9rem;
-		background-color: var(--surface-color);
 	}
 	.video-wrapper iframe {
 		position: absolute;
@@ -83,5 +68,19 @@
 		width: 100%;
 		height: 100%;
 		border: 0;
+	}
+	.video-notes {
+		margin: 0;
+		padding: 1rem;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		border-top: 1px solid var(--border-color);
+	}
+	.notice-card {
+		padding: 2rem;
+		text-align: center;
+		background-color: var(--surface-color);
+		border-radius: var(--radius-lg);
+		border: 1px dashed var(--border-color);
 	}
 </style>

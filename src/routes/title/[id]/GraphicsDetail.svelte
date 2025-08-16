@@ -6,17 +6,6 @@
 	let sharedSettings = $derived(settings?.shared || {});
 	let hasSharedSettings = $derived(sharedSettings && Object.entries(sharedSettings).some(([key, data]) => key && data.value));
 
-	function omit(obj, keys) {
-		if (!obj) return {};
-		const newObj = {};
-		for (const key in obj) {
-			if (!keys.includes(key)) {
-				newObj[key] = obj[key];
-			}
-		}
-		return newObj;
-	}
-
 	function formatResolution(resData) {
 		if (!resData) return 'N/A';
 		switch (resData.resolutionType) {
@@ -36,7 +25,7 @@
 		switch (fpsData.lockType) {
 			case 'Unlocked':
 				return 'Unlocked';
-			case 'API':				
+			case 'API':
 				return `API Locked to ${fpsData.targetFps} FPS`;
 			case 'Custom':
 				return `Custom Lock to ${fpsData.targetFps} FPS`;
@@ -65,7 +54,7 @@
 
 <div class="section-container">
 	{#if !settings || Object.keys(settings).length === 0}
-		<p class="no-data-message">No graphics settings have been submitted for this title yet</p>
+		<p class="notice-card">No graphics settings have been submitted for this title yet</p>
 	{:else}
 		<div class="card">
 			<!-- Docked -->
@@ -82,7 +71,7 @@
 					{#if dockedSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
-							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>							
+							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>
 							{#if dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
 								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
 							{/if}
@@ -113,7 +102,7 @@
 					{#if handheldSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
-							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>							
+							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>
 							{#if handheldSettings.framerate.apiBuffering && handheldSettings.framerate.apiBuffering !== 'Unknown'}
 								<span class="field-note">{formatBuffering(handheldSettings.framerate.apiBuffering)}</span>
 							{/if}
@@ -150,12 +139,9 @@
 </div>
 
 <style>
-	.section-container {
-		margin-top: 1rem;
-	}
 	.card {
 		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-lg);
 		padding: 2rem;
 		border: 1px solid var(--border-color);
 	}
@@ -180,20 +166,22 @@
 		gap: 0.25rem;
 	}
 	.field-key {
+		font-size: 0.875rem;
 		color: var(--text-secondary);
 	}
 	.field-value {
 		font-weight: 600;
+		color: var(--text-primary);
 	}
 	.field-note {
-		font-size: 0.8rem;
+		font-size: 0.9rem;
 		color: var(--text-secondary);
 	}
-	.no-data-message {
+	.notice-card {
 		padding: 2rem;
 		text-align: center;
 		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
-		border: 1px solid var(--border-color);
+		border-radius: var(--radius-lg);
+		border: 1px dashed var(--border-color);
 	}
 </style>

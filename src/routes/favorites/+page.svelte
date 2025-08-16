@@ -1,108 +1,126 @@
 <script>
+	import Icon from '@iconify/svelte';
+
 	/** @type {import('./$types').PageData} */
 	export let data;
 
 	$: favoritedGames = data.favoritedGames || [];
-
-	console.log(data)
 </script>
 
 <svelte:head>
-	<title>My Favorites - Titledb Browser</title>
+	<title>My Favorites - Switch Performance</title>
 </svelte:head>
 
-<div class="favorites-container">
-	<h1 class="page-title">My Favorites</h1>
+<div class="page-container">
+	<div class="page-header">
+		<h1>My Favorites</h1>
+		<p>Here are the games you've saved for later.</p>
+	</div>
 
 	{#if favoritedGames.length > 0}
-		<p class="intro-text">Here are the games you've saved for later</p>
-		<ul class="results-list">
+		<div class="results-container">
 			{#each favoritedGames as game (game.id)}
-				<li>
-					<a href={`/title/${game.id}`}>
+				<a href={`/title/${game.id}`} class="list-item">
+					<div class="list-item-info">
 						<span class="title-name">{game.names[0]}</span>
-						<span class="title-id">({game.id})</span>
-					</a>
-				</li>
+						<span class="title-id">{game.id}</span>
+					</div>
+					<Icon icon="mdi:chevron-right" class="chevron-icon" />
+				</a>
 			{/each}
-		</ul>
+		</div>
 	{:else}
 		<div class="empty-state">
-			<h2>No Favorites Yet</h2>
+			<h3>No Favorites Yet</h3>
 			<p>You can add games to this list by clicking the star icon on any game's detail page.</p>
-			<a href="/" class="button-primary">Start Browsing</a>
+			<a href="/" class="cta-button">Start Browsing</a>
 		</div>
 	{/if}
 </div>
 
 <style>
-	.page-title {
-		font-size: 2.5rem;
-		font-weight: 700;
-		color: var(--text-primary);
-		margin-bottom: 0.5rem;
+	.page-container {
+		max-width: 900px;
+		margin: 0 auto;
+		padding: 1.5rem;
 	}
 
-	.intro-text {
-		color: var(--text-secondary);
+	.page-header {
 		margin-bottom: 2rem;
-		font-size: 1.1rem;
+		text-align: center;
 	}
 
-	.results-list {
-		list-style: none;
-		padding: 0;
+	.page-header h1 {
+		font-size: 2.5rem;
+		margin: 0 0 0.5rem;
+	}
+
+	.page-header p {
+		font-size: 1.1rem;
+		color: var(--text-secondary);
 		margin: 0;
-		background: var(--surface-color);
-		border-radius: var(--border-radius);
-		overflow: hidden;
-		box-shadow: var(--box-shadow);
 	}
-	.results-list li a {
-		display: block;
-		padding: 12px 16px;
-		border-bottom: 1px solid var(--border-color);
-		transition: background-color 0.2s ease;
+
+	.results-container {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
-	.results-list li:last-child a {
-		border-bottom: none;
+
+	.list-item {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 1rem;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		transition: all 0.2s ease;
 	}
-	.results-list li a:hover {
-		background-color: var(--input-bg);
+	.list-item:hover {
+		border-color: var(--primary-color);
+		background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
 		text-decoration: none;
+	}
+
+	.list-item-info {
+		flex-grow: 1;
 	}
 	.title-name {
 		font-weight: 500;
+		color: var(--text-primary);
 	}
 	.title-id {
+		display: block;
+		margin-top: 0.1rem;
 		font-size: 0.8rem;
-		opacity: 0.6;
-		margin-left: 0.5rem;
+		color: var(--text-secondary);
 	}
+
 
 	.empty-state {
 		text-align: center;
-		padding: 4rem 2rem;
+		padding: 3rem 2rem;
 		background-color: var(--surface-color);
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-lg);
 		border: 2px dashed var(--border-color);
 	}
-	.empty-state h2 {
+	.empty-state h3 {
 		font-size: 1.5rem;
-		margin-top: 0;
+		margin: 0 0 0.5rem;
 	}
 	.empty-state p {
 		color: var(--text-secondary);
 		max-width: 400px;
-		margin: 1rem auto 2rem;
+		margin: 0 auto 1.5rem;
 	}
-	.button-primary {
+	.cta-button {
 		display: inline-block;
 		background-color: var(--primary-color);
 		color: var(--primary-action-text);
-		padding: 12px 24px;
-		border-radius: 6px;
-		font-weight: 500;
+		padding: 10px 20px;
+		border-radius: var(--radius-md);
+		font-weight: 600;
 		text-decoration: none;
 	}
 </style>

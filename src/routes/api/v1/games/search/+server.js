@@ -13,7 +13,7 @@ export const GET = async ({ url }) => {
     const searchResults = results.map(game => ({
       id: game.id,
       name: game.names[0],
-      groupId: game.group_id
+      groupId: game.groupId
     }))
 
     return json(searchResults)
