@@ -109,230 +109,135 @@
 	<title>Switch Performance</title>
 </svelte:head>
 
-<div class="page-layout">
-	<aside class="sidebar">
-		<div class="sidebar-sticky-content">
-			<div class="sidebar-content" class:visible={isFilterVisible}>
-				{#if stats}
-					<div class="filter-group stats-group">
-						<h3 class="filter-title">Project Stats</h3>
-						<div class="stats-grid">
-							<div class="stat-item">
-								<span class="stat-value">{stats.totalGames.toLocaleString()}</span>
-								<span class="stat-label">Games Tracked</span>
-							</div>
-							<div class="stat-item">
-								<span class="stat-value">{stats.totalContributors.toLocaleString()}</span>
-								<span class="stat-label">Contributors</span>
-							</div>
-						</div>
-					</div>
-				{/if}
-				<div class="form-group">
-					<label for="docked_fps">Work in Progress 🔨 <br/> Almost there :p</label>
-				</div>
-				<!--
-				<div class="filter-group">
-					<h3 class="filter-title">Filters</h3>
-					<div class="form-group">
-						<label for="docked_fps">Docked FPS</label>
-						<select id="docked_fps" bind:value={dockedFps} onchange={() => updateData({ resetPage: true })}>
-							<option value="">Any</option>
-							<option value="60">60 FPS</option>
-							<option value="30">30 FPS</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label for="handheld_fps">Handheld FPS</label>
-						<select id="handheld_fps" bind:value={handheldFps} onchange={() => updateData({ resetPage: true })}>
-							<option value="">Any</option>
-							<option value="60">60 FPS</option>
-							<option value="30">30 FPS</option>
-						</select>
-					</div>
-					<div class="form-group">
-						<label for="res_type">Resolution</label>
-						<select id="res_type" bind:value={resolutionType} onchange={() => updateData({ resetPage: true })}>
-							<option value="">Any</option>
-							<option value="Dynamic">Dynamic</option>
-							<option value="Fixed">Fixed</option>
-							<option value="Multiple Fixed">Multiple Fixed</option>
-						</select>
-					</div>
-					{#if hasActiveFilters}
-						<button class="reset-filters-btn" onclick={resetFilters}>Reset Filters</button>
-					{/if}
-				</div>
-
-				<div class="filter-group">
-					<h3 class="filter-title">Sort By</h3>
-					<div class="form-group">
-						<select class="sort-select" bind:value={selectedSort} onchange={() => updateData({ resetPage: true })}>
-							<option value="relevance-desc" disabled={!search}>Relevance</option>
-							<option value="date-desc">Newest First</option>
-							<option value="name-asc">Name (A-Z)</option>
-						</select>
-					</div>
-				</div>
-				-->
-
-			</div>
+<main class="main-content">
+	<div class="hero-section">
+		<h1>Switch Performance</h1>
+		<p>A community-driven database of game performance metrics, from framerates to resolution.</p>
+		<div class="search-input-wrapper">
+			<Icon icon="mdi:magnify" class="search-icon" />
+			<input bind:value={search} oninput={() => updateData({ resetPage: true })} type="text" placeholder="Search by game name or title ID..." class="search-input"/>
+			{#if search}<button class="clear-button" onclick={() => { search = ''; updateData({ resetPage: true }); }} title="Clear search"><Icon icon="mdi:close"/></button>{/if}
 		</div>
-	</aside>
+	</div>
 
-	<main class="main-content">
-		<div class="hero-section">
-			<h1>Switch Performance</h1>
-			<p>A community-driven database of game performance metrics, from framerates to resolution.</p>
-			<div class="search-input-wrapper">
-				<Icon icon="mdi:magnify" class="search-icon" />
-				<input bind:value={search} oninput={() => updateData({ resetPage: true })} type="text" placeholder="Search by game name or title ID..." class="search-input"/>
-				{#if search}<button class="clear-button" onclick={() => { search = ''; updateData({ resetPage: true }); }} title="Clear search"><Icon icon="mdi:close"/></button>{/if}
+	<div class="mobile-filter-toggle">
+		<button onclick={() => isFilterVisible = !isFilterVisible}>
+			<Icon icon="mdi:filter-variant" />
+			<span>Filter & Sort</span>
+			<Icon icon="mdi:chevron-down" class="chevron"/>
+		</button>
+	</div>
+
+	{#if drafts.length > 0 && data.session?.user}
+		<div class="drafts-section">
+			<div class='section-header-wrapper'>
+				<h2 class="section-header">Saved Drafts</h2>
+				<button class="delete-all-drafts-btn" onclick={deleteAllDrafts} title="Delete all drafts">Delete All</button>
 			</div>
-		</div>
-
-		<div class="mobile-filter-toggle">
-			<button onclick={() => isFilterVisible = !isFilterVisible}>
-				<Icon icon="mdi:filter-variant" />
-				<span>Filter & Sort</span>
-				<Icon icon="mdi:chevron-down" class="chevron"/>
-			</button>
-		</div>
-
-		{#if drafts.length > 0 && data.session?.user}
-			<div class="drafts-section">
-				<div class='section-header-wrapper'>
-					<h2 class="section-header">Saved Drafts</h2>
-					<button class="delete-all-drafts-btn" onclick={deleteAllDrafts} title="Delete all drafts">Delete All</button>
-				</div>
-				<ul class="drafts-list">
-					{#each drafts as draft (draft.id)}
-						<li class='draft-item'>
-							<a href={`/contribute/${draft.id}?from_draft=true`} class="draft-link">
-								<div>
-									<span class="title-name">{draft.data.name || 'Untitled Draft'}</span>
-									<span class="title-id">({draft.id})</span>
-								</div>
-								<span class="continue-editing">Continue Editing <Icon icon="mdi:arrow-right" /></span>
-							</a>
-							<button class='draft-delete' onclick={() => draftsStore.delete(draft.id)} title="Delete draft">
-								<Icon icon='mdi:delete' height='20px' width='20px'/>
-							</button>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-
-		{#if !search && !hasActiveFilters && recentUpdates.length > 0}
-			<section class="results-section">
-				<div class='section-header-wrapper'>
-					<h2 class="section-header">Recently Updated</h2>
-				</div>
-				<div class="results-container grid">
-					{#each recentUpdates as item (item.id)}
-						<a href={`/title/${item.id}`} class="game-card" data-sveltekit-preload-data="hover">
-							<div class="card-icon" style="background-image: url({item.iconUrl || '/favicon.svg'})"></div>
-							<div class="card-info">
-								<p class="card-title">{item.names[0]}</p>
-								<p class="card-publisher">{item.publisher || 'N/A'}</p>
+			<ul class="drafts-list">
+				{#each drafts as draft (draft.id)}
+					<li class='draft-item'>
+						<a href={`/contribute/${draft.id}?from_draft=true`} class="draft-link">
+							<div>
+								<span class="title-name">{draft.data.name || 'Untitled Draft'}</span>
+								<span class="title-id">({draft.id})</span>
 							</div>
+							<span class="continue-editing">Continue Editing <Icon icon="mdi:arrow-right" /></span>
 						</a>
-					{/each}
-				</div>
-			</section>
-		{/if}
+						<button class='draft-delete' onclick={() => draftsStore.delete(draft.id)} title="Delete draft">
+							<Icon icon='mdi:delete' height='20px' width='20px'/>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
 
+	{#if !search && !hasActiveFilters && recentUpdates.length > 0}
 		<section class="results-section">
-			<div class="section-header-wrapper">
-				<h2 class="section-header">{searchResultText}</h2>
-				<div class="view-switcher">
-					<button class:active={viewMode === 'list'} onclick={() => viewMode = 'list'} title="List View"><Icon icon="mdi:view-list" /></button>
-					<button class:active={viewMode === 'grid'} onclick={() => viewMode = 'grid'} title="Grid View"><Icon icon="mdi:view-grid" /></button>
-				</div>
+			<div class='section-header-wrapper'>
+				<h2 class="section-header">Recently Updated</h2>
 			</div>
-
-			<div class="results-container {viewMode}">
-				{#each results as item (item.id)}
-					{#if viewMode === 'list'}
-						<a href={`/title/${item.id}`} class="list-item" transition:slide|local data-sveltekit-preload-data="hover">
-							<div class="list-item-info">
-								<span class="title-name">{item.names[0]}</span>
-								<span class="title-id">{item.id}</span>
-							</div>
-							{#if item.performance}
-								<div class="perf-tags">
-									{#if item.performance.docked.target_fps}
-										<span class="perf-tag"><Icon icon="mdi:television" /> {item.performance.docked.target_fps} FPS</span>
-									{/if}
-									{#if item.performance.handheld.target_fps}
-										<span class="perf-tag"><Icon icon="mdi:nintendo-switch" /> {item.performance.handheld.target_fps} FPS</span>
-									{/if}
-								</div>
-							{/if}
-						</a>
-					{:else}
-						<a href={`/title/${item.id}`} class="game-card" transition:slide|local data-sveltekit-preload-data="hover">
-							<div class="card-icon" style="background-image: url({item.iconUrl || '/favicon.svg'})"></div>
-							<div class="card-info">
-								<p class="card-title">{item.names[0]}</p>
-								<p class="card-publisher">{item.publisher || 'N/A'}</p>
-							</div>
-							{#if item.performance.docked.target_fps || item.performance.handheld.target_fps}
-								<div class="card-perf-badge">
-									{#if item.performance.docked.target_fps}
-										<span><Icon icon="mdi:television" /> {item.performance.docked.target_fps}</span>
-									{/if}
-									{#if item.performance.handheld.target_fps}
-										<span><Icon icon="mdi:nintendo-switch" /> {item.performance.handheld.target_fps}</span>
-									{/if}
-								</div>
-							{/if}
-						</a>
-					{/if}
-				{:else}
-					<div class="no-results">
-						<h3>No Titles Found</h3>
-						<p>Try adjusting your search or filter criteria.</p>
-					</div>
+			<div class="results-container grid">
+				{#each recentUpdates as item (item.id)}
+					<a href={`/title/${item.id}`} class="game-card" data-sveltekit-preload-data="hover">
+						<div class="card-icon" style="background-image: url({item.iconUrl || '/favicon.svg'})"></div>
+						<div class="card-info">
+							<p class="card-title">{item.names[0]}</p>
+							<p class="card-publisher">{item.publisher || 'N/A'}</p>
+						</div>
+					</a>
 				{/each}
 			</div>
 		</section>
+	{/if}
 
-		{#if pagination?.totalPages > 1}
-			<div class="pagination">
-				<button disabled={pagination.currentPage <= 1} onclick={() => changePage(pagination.currentPage - 1)}>← Previous</button>
-				<span>Page {pagination.currentPage} of {pagination.totalPages}</span>
-				<button disabled={pagination.currentPage >= pagination.totalPages} onclick={() => changePage(pagination.currentPage + 1)}>Next →</button>
+	<section class="results-section">
+		<div class="section-header-wrapper">
+			<h2 class="section-header">{searchResultText}</h2>
+			<div class="view-switcher">
+				<button class:active={viewMode === 'list'} onclick={() => viewMode = 'list'} title="List View"><Icon icon="mdi:view-list" /></button>
+				<button class:active={viewMode === 'grid'} onclick={() => viewMode = 'grid'} title="Grid View"><Icon icon="mdi:view-grid" /></button>
 			</div>
-		{/if}
-	</main>
-</div>
+		</div>
+
+		<div class="results-container {viewMode}">
+			{#each results as item (item.id)}
+				{#if viewMode === 'list'}
+					<a href={`/title/${item.id}`} class="list-item" transition:slide|local data-sveltekit-preload-data="hover">
+						<div class="list-item-info">
+							<span class="title-name">{item.names[0]}</span>
+							<span class="title-id">{item.id}</span>
+						</div>
+						{#if item.performance}
+							<div class="perf-tags">
+								{#if item.performance.docked.target_fps}
+									<span class="perf-tag"><Icon icon="mdi:television" /> {item.performance.docked.target_fps} FPS</span>
+								{/if}
+								{#if item.performance.handheld.target_fps}
+									<span class="perf-tag"><Icon icon="mdi:nintendo-switch" /> {item.performance.handheld.target_fps} FPS</span>
+								{/if}
+							</div>
+						{/if}
+					</a>
+				{:else}
+					<a href={`/title/${item.id}`} class="game-card" transition:slide|local data-sveltekit-preload-data="hover">
+						<div class="card-icon" style="background-image: url({item.iconUrl || '/favicon.svg'})"></div>
+						<div class="card-info">
+							<p class="card-title">{item.names[0]}</p>
+							<p class="card-publisher">{item.publisher || 'N/A'}</p>
+						</div>
+						{#if item.performance.docked.target_fps || item.performance.handheld.target_fps}
+							<div class="card-perf-badge">
+								{#if item.performance.docked.target_fps}
+									<span><Icon icon="mdi:television" /> {item.performance.docked.target_fps}</span>
+								{/if}
+								{#if item.performance.handheld.target_fps}
+									<span><Icon icon="mdi:nintendo-switch" /> {item.performance.handheld.target_fps}</span>
+								{/if}
+							</div>
+						{/if}
+					</a>
+				{/if}
+			{:else}
+				<div class="no-results">
+					<h3>No Titles Found</h3>
+					<p>Try adjusting your search or filter criteria.</p>
+				</div>
+			{/each}
+		</div>
+	</section>
+
+	{#if pagination?.totalPages > 1}
+		<div class="pagination">
+			<button disabled={pagination.currentPage <= 1} onclick={() => changePage(pagination.currentPage - 1)}>← Previous</button>
+			<span>Page {pagination.currentPage} of {pagination.totalPages}</span>
+			<button disabled={pagination.currentPage >= pagination.totalPages} onclick={() => changePage(pagination.currentPage + 1)}>Next →</button>
+		</div>
+	{/if}
+</main>
 
 <style>
-	.page-layout {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 2rem;
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 1.5rem;
-	}
-
-	@media (min-width: 1024px) {
-		.page-layout {
-			grid-template-columns: 280px 1fr;
-			gap: 3rem;
-		}
-	}
-
-	@media (min-width: 1280px) {
-		.page-layout {
-			max-width: 1400px;
-		}
-	}
-
-
 	/* Sidebar */
 	.sidebar-sticky-content {
 		position: sticky;
@@ -364,13 +269,6 @@
 		color: var(--text-primary);
 		cursor: pointer;
 	}
-	.mobile-filter-toggle .chevron {
-		transition: transform 0.2s ease-in-out;
-	}
-	.mobile-filter-toggle .chevron.rotated {
-		transform: rotate(180deg);
-	}
-
 
 	.sidebar-content {
 		display: none;
@@ -389,7 +287,6 @@
 			display: none;
 		}
 	}
-
 
 	.filter-group {
 		background-color: var(--surface-color);
@@ -410,29 +307,6 @@
 		flex-direction: column;
 		gap: 0.5rem;
 		margin-bottom: 1rem;
-	}
-
-	.form-group label {
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--text-secondary);
-	}
-
-	select {
-		width: 100%;
-		padding: 0.6rem 0.8rem;
-		font-size: 0.9rem;
-		background-color: var(--input-bg);
-		border: 1px solid var(--border-color);
-		color: var(--text-primary);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		-webkit-appearance: none;
-		appearance: none;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
-		background-repeat: no-repeat;
-		background-position: right 0.75rem center;
-		padding-right: 2.5rem;
 	}
 
 	.reset-filters-btn {
@@ -477,6 +351,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 3rem;
+		padding: 1rem;
 	}
 
 	.hero-section {
