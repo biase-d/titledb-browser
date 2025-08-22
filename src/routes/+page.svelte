@@ -352,6 +352,8 @@
 		flex-direction: column;
 		gap: 3rem;
 		padding: 1rem;
+		max-width: 1024px;
+		margin: 0 auto;
 	}
 
 	.hero-section {
