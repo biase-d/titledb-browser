@@ -2,6 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { tick } from 'svelte';
 
 	let { data } = $props();
 
@@ -9,11 +10,17 @@
 	let pagination = $derived(data.pagination);
 	let session = $derived(data.session);
 
-	function changePage(newPage) {
+	let pageHeader;
+
+	async function changePage(newPage) {
 		const url = new URL(page.url);
 		url.searchParams.set('page', newPage.toString());
-		goto(url, { keepData: false, noScroll: true });
+
+		await goto(url.toString(), { noScroll: true });
+
 		window.scrollTo({ top: 0, behavior: 'smooth' });
+		await tick();
+		pageHeader?.focus();
 	}
 </script>
 
@@ -21,69 +28,101 @@
 	<title>Contribute - Switch Performance</title>
 </svelte:head>
 
-<div class="page-container">
+<main class="page-container" bind:this={pageHeader} tabindex="-1">
 	{#if !session?.user}
-		<div class="logged-out-cta">
-			<h1>Join the Community</h1>
+		<section class="logged-out-cta" aria-labelledby="cta-heading">
+			<h1 id="cta-heading">Join the Community</h1>
 			<p>
 				Switch Performance is powered by contributors like you. Sign in with your GitHub account to
 				start submitting performance data, suggesting edits, and helping us build the most comprehensive
-				database for Nintendo Switch game performance
+				database for Nintendo Switch game performance.
 			</p>
 			<form action="/auth/signin/github" method="post">
 				<button type="submit" class="cta-button">
-					<Icon icon="mdi:github" />
+					<Icon icon="mdi:github" aria-hidden="true" />
 					<span>Sign In with GitHub to Contribute</span>
 				</button>
 			</form>
-		</div>
+		</section>
 	{:else}
 		<div class="page-header">
 			<h1>Contribute Data</h1>
 			<p>
-				Help us expand the database! Here is a list of games that currently have no performance or graphics data
+				Help us expand the database! Here is a list of games that currently have no performance or graphics data.
 			</p>
 		</div>
 
 		{#if games.length > 0}
 			<div class="results-container">
 				{#each games as game (game.id)}
-					<a href={`/contribute/${game.id}`} class="list-item">
-						<img src={game.iconUrl || '/favicon.svg'} alt="" class="list-item-icon" />
+					<a
+						href={`/contribute/${game.id}`}
+						class="list-item"
+						aria-label={`Contribute data for ${game.names[0]}`}
+					>
+						<img
+							src={game.iconUrl || '/favicon.svg'}
+							alt=""
+							class="list-item-icon"
+							loading="lazy"
+							width="40"
+							height="40"
+						/>
 						<div class="list-item-info">
 							<span class="title-name">{game.names[0]}</span>
 							<span class="title-id">{game.id}</span>
 						</div>
-						<Icon icon="mdi:chevron-right" class="chevron-icon" />
+						<Icon icon="mdi:chevron-right" class="chevron-icon" aria-hidden="true" />
 					</a>
 				{/each}
 			</div>
 
 			{#if pagination && pagination.totalPages > 1}
-				<div class="pagination">
-					<button disabled={pagination.currentPage <= 1} onclick={() => changePage(pagination.currentPage - 1)}>← Previous</button>
-					<span>Page {pagination.currentPage} of {pagination.totalPages}</span>
-					<button disabled={pagination.currentPage >= pagination.totalPages} onclick={() => changePage(pagination.currentPage + 1)}>Next →</button>
-				</div>
+				<nav class="pagination" aria-label="Pagination">
+					<button
+						disabled={pagination.currentPage <= 1}
+						onclick={() => changePage(pagination.currentPage - 1)}
+						aria-label="Go to previous page"
+					>
+						← Previous
+					</button>
+
+					<span aria-live="polite" aria-atomic="true">
+						Page {pagination.currentPage} of {pagination.totalPages}
+					</span>
+
+					<button
+						disabled={pagination.currentPage >= pagination.totalPages}
+						onclick={() => changePage(pagination.currentPage + 1)}
+						aria-label="Go to next page"
+					>
+						Next →
+					</button>
+				</nav>
 			{/if}
 		{:else}
 			<div class="empty-state">
 				<h3>All Caught Up!</h3>
-				<p>It looks like every game in our database has at least some performance or graphics data. Thank you to all contributors!</p>
+				<p>
+					It looks like every game in our database has at least some performance or graphics data. Thank
+					you to all contributors!
+				</p>
 			</div>
 		{/if}
 	{/if}
-</div>
-
+</main>
 
 <style>
+	main:focus {
+		outline: none;
+	}
+
 	.page-container {
 		max-width: 900px;
 		margin: 0 auto;
 		padding: 1.5rem;
 	}
 
-	/* Logged-out state */
 	.logged-out-cta {
 		text-align: center;
 		padding: 3rem 2rem;
@@ -116,7 +155,6 @@
 		cursor: pointer;
 	}
 
-	/* Logged-in state */
 	.page-header {
 		margin-bottom: 2rem;
 		text-align: center;
@@ -136,38 +174,97 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	
+
 	.list-item {
-		display: flex; align-items: center; gap: 1rem; padding: 0.75rem;
-		background-color: var(--surface-color); border: 1px solid var(--border-color);
-		border-radius: var(--radius-md); transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.75rem;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		color: inherit;
+		transition:
+			border-color 0.2s ease,
+			background-color 0.2s ease;
 	}
-	.list-item:hover {
+
+	.list-item:hover,
+	.list-item:focus-visible {
 		border-color: var(--primary-color);
 		background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
-		text-decoration: none;
 	}
-	
-	.list-item-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
-	.list-item-info { flex-grow: 1; }
-	.title-name { font-weight: 500; color: var(--text-primary); }
-	.title-id { display: block; margin-top: 0.1rem; font-size: 0.8rem; color: var(--text-secondary); }
+
+	.list-item:focus-visible,
+	.cta-button:focus-visible,
+	.pagination button:focus-visible {
+		outline: 2px solid var(--accent-color, blue);
+		outline-offset: 2px;
+	}
+
+	.list-item-icon {
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radius-sm);
+		object-fit: cover;
+		flex-shrink: 0;
+		background-color: var(--input-bg);
+	}
+	.list-item-info {
+		flex-grow: 1;
+		min-width: 0;
+	}
+	.title-name {
+		display: block;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		font-weight: 500;
+		color: var(--text-primary);
+	}
+	.title-id {
+		display: block;
+		margin-top: 0.1rem;
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+	}
 
 	.pagination {
-		display: flex; justify-content: center; align-items: center;
-		gap: 1rem; margin-top: 2rem;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 1rem;
+		margin-top: 2rem;
 	}
 	.pagination button {
-		padding: 8px 16px; font-weight: 500; background-color: var(--surface-color);
-		border: 1px solid var(--border-color); color: var(--primary-color);
-		border-radius: var(--radius-md); cursor: pointer;
+		padding: 8px 16px;
+		font-weight: 500;
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
+		color: var(--primary-color);
+		border-radius: var(--radius-md);
+		cursor: pointer;
 	}
-	.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+	.pagination button:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
 
 	.empty-state {
-		text-align: center; padding: 3rem 2rem; background-color: var(--surface-color);
-		border-radius: var(--radius-lg); border: 2px dashed var(--border-color);
+		text-align: center;
+		padding: 3rem 2rem;
+		background-color: var(--surface-color);
+		border-radius: var(--radius-lg);
+		border: 2px dashed var(--border-color);
 	}
-	.empty-state h3 { font-size: 1.5rem; margin: 0 0 0.5rem; }
-	.empty-state p { color: var(--text-secondary); max-width: 400px; margin: 0 auto; }
+	.empty-state h3 {
+		font-size: 1.5rem;
+		margin: 0 0 0.5rem;
+	}
+	.empty-state p {
+		color: var(--text-secondary);
+		max-width: 400px;
+		margin: 0 auto;
+	}
 </style>
