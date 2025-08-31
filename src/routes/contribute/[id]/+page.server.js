@@ -4,6 +4,19 @@ import { error, redirect, fail } from '@sveltejs/kit';
 import stringify from 'json-stable-stringify';
 import { pruneEmptyValues } from '$lib/utils.js';
 
+/**
+ * A helper function to compare two sets for equality
+ * @param {Set<any>} setA
+ * @param {Set<any>} setB
+ */
+function areSetsEqual(setA, setB) {
+	if (setA.size !== setB.size) return false;
+	for (const item of setA) {
+		if (!setB.has(item)) return false;
+	}
+	return true;
+}
+
 /*
  * @param {any} graphics
  * @returns {boolean}
@@ -48,7 +61,6 @@ function isProfileEmpty(profile) {
 
 	return isModeEmpty(docked) && isModeEmpty(handheld);
 }
-
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
@@ -225,7 +237,7 @@ export const actions = {
 
 			const originalIds = new Set(originalGroupData.map(g => g.id));
 			const updatedIds = new Set(updatedGroupData.map(g => g.id));
-			if (!isEqual(originalIds, updatedIds)) {
+			if (!areSetsEqual(originalIds, updatedIds)) {
 				filesToCommit.push({
 					path: `groups/${groupId}.json`,
 					content: stringify(updatedGroupData.map(g => g.id), { space: 2 }),
