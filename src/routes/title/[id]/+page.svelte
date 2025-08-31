@@ -114,7 +114,6 @@
 		return [...contributors];
 	});
 
-
 	let isSingleContributor = $derived(allContributors.length === 1);
 	let singleContributorName = $derived(isSingleContributor ? allContributors[0] : null);
 
@@ -347,7 +346,12 @@
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
-									<li><a href={`/title/${title.id}`}>{title.name}</a></li>
+									<li>
+										<a href={`/title/${title.id}`}>
+											<span>{title.name}</span>
+											<span class="other-title-id">{title.id}</span>
+										</a>
+									</li>
 								{/each}
 							</ul>
 						</div>
@@ -420,7 +424,12 @@
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
-									<li><a href={`/title/${title.id}`}>{title.name}</a></li>
+									<li>
+										<a href={`/title/${title.id}`}>
+											<span>{title.name}</span>
+											<span class="other-title-id">{title.id}</span>
+										</a>
+									</li>
 								{/each}
 							</ul>
 						</div>
@@ -510,7 +519,6 @@
 		}
 	}
 
-
 	@media (min-width: 640px) {
 		.header-content {
 			grid-template-areas: "icon title actions";
@@ -574,12 +582,12 @@
 		gap: 3rem;
 		margin-top: 2rem;
 	}
-@media (min-width: 1024px) {
+	@media (min-width: 1024px) {
 		.main-layout {
-			grid-template-columns: 320px 1fr;
+			grid-template-columns: 1fr 320px;
 		}
-		.sidebar-column { order: 1; }
-		.content-column { order: 2; }
+		.content-column { order: 1; }
+		.sidebar-column { order: 2; }
 	}
 	.content-column {
 		display: flex;
@@ -723,12 +731,30 @@
 
 	.other-versions-list, .contributor-list {
 		list-style: none; padding: 0; margin: 0;
-		display: flex; flex-direction: column; gap: 0.5rem;
+		display: flex; flex-direction: column; gap: 0.75rem;
 	}
 	.other-versions-list a, .contributor-list a {
 		text-decoration: none;
 		color: var(--text-body);
 		font-weight: 500;
+	}
+	.other-versions-list a {
+		display: flex;
+		flex-direction: column;
+		padding: 0.5rem;
+		margin: -0.5rem;
+		border-radius: var(--radius-sm);
+		transition: background-color 0.2s;
+	}
+	.other-versions-list a:hover {
+		background-color: var(--input-bg);
+		text-decoration: none;
+	}
+	.other-title-id {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		font-weight: 400;
+		margin-top: 0.1rem;
 	}
 
 	.notice-card {

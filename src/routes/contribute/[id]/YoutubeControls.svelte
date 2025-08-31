@@ -23,22 +23,17 @@
 	}
 </script>
 
-<div class="youtube-controls-container">
-	<div class="header">
-		<h3>YouTube Links</h3>
-		{#if links.length > 0}
-			<button type="button" class="toggle-btn" onclick={hideAndReset}>Reset</button>
-		{/if}
-	</div>
-
-	<p>Add YouTube videos showcasing performance or graphical comparisons</p>
-
-	{#if links.length === 0}
-		<button type="button" class="add-initial-btn" onclick={addInitialLink}>
-			<Icon icon="mdi:plus" /> Add YouTube Video
+{#if links.length === 0}
+	<button type="button" class="add-initial-btn" onclick={addInitialLink}>
+		<Icon icon="mdi:plus" /> Add YouTube Video
+	</button>
+{:else}
+	<div class="controls-header">
+		<button type="button" class="toggle-btn" onclick={hideAndReset}>
+			<Icon icon="mdi:delete-outline" /> Clear All Links
 		</button>
-	{:else}
-		<div class="links-list">
+	</div>
+	<div class="links-list">
 		{#each links as link, i (i)}
 			<div class="link-entry">
 				<div class="link-row">
@@ -47,11 +42,9 @@
 						placeholder="https://www.youtube.com/watch?v=..."
 						bind:value={link.url}
 					/>
-					{#if links.length > 1}
-						<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
-							<Icon icon="mdi:minus-circle" />
-						</button>
-					{/if}
+					<button class="remove-btn" onclick={() => removeLink(i)} title="Remove Link">
+						<Icon icon="mdi:close" />
+					</button>
 				</div>
 				<textarea
 					placeholder="Optional notes (e.g., 'Docked gameplay', 'Comparison video')"
@@ -59,30 +52,24 @@
 				></textarea>
 			</div>
 		{/each}
-		</div>
+	</div>
 
-		<button type="button" class="add-link-btn" onclick={addLink}>
-			<Icon icon="mdi:plus-circle" /> Add Another Video
-		</button>
-	{/if}
-</div>
+	<button type="button" class="add-link-btn" onclick={addLink}>
+		<Icon icon="mdi:plus-circle" /> Add Another Video
+	</button>
+{/if}
 
 <style>
-	.youtube-controls-container {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--border-color);
-	}
-	.header {
+	.controls-header {
 		display: flex;
-		justify-content: space-between;
+		justify-content: flex-end;
 		align-items: center;
-		margin-bottom: 0.25rem;
-	}
-	.header h3 {
-		margin: 0;
+		margin-bottom: 1.5rem;
 	}
 	.toggle-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
 		background: none;
 		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
@@ -91,11 +78,7 @@
 		font-weight: 500;
 		cursor: pointer;
 	}
-	.youtube-controls-container p {
-		font-size: 0.9rem;
-		color: var(--text-secondary);
-		margin-bottom: 1.5rem;
-	}
+
 	.links-list {
 		display: flex;
 		flex-direction: column;
@@ -155,18 +138,21 @@
 	}
 	.add-link-btn:hover {
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--primary-action-text);
+		text-decoration: none;
 	}
 	.add-initial-btn {
 		background-color: transparent;
-		color: var(--primary-color);
+		color: var(--text-primary);
 		border: 2px dashed var(--border-color);
 		border-radius: var(--radius-lg);
 		padding: 0.75rem 1.5rem;
 		cursor: pointer;
 		font-weight: 600;
-		display: inline-flex;
+		display: flex;
 		align-items: center;
+		justify-content: center;
+		width: 100%;
 		gap: 0.5rem;
 	}
 </style>

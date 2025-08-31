@@ -83,96 +83,87 @@
 	}
 </script>
 
-<div class="container">
-	<div class="header">
-		<h3>Graphics Settings</h3>
-		{#if isVisible}
-			<button type="button" class="toggle-btn" onclick={hideAndReset}>Reset</button>
-		{/if}
+{#if !isVisible}
+	<button type="button" class="add-initial-btn" onclick={() => (isVisible = true)}>
+		<Icon icon="mdi:plus" /> Add Graphics Settings
+	</button>
+{:else}
+	<div class="controls-header">
+		<p>If graphics settings are present, they are considered authoritative over performance profiles for display purposes</p>
+		<button type="button" class="toggle-btn" onclick={hideAndReset}>
+			<Icon icon="mdi:delete-outline" /> Clear & Hide
+		</button>
 	</div>
 
-	{#if !isVisible}
-		<button type="button" class="add-initial-btn" onclick={() => isVisible = true}>
-			<Icon icon="mdi:plus" /> Add Graphics Settings
-		</button>
-	{:else}
-		<p>Detail the game's graphical options. Add settings that apply to both modes, or mode-specific ones.</p>
-		
-		<div class="settings-sections">
-			<!-- Handheld Mode -->
-			<fieldset>
-				<legend>Handheld Mode</legend>
-				<div class="structured-grid">
-					<ResolutionSettingsControls bind:settingsData={internalSettings.handheld.resolution} />
-				</div>
-				<hr />
-				<div class="structured-grid">
-					<FpsSettingsControls bind:settingsData={internalSettings.handheld.framerate} />
-				</div>
-				{#each Object.entries(internalSettings.handheld.custom) as [key, fieldData]}
-					<div class="field-wrapper">
-						<div class="field-row">
-							<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
-							<input type="text" placeholder="Value" bind:value={fieldData.value} />
-							<button type="button" class="remove-btn" onclick={() => removeCustomField('handheld', key)}><Icon icon="mdi:minus-circle" /></button>
-						</div>
-						<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+	<div class="settings-sections">
+		<!-- Handheld Mode -->
+		<fieldset>
+			<legend>Handheld Mode</legend>
+			<div class="structured-grid">
+				<ResolutionSettingsControls bind:settingsData={internalSettings.handheld.resolution} />
+			</div>
+			<hr />
+			<div class="structured-grid">
+				<FpsSettingsControls bind:settingsData={internalSettings.handheld.framerate} />
+			</div>
+			{#each Object.entries(internalSettings.handheld.custom) as [key, fieldData]}
+				<div class="field-wrapper">
+					<div class="field-row">
+						<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
+						<input type="text" placeholder="Value" bind:value={fieldData.value} />
+						<button type="button" class="remove-btn" onclick={() => removeCustomField('handheld', key)}><Icon icon="mdi:minus-circle" /></button>
 					</div>
-				{/each}
-				<button type="button" class="add-btn" onclick={() => addCustomField('handheld')}><Icon icon="mdi:plus" /> Add Custom Handheld Setting</button>
-			</fieldset>
+					<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+				</div>
+			{/each}
+			<button type="button" class="add-btn" onclick={() => addCustomField('handheld')}><Icon icon="mdi:plus" /> Add Custom Handheld Setting</button>
+		</fieldset>
 
-			<!-- Docked Mode -->
-			<fieldset class='docked'>
-				<legend>Docked Mode</legend>
-				<div class="structured-grid">
-					<ResolutionSettingsControls bind:settingsData={internalSettings.docked.resolution} />
-				</div>
-				<hr />
-				<div class="structured-grid">
-					<FpsSettingsControls bind:settingsData={internalSettings.docked.framerate} />
-				</div>
-				{#each Object.entries(internalSettings.docked.custom) as [key, fieldData]}
-					<div class="field-wrapper">
-						<div class="field-row">
-							<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
-							<input type="text" placeholder="Value" bind:value={fieldData.value} />
-							<button type="button" class="remove-btn" onclick={() => removeCustomField('docked', key)}><Icon icon="mdi:minus-circle" /></button>
-						</div>
-						<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+		<!-- Docked Mode -->
+		<fieldset class='docked'>
+			<legend>Docked Mode</legend>
+			<div class="structured-grid">
+				<ResolutionSettingsControls bind:settingsData={internalSettings.docked.resolution} />
+			</div>
+			<hr />
+			<div class="structured-grid">
+				<FpsSettingsControls bind:settingsData={internalSettings.docked.framerate} />
+			</div>
+			{#each Object.entries(internalSettings.docked.custom) as [key, fieldData]}
+				<div class="field-wrapper">
+					<div class="field-row">
+						<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
+						<input type="text" placeholder="Value" bind:value={fieldData.value} />
+						<button type="button" class="remove-btn" onclick={() => removeCustomField('docked', key)}><Icon icon="mdi:minus-circle" /></button>
 					</div>
-				{/each}
-				<button type="button" class="add-btn" onclick={() => addCustomField('docked')}><Icon icon="mdi:plus" /> Add Custom Docked Setting</button>
-			</fieldset>
+					<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+				</div>
+			{/each}
+			<button type="button" class="add-btn" onclick={() => addCustomField('docked')}><Icon icon="mdi:plus" /> Add Custom Docked Setting</button>
+		</fieldset>
 
-			<!-- Shared Settings -->
-			<fieldset>
-				<legend>Shared (Applies to Both)</legend>
-				{#each Object.entries(internalSettings.shared) as [key, fieldData]}
-					<div class="field-wrapper">
-						<div class="field-row">
-							<input type="text" placeholder="Shared Setting" value={key} onchange={(e) => updateKey('shared', key, e.currentTarget.value)} />
-							<input type="text" placeholder="Value" bind:value={fieldData.value} />
-							<button type="button" class="remove-btn" onclick={() => removeField('shared', key)}><Icon icon="mdi:minus-circle" /></button>
-						</div>
-						<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+		<!-- Shared Settings -->
+		<fieldset>
+			<legend>Shared (Applies to Both)</legend>
+			{#each Object.entries(internalSettings.shared) as [key, fieldData]}
+				<div class="field-wrapper">
+					<div class="field-row">
+						<input type="text" placeholder="Shared Setting" value={key} onchange={(e) => updateKey('shared', key, e.currentTarget.value)} />
+						<input type="text" placeholder="Value" bind:value={fieldData.value} />
+						<button type="button" class="remove-btn" onclick={() => removeField('shared', key)}><Icon icon="mdi:minus-circle" /></button>
 					</div>
-				{/each}
-				<button type="button" class="add-btn" onclick={() => addField('shared')}><Icon icon="mdi:plus" /> Add Shared Setting</button>
-			</fieldset>
-		</div>
-	{/if}
-</div>
+					<textarea placeholder="Notes (optional)..." bind:value={fieldData.notes} class="notes-input"></textarea>
+				</div>
+			{/each}
+			<button type="button" class="add-btn" onclick={() => addField('shared')}><Icon icon="mdi:plus" /> Add Shared Setting</button>
+		</fieldset>
+	</div>
+{/if}
 
 <style>
 	fieldset.docked {
 		background-image: radial-gradient(color-mix(in srgb, var(--border-color) 30%, transparent) 1px, transparent 1px);
 		background-size: 10px 10px;
-	}
-	.container {
-		margin-top: 2rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--border-color);
 	}
 
 	.settings-sections {
@@ -209,30 +200,34 @@
 		border-radius: 6px;
 		color: var(--text-primary);
 	}
-	/* Header */
-	.header {
+
+	.controls-header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		margin-bottom: 1.5rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px dashed var(--border-color);
+        gap: 1rem;
 	}
-
-	.header h3 {
-		margin: 0;
-	}
-
+	.controls-header p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        max-width: 60ch;
+    }
 	.toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
 		background: none;
 		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
 		padding: 4px 12px;
-		border-radius: var(--border-radius);
+		border-radius: var(--radius-md);
 		font-weight: 500;
 		cursor: pointer;
-	}
-	p {
-		font-size: 0.9rem;
-		color: var(--text-secondary);
-		margin-bottom: 1.5rem;
+        flex-shrink: 0;
 	}
 
 	legend {
@@ -240,7 +235,6 @@
 		padding: 0 0.5rem;
 		color: var(--primary-color);
 	}
-
 
 	.add-btn {
 		background-color: transparent;
@@ -257,15 +251,17 @@
 	}
 
 	.add-initial-btn {
-		background-color: var(--button-bg);
-		color: var(--button-text);
-		border: none;
+		background-color: transparent;
+		color: var(--text-primary);
+		border: 2px dashed var(--border-color);
 		padding: 0.75rem 1.5rem;
 		border-radius: var(--border-radius);
 		cursor: pointer;
 		font-weight: 600;
-		display: inline-flex;
+		display: flex;
 		align-items: center;
+		justify-content: center;
+		width: 100%;
 		gap: 0.5rem;
 	}
 
