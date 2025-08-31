@@ -1,122 +1,165 @@
 <script>
-    import Icon from "@iconify/svelte";
-    import { slide } from "svelte/transition";
+	import Icon from '@iconify/svelte';
+	import { slide } from 'svelte/transition';
 
-    let { titleData } = $props();
+	let { titleData } = $props();
 
-    const {
-        id,
-        iconUrl,
-        names = [],
-        publisher = "N/A",
-        performance = {}
-    } = titleData;
+	const {
+		id,
+		iconUrl,
+		names = [],
+		publisher = 'N/A',
+		performance = {}
+	} = titleData;
 
-    const {
-        docked = {},
-        handheld = {}
-    } = performance;
+	const { docked = {}, handheld = {} } = performance;
+
+	const titleName = $derived(names[0] || 'Unknown Title');
+	const performanceInfo = $derived(
+		[
+			docked.target_fps && `Docked mode runs at ${docked.target_fps} FPS`,
+			handheld.target_fps && `Handheld mode runs at ${handheld.target_fps} FPS`
+		]
+			.filter(Boolean)
+			.join('. ')
+	);
+
+	const ariaLabel = $derived(
+		`View details for ${titleName} by ${publisher}.${performanceInfo ? ` ${performanceInfo}.` : ''}`
+	);
 </script>
 
-<a href={`/title/${id}`} class="game-card" transition:slide|local data-sveltekit-preload-data="hover" aria-label={`View details for ${names[0] || 'Unknown Title'}`} >
-    <img class="card-icon" src={iconUrl} loading="lazy" alt={`${names[0]}'s game icon'`}/>
+<a
+	href={`/title/${id}`}
+	class="game-card"
+	transition:slide|local
+	data-sveltekit-preload-data="hover"
+	aria-label={ariaLabel}
+>
+	<img
+		class="card-icon"
+		src={iconUrl}
+		alt={`Game icon for ${titleName}`}
+		loading="lazy"
+		width="200"
+		height="200"
+	/>
 
-    <div class="card-info">
-        <p class="card-title">{names[0] || "Unknown Title"}</p>
-        <p class="card-publisher">{publisher}</p>
-    </div>
+	<div class="card-info">
+		<p class="card-title">{titleName}</p>
+		<p class="card-publisher">{publisher}</p>
+	</div>
 
-    {#if docked.target_fps || handheld.target_fps}
-        <div class="card-perf-badge">
-            {#if docked.target_fps}
-            <span>
-                <Icon icon="mdi:television" />
-                {docked.target_fps}
-            </span>
-            {/if}
-            {#if handheld.target_fps}
-            <span>
-                <Icon icon="mdi:nintendo-switch" />
-                {handheld.target_fps}
-            </span>
-            {/if}
-        </div>
-    {/if}
+	{#if docked.target_fps || handheld.target_fps}
+		<div class="card-perf-badge" aria-hidden="true">
+			{#if docked.target_fps}
+				<span title={`Docked: ${docked.target_fps} FPS`}>
+					<Icon icon="mdi:television" />
+					{docked.target_fps}
+				</span>
+			{/if}
+			{#if handheld.target_fps}
+				<span title={`Handheld: ${handheld.target_fps} FPS`}>
+					<Icon icon="mdi:nintendo-switch" />
+					{handheld.target_fps}
+				</span>
+			{/if}
+		</div>
+	{/if}
 </a>
 
 <style>
-.game-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--surface-color);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    text-decoration: none;
-    color: inherit;
-}
+	.visually-hidden {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
 
-.game-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-lg);
-}
+	.game-card {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		background-color: var(--surface-color);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--border-color);
+		overflow: hidden;
+		box-shadow: var(--shadow-sm);
+		will-change: transform, box-shadow;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		text-decoration: none;
+		color: inherit;
+	}
 
-.card-icon {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    background-size: cover;
-    background-position: center;
-    background-color: var(--input-bg);
-    border-bottom: 1px solid var(--border-color);
-}
+	.game-card:hover,
+	.game-card:focus-visible {
+		transform: translateY(-3px);
+		box-shadow: var(--shadow-lg);
+	}
 
-.card-info {
-    flex-grow: 1;
-    padding: 0.75rem;
-}
+	.game-card:focus-visible {
+		outline: 2px solid var(--accent-color, blue);
+		outline-offset: 2px;
+	}
 
-.card-title {
-    margin: 0 0 0.25rem;
-    font-weight: 700;
-    font-size: 1rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--text-primary);
-}
+	.card-icon {
+		width: 100%;
+		aspect-ratio: 1 / 1;
+		object-fit: cover;
+		background-color: var(--input-bg);
+		border-bottom: 1px solid var(--border-color);
+	}
 
-.card-publisher {
-    margin: 0;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+	.card-info {
+		flex-grow: 1;
+		padding: 0.75rem;
+	}
 
-.card-perf-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 4px 8px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    background-color: rgba(20, 20, 20, 0.7);
-    color: white;
-    border-radius: 999px;
-    backdrop-filter: blur(4px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
+	.card-title {
+		margin: 0 0 0.25rem;
+		font-weight: 700;
+		font-size: 1rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		color: var(--text-primary);
+	}
 
-.card-perf-badge span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-}
+	.card-publisher {
+		margin: 0;
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.card-perf-badge {
+		position: absolute;
+		top: 8px;
+		right: 8px;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 4px 8px;
+		font-size: 0.75rem;
+		font-weight: 500;
+		background-color: rgba(20, 20, 20, 0.8);
+		color: white;
+		border-radius: 999px;
+		backdrop-filter: blur(4px);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+	}
+
+	.card-perf-badge span {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
 </style>
