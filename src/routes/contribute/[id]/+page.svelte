@@ -210,6 +210,7 @@
 			</button>
 
 			<GraphicsControls bind:settings={graphicsData} />
+			<br>
 			<YoutubeControls bind:links={youtubeLinks} />
 
 			<div class="form-footer">
