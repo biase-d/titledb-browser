@@ -20,37 +20,34 @@
 	});
 
 	let isVisible = $state(Object.keys(settings).length > 0);
-	
-	$effect(() => {
-		settings = isVisible ? internalSettings : {};
-	});
 
 	$effect(() => {
 		if (isVisible) {
 			const cleanSettings = JSON.parse(JSON.stringify(internalSettings));
 
-			const filterEmpty = (customObj) => {
-                if (!customObj) return {};
-                const result = {};
-                for (const key in customObj) {
-                    if (key.trim() !== '' && customObj[key].value.trim() !== '') {
-                        result[key] = customObj[key];
-                    }
-                }
-                return result;
-            }
+			const filterEmptyCustomFields = (customObj) => {
+				if (!customObj) return {};
+				const result = {};
+				for (const key in customObj) {
+					if (key.trim() !== '' && customObj[key].value.trim() !== '') {
+						result[key] = customObj[key];
+					}
+				}
+				return result;
+			};
 
-			cleanSettings.docked.custom = filterEmpty(cleanSettings.docked.custom);
-            cleanSettings.handheld.custom = filterEmpty(cleanSettings.handheld.custom);
-            cleanSettings.shared = filterEmpty(cleanSettings.shared);
+			cleanSettings.docked.custom = filterEmptyCustomFields(cleanSettings.docked.custom);
+			cleanSettings.handheld.custom = filterEmptyCustomFields(cleanSettings.handheld.custom);
+			cleanSettings.shared = filterEmptyCustomFields(cleanSettings.shared);
 
-			onUpdate(cleanSettings);
+			settings = cleanSettings;
+		} else {
+			settings = {};
 		}
 	});
 
 	function hideAndReset() {
 		isVisible = false;
-		// Reset state to a blank slate
 		internalSettings.docked = { resolution: {}, framerate: {}, custom: {} };
 		internalSettings.handheld = { resolution: {}, framerate: {}, custom: {} };
 		internalSettings.shared = {};
@@ -89,7 +86,7 @@
 	</button>
 {:else}
 	<div class="controls-header">
-		<p>If graphics settings are present, they are considered authoritative over performance profiles for display purposes</p>
+		<p>If graphics settings are present, they are considered authoritative over performance profiles for display purposes.</p>
 		<button type="button" class="toggle-btn" onclick={hideAndReset}>
 			<Icon icon="mdi:delete-outline" /> Clear & Hide
 		</button>
