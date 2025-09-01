@@ -37,18 +37,21 @@ export const DATA_SOURCES = {
   },
   graphics: {
     table: graphicsSettings,
-    path: 'graphics',
-    isHierarchical: false,
-    getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
-    getKeyFromRecord: (r) => r.groupId,
-    buildRecord: (keyParts, content, metadata, lastUpdated) => ({
-      groupId: keyParts[0],
-      settings: content,
-      contributor: Array.isArray(metadata.contributors) ? metadata.contributors : Array.from(metadata.contributors || []),
-      lastUpdated,
-    }),
-    upsert: (db, record) => db.insert(graphicsSettings).values(record).onConflictDoUpdate({
-      target: graphicsSettings.groupId,
+     path: 'graphics',
+     isHierarchical: false,
+     getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
+     getKeyFromRecord: (r) => r.groupId,
+     buildRecord: (keyParts, content, metadata, lastUpdated) => {
+       const { contributor, ...settings } = content;
+       return {
+         groupId: keyParts[0],
+         settings,
+         contributor: contributor || [],
+         lastUpdated
+       };
+     },
+     upsert: (db, record) => db.insert(graphicsSettings).values(record).onConflictDoUpdate({
+       target: graphicsSettings.groupId,
       set: {
         settings: sql`excluded.settings`,
         contributor: sql`excluded.contributor`,

@@ -15,17 +15,13 @@
 	let { data, form } = $props();
 
 	let { id, name, allTitlesInGroup, existingPerformance, existingGraphics, existingYoutubeLinks, shas } = $derived(data);
-	// Add fallback to prevent crash if allTitlesInGroup is not ready
 	let updatedGroup = $state([...(allTitlesInGroup || [])]);
-
 	let performanceProfiles = $state(
-		existingPerformance.length > 0
-			? JSON.parse(JSON.stringify(existingPerformance))
-			: []
+		existingPerformance.length > 0 ? structuredClone(existingPerformance) : []
 	);
+	let graphicsData = $state(structuredClone(existingGraphics?.settings) || {});
+	let youtubeLinks = $state(structuredClone(existingYoutubeLinks) || []);
 
-	let graphicsData = $state(existingGraphics || {});
-	let youtubeLinks = $state(JSON.parse(JSON.stringify(existingYoutubeLinks)) || []);
 	let isSubmitting = $state(false);
 	let showConfirmation = $state(false);
 	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));

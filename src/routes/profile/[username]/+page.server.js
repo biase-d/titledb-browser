@@ -1,6 +1,6 @@
 import { db } from '$lib/db';
 import { games, performanceProfiles, graphicsSettings, youtubeLinks } from '$lib/db/schema';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql, count, desc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
 
 const BADGES = [
@@ -16,80 +16,92 @@ const BADGES = [
 	{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' }
 ].sort((a, b) => b.threshold - a.threshold); // Sort descending to find the highest tier easily
 
-
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent, url }) => {
 	const { session } = await parent();
 	const { username } = params;
 
-	const perfContribs = await db.select({
-		groupId: performanceProfiles.groupId,
-		gameVersion: performanceProfiles.gameVersion,
-		sourcePrUrl: performanceProfiles.sourcePrUrl
-	}).from(performanceProfiles).where(sql`${performanceProfiles.contributor} @> ARRAY[${username}]`);
+	const [perfContribs, graphicsContribs, videoContribs] = await Promise.all([
+		db.select({
+			groupId: performanceProfiles.groupId,
+			gameVersion: performanceProfiles.gameVersion,
+			sourcePrUrl: performanceProfiles.sourcePrUrl
+		}).from(performanceProfiles).where(sql`${performanceProfiles.contributor} @> ARRAY[${username}]`),
 
-	const totalContributions = perfContribs.length;
+		db.select({
+			groupId: graphicsSettings.groupId
+		}).from(graphicsSettings).where(sql`${graphicsSettings.contributor} @> ARRAY[${username}]`),
+
+		db.select({
+			groupId: youtubeLinks.groupId
+		}).from(youtubeLinks).where(eq(youtubeLinks.submittedBy, username))
+	]);
+
+	const totalContributions = perfContribs.length + graphicsContribs.length + videoContribs.length;
 	const currentTier = BADGES.find(badge => totalContributions >= badge.threshold) || null;
 
-	if (totalContributions === 0) {
-		return { username, session, contributions: [], totalContributions: 0, currentTier, pagination: null };
-	}
+	const allGroupIds = [...new Set([
+		...perfContribs.map(p => p.groupId),
+		...graphicsContribs.map(g => g.groupId),
+		...videoContribs.map(v => v.groupId)
+	])];
 	
+	if (allGroupIds.length === 0) {
+		return { username, session, contributions: [], totalContributions: 0, currentTier: null, pagination: null };
+	}
+
 	const page = parseInt(url.searchParams.get('page') || '1', 10);
 	const PAGE_SIZE = 24;
-
-	// Get all unique group IDs first to calculate total pages
-	const allGroupIds = [...new Set(perfContribs.map(p => p.groupId))];
 	const totalItems = allGroupIds.length;
 	const totalPages = Math.ceil(totalItems / PAGE_SIZE);
 	const offset = (page - 1) * PAGE_SIZE;
-
-	// Get the slice of group IDs for the current page
 	const paginatedGroupIds = allGroupIds.slice(offset, offset + PAGE_SIZE);
 
-	// Now fetch all necessary data ONLY for the paginated groups
-	const [gamesInvolved, graphicsContribs, videoContribs] = await Promise.all([
-		db.query.games.findMany({
-			where: inArray(games.groupId, paginatedGroupIds),
-			distinctOn: [games.groupId]
-		}),
-		db.select({ groupId: graphicsSettings.groupId }).from(graphicsSettings).where(sql`${graphicsSettings.contributor} @> ARRAY[${username}] AND ${inArray(graphicsSettings.groupId, paginatedGroupIds)}`),
-		db.select({ groupId: youtubeLinks.groupId }).from(youtubeLinks).where(sql`${eq(youtubeLinks.submittedBy, username)} AND ${inArray(youtubeLinks.groupId, paginatedGroupIds)}`)
-	]);
+	if (paginatedGroupIds.length === 0) {
+		return { username, session, contributions: [], totalContributions, currentTierName: currentTier?.name || null, pagination: { currentPage: page, totalPages, totalItems } };
+	}
 
-	const graphicsGroupIds = new Set(graphicsContribs.map(g => g.groupId));
-	const videoGroupIds = new Set(videoContribs.map(v => v.groupId));
+	const gamesInvolved = await db.selectDistinctOn([games.groupId], {
+		id: games.id,
+		groupId: games.groupId,
+		names: games.names,
+		iconUrl: games.iconUrl
+	}).from(games).where(inArray(games.groupId, paginatedGroupIds));
 
-	const gamesMap = new Map(gamesInvolved.map(g => [g.groupId, g]));
-	const contributionsByGroup = {};
-
-	// Filter performance contributions to only those on the current page
-	const paginatedPerfContribs = perfContribs.filter(p => paginatedGroupIds.includes(p.groupId));
-
-	for (const profile of paginatedPerfContribs) {
-		const game = gamesMap.get(profile.groupId);
-		if (!game) continue;
-
-		if (!contributionsByGroup[profile.groupId]) {
-			contributionsByGroup[profile.groupId] = {
-				game: { name: game.names[0], id: game.id, iconUrl: game.iconUrl },
-				versions: [],
-				hasGraphics: graphicsGroupIds.has(profile.groupId),
-				hasYoutube: videoGroupIds.has(profile.groupId)
-			};
-		}
-		contributionsByGroup[profile.groupId].versions.push({
-			version: profile.gameVersion,
-			sourcePrUrl: profile.sourcePrUrl
+	const contributionsByGroup = new Map();
+	
+	for (const game of gamesInvolved) {
+		contributionsByGroup.set(game.groupId, {
+			game: { name: game.names[0], id: game.id, iconUrl: game.iconUrl },
+			versions: [],
+			hasGraphics: false,
+			hasYoutube: false
 		});
 	}
 
-	const contributions = Object.values(contributionsByGroup);
-	
+	for (const profile of perfContribs) {
+		if (contributionsByGroup.has(profile.groupId)) {
+			contributionsByGroup.get(profile.groupId).versions.push({
+				version: profile.gameVersion,
+				sourcePrUrl: profile.sourcePrUrl
+			});
+		}
+	}
+	for (const graphic of graphicsContribs) {
+		if (contributionsByGroup.has(graphic.groupId)) {
+			contributionsByGroup.get(graphic.groupId).hasGraphics = true;
+		}
+	}
+	for (const video of videoContribs) {
+		if (contributionsByGroup.has(video.groupId)) {
+			contributionsByGroup.get(video.groupId).hasYoutube = true;
+		}
+	}
+
 	return {
 		username,
 		session,
-		contributions,
+		contributions: Array.from(contributionsByGroup.values()),
 		totalContributions,
 		currentTierName: currentTier?.name || null,
 		pagination: {

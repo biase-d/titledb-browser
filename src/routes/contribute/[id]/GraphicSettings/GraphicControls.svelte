@@ -2,6 +2,7 @@
 	import Icon from '@iconify/svelte';
 	import ResolutionSettingsControls from './ResolutionSettingsControls.svelte';
 	import FpsSettingsControls from './FpsSettingsControls.svelte';
+	import { pruneEmptyValues } from '$lib/utils.js';
 
 	let { settings = $bindable() } = $props();
 
@@ -23,24 +24,8 @@
 
 	$effect(() => {
 		if (isVisible) {
-			const cleanSettings = JSON.parse(JSON.stringify(internalSettings));
-
-			const filterEmptyCustomFields = (customObj) => {
-				if (!customObj) return {};
-				const result = {};
-				for (const key in customObj) {
-					if (key.trim() !== '' && customObj[key].value.trim() !== '') {
-						result[key] = customObj[key];
-					}
-				}
-				return result;
-			};
-
-			cleanSettings.docked.custom = filterEmptyCustomFields(cleanSettings.docked.custom);
-			cleanSettings.handheld.custom = filterEmptyCustomFields(cleanSettings.handheld.custom);
-			cleanSettings.shared = filterEmptyCustomFields(cleanSettings.shared);
-
-			settings = cleanSettings;
+			const prunedSettings = pruneEmptyValues(internalSettings);
+			settings = prunedSettings || {};
 		} else {
 			settings = {};
 		}
@@ -48,6 +33,7 @@
 
 	function hideAndReset() {
 		isVisible = false;
+		// Reset state to a blank slate
 		internalSettings.docked = { resolution: {}, framerate: {}, custom: {} };
 		internalSettings.handheld = { resolution: {}, framerate: {}, custom: {} };
 		internalSettings.shared = {};
@@ -103,7 +89,7 @@
 			<div class="structured-grid">
 				<FpsSettingsControls bind:settingsData={internalSettings.handheld.framerate} />
 			</div>
-			{#each Object.entries(internalSettings.handheld.custom) as [key, fieldData]}
+			{#each Object.entries(internalSettings.handheld.custom || {}) as [key, fieldData]}
 				<div class="field-wrapper">
 					<div class="field-row">
 						<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('handheld', key, e.currentTarget.value)} />
@@ -126,7 +112,7 @@
 			<div class="structured-grid">
 				<FpsSettingsControls bind:settingsData={internalSettings.docked.framerate} />
 			</div>
-			{#each Object.entries(internalSettings.docked.custom) as [key, fieldData]}
+			{#each Object.entries(internalSettings.docked.custom || {}) as [key, fieldData]}
 				<div class="field-wrapper">
 					<div class="field-row">
 						<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateCustomKey('docked', key, e.currentTarget.value)} />
@@ -142,7 +128,7 @@
 		<!-- Shared Settings -->
 		<fieldset>
 			<legend>Shared (Applies to Both)</legend>
-			{#each Object.entries(internalSettings.shared) as [key, fieldData]}
+			{#each Object.entries(internalSettings.shared || {}) as [key, fieldData]}
 				<div class="field-wrapper">
 					<div class="field-row">
 						<input type="text" placeholder="Shared Setting" value={key} onchange={(e) => updateKey('shared', key, e.currentTarget.value)} />

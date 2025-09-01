@@ -3,8 +3,7 @@
 	import PerformanceDetail from '../../title/[id]/PerformanceDetail.svelte';
 	import GraphicsDetail from '../../title/[id]/GraphicsDetail.svelte';
 	import Icon from '@iconify/svelte';
-	import stringify from 'json-stable-stringify';
-	import { pruneEmptyValues } from '$lib/utils.js';
+	import { generateChangeSummary, isProfileEmpty, isGraphicsEmpty } from '$lib/utils.js';
 
 	let {
 		show = false,
@@ -20,149 +19,11 @@
 		onCancel = () => {}
 	} = $props();
 
-	/**
-	 * Checks if a profile is effectively empty, meaning the user has likely only
-	 * entered a version number but no actual performance data
-	 * It's considered empty if all user-editable text fields and the target_fps are blank
-	 */
-	function isProfileEmpty(profile) {
-		if (!profile || !profile.profiles) return true;
-		const { docked, handheld } = profile.profiles;
-
-		const isModeEmpty = (mode) => {
-			if (!mode) return true;
-			// A mode is empty if it has no user-entered text AND no target FPS
-			const hasContent = mode.resolution || mode.resolutions || mode.min_res || mode.max_res || mode.resolution_notes || mode.fps_notes || mode.target_fps;
-			return !hasContent;
-		};
-
-		return isModeEmpty(docked) && isModeEmpty(handheld);
-	}
-
-	function isGraphicsEmpty(graphics) {
-		if (!graphics || Object.keys(graphics).length === 0) return true;
-
-		const isModeDataEmpty = (modeData) => {
-			if (!modeData) return true;
-			const res = modeData.resolution;
-			if (res && (res.fixedResolution || res.minResolution || res.maxResolution || res.multipleResolutions?.[0] || res.notes)) return false;
-
-			const fps = modeData.framerate;
-			if (fps && (fps.targetFps || fps.notes)) return false;
-
-			const custom = modeData.custom;
-			if (custom && Object.values(custom).some(c => c.value || c.notes)) return false;
-
-			return true;
-		}
-
-		const shared = graphics.shared;
-		if (shared && Object.values(shared).some(s => s.value || s.notes)) return false;
-
-		return isModeDataEmpty(graphics.docked) && isModeDataEmpty(graphics.handheld);
-	}
-
-
-	let changeSummary = $derived((() => {
-		if (!show) return [];
-		const summary = [];
-
-		const originalProfilesMap = new Map(originalPerformance.map(p => [p.gameVersion, p]));
-		const newProfilesMap = new Map(performanceProfiles.map(p => [p.gameVersion, p]));
-
-		// Check for added or updated profiles
-		for (const [version, newProfile] of newProfilesMap.entries()) {
-			const originalProfile = originalProfilesMap.get(version);
-			const newIsEmpty = isProfileEmpty(newProfile);
-
-			if (!originalProfile) {
-				// This is a new version
-				if (newIsEmpty) {
-					summary.push(`Added empty placeholder for performance v${version}.`);
-				} else {
-					summary.push(`Added new performance data for v${version}.`);
-				}
-			} else {
-				// This is an existing version, check for changes
-				const originalIsEmpty = isProfileEmpty(originalProfile);
-				const contentChanged = JSON.stringify(newProfile.profiles) !== JSON.stringify(originalProfile.profiles);
-
-				if (contentChanged) {
-					if (newIsEmpty && !originalIsEmpty) {
-						summary.push(`Cleared performance data for v${version}.`);
-					} else if (originalIsEmpty && !newIsEmpty) {
-						summary.push(`Added performance data to v${version}.`);
-					} else if (!newIsEmpty && !originalIsEmpty) {
-						summary.push(`Updated performance data for v${version}.`);
-					}
-				}
-			}
-		}
-
-		// Check for explicitly deleted profiles (removed from the list)
-		for (const version of originalProfilesMap.keys()) {
-			if (!newProfilesMap.has(version)) {
-				summary.push(`Removed performance profile for v${version}.`);
-			}
-		}
-
-		const prunedGraphicsData = pruneEmptyValues(graphicsData);
-		const graphicsChanged = stringify(prunedGraphicsData) !== stringify(originalGraphics || {});
-		if (graphicsChanged) {
-			const newIsEmpty = isGraphicsEmpty(prunedGraphicsData);
-			const originalIsEmpty = isGraphicsEmpty(originalGraphics);
-
-			if (newIsEmpty && !originalIsEmpty) {
-				summary.push('Cleared graphics settings.');
-			} else if (!newIsEmpty && originalIsEmpty) {
-				summary.push('Added new graphics settings.');
-			} else if (!newIsEmpty && !originalIsEmpty) {
-				summary.push('Updated graphics settings.');
-			}
-		}
-
-		// YouTube Link Changes
-		const normalizeLinks = (links) => links
-			.filter(l => l.url && l.url.trim() !== '')
-			.map(l => ({ url: l.url, notes: l.notes || '' }))
-			.sort((a,b) => a.url.localeCompare(b.url));
-			
- 		const normalizedNew = normalizeLinks(youtubeLinks);
-		const normalizedOriginal = normalizeLinks(originalYoutubeLinks);
-
-		if (stringify(normalizedNew) !== stringify(normalizedOriginal)) {
-			const originalUrls = new Set(normalizedOriginal.map(l => l.url));
-			const newUrls = new Set(normalizedNew.map(l => l.url));
-			const addedCount = [...newUrls].filter(url => !originalUrls.has(url)).length;
-			const removedCount = [...originalUrls].filter(url => !newUrls.has(url)).length;
-
-			if (addedCount > 0) {
-				summary.push(`Added ${addedCount} YouTube link${addedCount > 1 ? 's' : ''}.`);
-			}
-			if (removedCount > 0) {
-				summary.push(`Removed ${removedCount} YouTube link${removedCount > 1 ? 's' : ''}.`);
-			}
-			
-			// Check for note changes on existing links
-			if (normalizedNew.some(newLink => {
-				const oldLink = normalizedOriginal.find(l => l.url === newLink.url);
-				return oldLink && oldLink.notes !== newLink.notes;
-			})) {
-				summary.push('Updated notes on one or more YouTube links.');
-			}
-		}
-		
-		// Grouping Changes
-		const originalGroupIds = originalGroup.map(g => g.id).sort();
-		const updatedGroupIds = updatedGroup.map(g => g.id).sort();
-		
-		if (stringify(originalGroupIds) !== stringify(updatedGroupIds)) {
-			summary.push('Adjusted regional game grouping.');
-		}
-
-		return summary;
-	})());
-
+	let changeSummary = $derived(generateChangeSummary(
+		{ originalPerformance, originalGraphics, originalYoutubeLinks, originalGroup },
+		{ performanceProfiles, graphicsData, youtubeLinks, updatedGroup }
+	));
+	
 </script>
 
 {#if show}
@@ -335,14 +196,14 @@
 	background-color: var(--input-bg);
 	color: var(--text-primary);
 	border: 1px solid var(--border-color);
- }
- .confirm-btn {
+}
+.confirm-btn {
 	background-color: var(--primary-color);
 	color: var(--primary-action-text);
- }
- .confirm-btn:disabled {
+}
+.confirm-btn:disabled {
 	background-color: var(--input-bg);
 	color: var(--text-secondary);
 	cursor: not-allowed;
- }
+}
 </style>
