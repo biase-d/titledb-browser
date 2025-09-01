@@ -40,14 +40,15 @@ function getContributorsFromCommit(commit) {
  * Builds or updates a map of contributors by fetching merged Pull Requests from the GitHub API
  * @param {object | null} cachedMap - The previously cached contributor map
  * @param {Date | null} lastProcessedDate - The timestamp of the last processed PR merge
- * @returns {Promise<{contributorMap: object, latestMergedAt: Date}>}
+ * @returns {Promise<{contributorMap: object, latestMergedAt: Date, groupsChanged: boolean}>}
  */
 export async function buildFullContributorMap(cachedMap = null, lastProcessedDate = null) {
-  const contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {} };
+  const contributorMap = cachedMap || { performance: {}, graphics: {}, videos: {}, groups: {} };
   let latestMergedAt = lastProcessedDate;
+  let groupsChanged = false;
 
   // Initialize Sets from cached arrays, normalizing old string values to arrays
-  for (const type of ['graphics', 'videos']) {
+  for (const type of ['graphics', 'videos', 'groups']) {
     if (contributorMap[type]) {
       for (const key in contributorMap[type]) {
         const value = contributorMap[type][key];
@@ -143,9 +144,11 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
           if (!contributorMap.performance[key].sourcePrUrl) {
             contributorMap.performance[key].sourcePrUrl = prInfo.sourcePrUrl;
           }
-        } else if ((match = filePath.match(/^(graphics|videos)\/([A-F0-9]{16})\.json/))) {
+        } else if ((match = filePath.match(/^(graphics|videos|groups)\/([A-F0-9]{16})\.json/))) {
           const type = match[1];
           const groupId = match[2];
+          if (type === 'groups') groupsChanged = true;
+          if (!contributorMap[type]) contributorMap[type] = {};
           if (!contributorMap[type][groupId]) {
             contributorMap[type][groupId] = new Set();
           }
@@ -155,7 +158,8 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
     }
 
     // Convert all Sets back to arrays for JSON serialization
-    for (const type of ['graphics', 'videos']) {
+    for (const type of ['graphics', 'videos', 'groups']) {
+      if (!contributorMap[type]) continue;
       for (const key in contributorMap[type]) {
         contributorMap[type][key] = Array.from(contributorMap[type][key]);
       }
@@ -171,7 +175,7 @@ export async function buildFullContributorMap(cachedMap = null, lastProcessedDat
   }
 
   console.log('-> Contributor map build/update complete.');
-  return { contributorMap, latestMergedAt };
+  return { contributorMap, latestMergedAt, groupsChanged };
 }
 
 /**

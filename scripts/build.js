@@ -30,10 +30,10 @@ const REPOS = {
 
     const { cachedMap, cachedMetadata } = await loadCache(useCache && !isFullRebuild);
 
-    const { contributorMap, latestMergedAt } = await buildFullContributorMap(cachedMap, cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null);
-    
+    const { contributorMap, latestMergedAt, groupsChanged } = await buildFullContributorMap(cachedMap, cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null);
+
     const dateMap = await buildDateMapOptimized(REPOS.nx_performance.path);
-    
+
     const metadata = {
       lastProcessedDate: latestMergedAt ? latestMergedAt.toISOString() : cachedMetadata?.lastProcessedDate,
       titledbFilteredHash: cachedMetadata?.titledbFilteredHash
@@ -44,11 +44,10 @@ const REPOS = {
       // TRUNCATE is only necessary for a full rebuild to clear old data
       await db.execute(sql`TRUNCATE TABLE games, performance_profiles, graphics_settings, youtube_links, game_groups RESTART IDENTITY CASCADE;`);
     }
-    
-    await syncDatabase(db, REPOS, contributorMap, dateMap, metadata);
-    
-    await saveCache(contributorMap, metadata);
 
+    await syncDatabase(db, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+
+    await saveCache(contributorMap, metadata);
   } catch (error) {
     console.error('An unexpected error occurred:', error);
     process.exit(1);
