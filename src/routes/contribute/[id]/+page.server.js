@@ -85,24 +85,23 @@ export const actions = {
 
 			for (const [key, submittedProfile] of submittedProfilesMap.entries()) {
 				const originalProfile = originalProfilesMap.get(key);
-				if (originalProfile?.contributor) {
-					originalProfile.contributor.forEach(c => allContributors.add(c));
-				}
-				const fileContent = pruneEmptyValues(submittedProfile.profiles);
-				const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
 				
-				const wasEmpty = originalProfile ? isProfileEmpty(originalProfile) : true;
-				const isEmpty = isProfileEmpty(submittedProfile);
-				const contentChanged = stringify(fileContent) !== stringify(pruneEmptyValues(originalProfile?.profiles));
+				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles));
+				const isNewEmptyPlaceholder = !originalProfile && isProfileEmpty(submittedProfile);
 
-				// Only commit a file if its content has actually changed
-				// Preserves empty placeholders if they remain empty
-				if (contentChanged) {
-					if (!isEmpty) {
-						// Profile has new content or was updated
+				if (contentChanged || isNewEmptyPlaceholder) {
+					const existingContributors = originalProfile?.contributor || [];
+					const newContributors = [...new Set([...existingContributors, user.login])];
+					newContributors.forEach(c => allContributors.add(c));
+					
+					const profiles = pruneEmptyValues(submittedProfile.profiles);
+					const fileContent = profiles ? { contributor: newContributors, ...profiles } : { contributor: newContributors };
+					
+					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
+
+					if (!isProfileEmpty(submittedProfile) || isNewEmptyPlaceholder) {
 						filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: stringify(fileContent, { space: 2 }), sha: shas.performance?.[key] });
-					} else if (!wasEmpty && isEmpty) {
-						// Profile was intentionally cleared
+					} else if (originalProfile && !isProfileEmpty(originalProfile)) {
 						filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: null, sha: shas.performance?.[key] });
 					}
 				}

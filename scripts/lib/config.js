@@ -16,15 +16,30 @@ export const DATA_SOURCES = {
       return { key, parts };
     },
     getKeyFromRecord: (r) => (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
-    buildRecord: (keyParts, content, metadata, lastUpdated) => ({
-      groupId: keyParts[0],
-      gameVersion: keyParts[1],
-      suffix: keyParts[2],
-      profiles: content,
-      contributor: metadata.contributors || [],
-      sourcePrUrl: metadata.sourcePrUrl,
-      lastUpdated,
-    }),
+    buildRecord: (keyParts, content, metadata, lastUpdated) => {
+      if (content && Array.isArray(content.contributor)) {
+        const { contributor, ...profiles } = content;
+        return {
+          groupId: keyParts[0],
+          gameVersion: keyParts[1],
+          suffix: keyParts[2],
+          profiles,
+          contributor: contributor || [],
+          sourcePrUrl: metadata.sourcePrUrl,
+          lastUpdated
+        };
+      } else {
+        return {
+          groupId: keyParts[0],
+          gameVersion: keyParts[1],
+          suffix: keyParts[2],
+          profiles: content,
+          contributor: metadata.contributors || [],
+          sourcePrUrl: metadata.sourcePrUrl,
+          lastUpdated
+        };
+      }
+    },
     upsert: (db, record) => db.insert(performanceProfiles).values(record).onConflictDoUpdate({
       target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
       set: {
