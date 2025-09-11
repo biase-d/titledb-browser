@@ -95,7 +95,9 @@ export const actions = {
 					newContributors.forEach(c => allContributors.add(c));
 					
 					const profiles = pruneEmptyValues(submittedProfile.profiles);
-					const fileContent = profiles ? { contributor: newContributors, ...profiles } : { contributor: newContributors };
+					const fileContent = isProfileEmpty(submittedProfile)
+						? { contributor: newContributors }
+						: { contributor: newContributors, ...profiles };
 					
 					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
 
