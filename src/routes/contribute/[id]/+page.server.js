@@ -91,12 +91,18 @@ export const actions = {
 				const fileContent = pruneEmptyValues(submittedProfile.profiles);
 				const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
 				
-				// Check if the summary indicates a change for this specific profile
-				if (changeSummary.some(s => s.includes(`v${submittedProfile.gameVersion}`))) {
-					if (!isProfileEmpty(submittedProfile)) {
+				const wasEmpty = originalProfile ? isProfileEmpty(originalProfile) : true;
+				const isEmpty = isProfileEmpty(submittedProfile);
+				const contentChanged = stringify(fileContent) !== stringify(pruneEmptyValues(originalProfile?.profiles));
+
+				// Only commit a file if its content has actually changed
+				// Preserves empty placeholders if they remain empty
+				if (contentChanged) {
+					if (!isEmpty) {
+						// Profile has new content or was updated
 						filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: stringify(fileContent, { space: 2 }), sha: shas.performance?.[key] });
-					} else if (originalProfile) {
-						// This is a "clear" action
+					} else if (!wasEmpty && isEmpty) {
+						// Profile was intentionally cleared
 						filesToCommit.push({ path: `profiles/${groupId}/${fileName}`, content: null, sha: shas.performance?.[key] });
 					}
 				}
