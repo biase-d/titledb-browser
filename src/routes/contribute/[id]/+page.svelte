@@ -75,14 +75,25 @@
 	onMount(async () => {
 		const savedDraft = await getDraft(id);
 		if (savedDraft) {
-			const restoreDraft = () => {
-				if (savedDraft.performanceProfiles) performanceProfiles = savedDraft.performanceProfiles;
-				if (savedDraft.group) updatedGroup = savedDraft.group;
-				if (savedDraft.graphics) graphicsData = savedDraft.graphics;
-				if (savedDraft.youtube) youtubeLinks = savedDraft.youtube;
-			}
-			if (page.url.searchParams.get('from_draft') === 'true' || confirm('You have a saved draft for this game. Would you like to restore it?')) {
-				restoreDraft();
+			const restore = () => {
+				const rawProfiles = savedDraft.performanceProfiles || [];
+				performanceProfiles = rawProfiles.map(p => {
+					const defaultMode = { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' };
+					return {
+						...p,
+						profiles: {
+							docked: p.profiles?.docked || { ...defaultMode },
+							handheld: p.profiles?.handheld || { ...defaultMode }
+						}
+					};
+				});
+
+				updatedGroup = savedDraft.group || [];
+				graphicsData = savedDraft.graphics || {};
+				youtubeLinks = savedDraft.youtube || [];
+			};
+			if (page.url.searchParams.get('from_draft') === 'true' || confirm('A saved draft was found. Would you like to restore it?')) {
+				restore();
 			}
 		} else if (performanceProfiles.length === 0) {
 			// If no existing profiles and no draft, start with one blank entry
