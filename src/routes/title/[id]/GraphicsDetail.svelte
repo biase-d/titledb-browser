@@ -6,14 +6,17 @@
 	let sharedSettings = $derived(settings?.shared || {});
 	let hasSharedSettings = $derived(sharedSettings && Object.entries(sharedSettings).some(([key, data]) => key && data.value));
 
-	function formatResolution(resData) {
-		if (!resData) return 'N/A';
-		switch (resData.resolutionType) {
-			case 'Fixed':
-				return resData.fixedResolution || 'N/A';
-			case 'Dynamic':
-				return `Dynamic, ${resData.minResolution || '?'} to ${resData.maxResolution || '?'}`;
-			case 'Multiple Fixed':
+ 	function formatResolution(resData) {
+ 		if (!resData) return 'N/A';
+ 		switch (resData.resolutionType) {
+ 			case 'Fixed':
+ 				return `Fixed at ${resData.fixedResolution}` || 'Fixed';	
+ 			case 'Dynamic':
+ 				const min = resData.minResolution || '?';
+ 				const max = resData.maxResolution || '?';
+ 				if (min === '?' && max === '?') return 'Dynamic';
+ 				return `Dynamic, ${min} to ${max}`;
+ 			case 'Multiple Fixed':
 				return resData.multipleResolutions?.filter(Boolean).join(', ') || 'N/A';
 			default:
 				return 'N/A';
@@ -49,7 +52,6 @@
 				return buffering;
 		}
 	}
-
 </script>
 
 <div class="section-container">

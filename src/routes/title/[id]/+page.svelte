@@ -75,7 +75,7 @@
 			if (!modeData) return false;
 
 			const res = modeData.resolution;
-			if (res && (res.fixedResolution || res.minResolution || res.maxResolution || (res.multipleResolutions?.length > 0 && res.multipleResolutions[0]))) {
+			if (res && (res.resolutionType || res.fixedResolution || res.minResolution || res.maxResolution || (res.multipleResolutions?.length > 0 && res.multipleResolutions[0]))) {
 				return true;
 			}
 
