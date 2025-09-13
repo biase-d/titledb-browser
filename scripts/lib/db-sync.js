@@ -80,15 +80,31 @@ async function syncDataType(context) {
 
       if (!hasChanged) return;
 
-      const existingDate = groupLatestUpdate.get(groupId);
-      if (!existingDate || lastUpdated > existingDate) {
-        groupLatestUpdate.set(groupId, lastUpdated);
+      const filePath = config.isHierarchical ? path.join(dataDir, groupId, fileName) : path.join(dataDir, fileName);
+      const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+      
+      // For performance profiles, check if it's just an empty placeholder
+      // A placeholder has contributors but no other keys (like 'docked' or 'handheld')
+      if (type === 'performance') {
+        const contentKeys = Object.keys(content);
+        const isPlaceholder = contentKeys.length === 1 && contentKeys[0] === 'contributor';
+        if (isPlaceholder) {
+          console.log(`Skipping timestamp update for placeholder profile: ${fileKey}`);
+        } else {
+          const existingDate = groupLatestUpdate.get(groupId);
+          if (!existingDate || lastUpdated > existingDate) {
+            groupLatestUpdate.set(groupId, lastUpdated);
+          }
+        }
+      } else {
+        const existingDate = groupLatestUpdate.get(groupId);
+        if (!existingDate || lastUpdated > existingDate) {
+          groupLatestUpdate.set(groupId, lastUpdated);
+        }
       }
 
       console.log(`Processing ${type} for ${fileKey}`);
 
-      const filePath = config.isHierarchical ? path.join(dataDir, groupId, fileName) : path.join(dataDir, fileName);
-      const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
       const metadata = (type === 'performance') ? (contributorMap.performance?.[fileKey] || {}) : { contributors: contributorMap[type]?.[fileKey] || [] };
       const recordData = config.buildRecord(keyParts, content, metadata, lastUpdated);
 

@@ -47,7 +47,10 @@ if (q) {
 	const isSearchingOrFiltering = q || dockedFps || handheldFps || resolutionType;
 
 	if (!isSearchingOrFiltering) {
-		whereClauses.push(sql`${latestProfileSubquery.groupId} IS NOT NULL OR ${graphicsSettings.groupId} IS NOT NULL`);
+		// Only show games that have graphics settings OR a performance profile that is not an empty placeholder
+		const hasGraphics = sql`${graphicsSettings.groupId} IS NOT NULL`;
+		const hasMeaningfulPerformance = sql`(${latestProfileSubquery.groupId} IS NOT NULL AND ${latestProfileSubquery.profiles}::text != '{}')`;
+		whereClauses.push(or(hasGraphics, hasMeaningfulPerformance));
 	}
 
 	const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
@@ -148,14 +151,22 @@ if (q) {
 
 	let recentUpdates = [];
 	if (page === 1 && !isSearchingOrFiltering) {
-		const recentGroups = await db
+		// Subquery to get only the latest performance profile for each group
+		const latestProfilesForRecents = db.$with('latest_for_recents').as(
+			db.selectDistinctOn([performanceProfiles.groupId], {
+				groupId: performanceProfiles.groupId,
+				profiles: performanceProfiles.profiles
+			}).from(performanceProfiles).orderBy(performanceProfiles.groupId, desc(performanceProfiles.lastUpdated))
+		);
+
+		const recentGroups = await db.with(latestProfilesForRecents)
 			.selectDistinct({ groupId: gameGroups.id, lastUpdated: gameGroups.lastUpdated })
 			.from(gameGroups)
-			.leftJoin(performanceProfiles, eq(gameGroups.id, performanceProfiles.groupId))
+			.leftJoin(latestProfilesForRecents, eq(gameGroups.id, latestProfilesForRecents.groupId))
 			.leftJoin(graphicsSettings, eq(gameGroups.id, graphicsSettings.groupId))
 			.where(or(
-				sql`${performanceProfiles.groupId} IS NOT NULL`,
-				sql`${graphicsSettings.groupId} IS NOT NULL`
+				sql`${graphicsSettings.groupId} IS NOT NULL`,
+				sql`(${latestProfilesForRecents.groupId} IS NOT NULL AND ${latestProfilesForRecents.profiles}::text != '{}')`
 			))
 			.orderBy(desc(gameGroups.lastUpdated))
 			.limit(10);
