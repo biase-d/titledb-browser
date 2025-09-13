@@ -41,13 +41,6 @@
 	});
 
 	let performanceProfiles = $state(
-				docked: p.profiles?.docked || { ...defaultMode },
-				handheld: p.profiles?.handheld || { ...defaultMode }
-			}
-		};
-	});
-
-	let performanceProfiles = $state(
 		sanitizedInitialPerformance.length > 0 ? structuredClone(sanitizedInitialPerformance) : []
 	);
 	let graphicsData = $state(structuredClone(existingGraphics?.settings) || {});
