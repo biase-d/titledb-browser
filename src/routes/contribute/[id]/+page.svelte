@@ -11,6 +11,7 @@
 	import YoutubeControls from './YoutubeControls.svelte';
 	import ConfirmationModal from './ConfirmationModal.svelte';
 	import Icon from '@iconify/svelte';
+	import { generateChangeSummary } from '$lib/utils.js';
 
 	let { data, form } = $props();
 
@@ -50,6 +51,24 @@
 	
 	let showConfirmation = $state(false);
 	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
+	let successMessageEl = $state(/** @type {HTMLDivElement | null} */ (null));
+
+	let changeSummary = $derived(generateChangeSummary(
+		{ originalPerformance: existingPerformance, originalGraphics: existingGraphics, originalYoutubeLinks: data.originalYoutubeLinks, originalGroup: allTitlesInGroup },
+		{ performanceProfiles, graphicsData, youtubeLinks, updatedGroup }
+	));
+
+	function handleSubmitClick() {
+		if (changeSummary.length > 0 && changeSummary.every(s => s.includes('Added empty placeholder'))) {
+			alert('No new information was provided. Please add performance, graphics, or video data to submit.');
+			return;
+		}
+		if (changeSummary.length === 0) {
+			alert('No changes were detected. Please add or modify some data before submitting.');
+			return;
+		}
+		showConfirmation = true;
+	}
 
 	function addNewVersion() {
 		let nextVersion = '1.0.0';
@@ -149,14 +168,14 @@
 	<title>Contribute Data for {name}</title>
 </svelte:head>
 
-<div class="form-container">
+<main class="form-container">
 	<a href={`/title/${id}`} class="back-link">← Back to {name}</a>
 	<h1>Contribute Data</h1>
-	<p class="subtitle">You are suggesting edits for <strong class='game-name'>{name}</strong> ({id})</p>
+	<p class="subtitle">Suggesting edits for <strong class="game-name">{name}</strong> ({id})</p>
 
 	{#if form?.success}
-		<div class="success-message">
-			<Icon icon="mdi:check-decagram" />
+		<div class="success-message" role="alert" tabindex="-1" bind:this={successMessageEl}>
+			<Icon icon="mdi:check-decagram" aria-hidden="true" />
 			<div class="success-content">
 				<h2>Submission Successful!</h2>
 				<p>Your contribution has been submitted for review. Thank you!</p>
@@ -167,17 +186,25 @@
 			</div>
 		</div>
 	{:else}
-		<GroupingControls initialGroup={allTitlesInGroup} onUpdate={(newGroup) => { updatedGroup = newGroup; }} />
+		<GroupingControls 
+			initialGroup={allTitlesInGroup} 
+			primaryTitleId={id} 
+			onUpdate={(newGroup) => { updatedGroup = newGroup; }} 
+		/>
 
-		<form bind:this={formElement} method="POST" use:enhance={() => {
-			isSubmitting = true;
-			showConfirmation = false;
-			return async ({ update }) => {
-				await deleteDraft(id);
-				await update();
-				isSubmitting = false;
-			};
-		}}>
+		<form
+			bind:this={formElement}
+			method="POST"
+			use:enhance={() => {
+				isSubmitting = true;
+				showConfirmation = false;
+				return async ({ update }) => {
+					await deleteDraft(id);
+					await update();
+					isSubmitting = false;
+				};
+			}}
+		>
 			<input type="hidden" name="titleId" value={id} />
 			<input type="hidden" name="gameName" value={name} />
 			<input type="hidden" name="performanceData" value={JSON.stringify(performanceProfiles)} />
@@ -190,65 +217,72 @@
 			<input type="hidden" name="originalYoutubeLinks" value={JSON.stringify(data.originalYoutubeLinks)} />
 			<input type="hidden" name="shas" value={JSON.stringify(shas)} />
 
-			{#each performanceProfiles as profile, i (i)}
-				<div class="version-section">
-					<div class="version-header">
-						<h4>Performance Profile</h4>
-						<div class="version-input-wrapper">
-							<div class="form-field">
-								<label for="game_version_{i}">Game Version</label>
-								<input
-									id="game_version_{i}"
-									type="text"
-									bind:value={profile.gameVersion}
-									placeholder="e.g. 1.1.0"
-									required
-									class="version-input"
-								/>
-							</div>
-							<div class="form-field">
-								<label for="version_suffix_{i}">
-									Region / Suffix
-									<div class="tooltip">
-										<Icon icon="mdi:help-circle-outline" />
-										<span class="tooltip-text">
-											Optional. Use if this version only applies to a specific region or edition (e.g., 'jp', 'us', 'rev1'). Leave blank if it applies to all games in the group.
-										</span>
-									</div>
-								</label>
-								<input
-									id="version_suffix_{i}"
-									type="text"
-									bind:value={profile.suffix}
-									placeholder="e.g. 'jp'"
-									class="version-input"
-									oninput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9_-]/g, ''); }}
-								/>
+			<section class="form-section">
+				<h2 class="section-title">Performance Profiles</h2>
+				<p class="section-description">
+					Submit performance data for one or more game versions. This includes resolution, FPS targets, and stability.
+				</p>
+				{#each performanceProfiles as profile, i (profile.tempId || profile.gameVersion + profile.suffix)}
+					<div class="form-card version-card" data-profile-index={i}>
+						<div class="version-header">
+							<h3 class="version-title">Profile for Version</h3>
+							<div class="version-controls">
+								<div class="form-field">
+									<label for="game_version_{i}">Game Version</label>
+									<input id="game_version_{i}" type="text" bind:value={profile.gameVersion} placeholder="e.g. 1.1.0" required />
+								</div>
+								<div class="form-field">
+									<label for="version_suffix_{i}">Region / Suffix</label>
+									<input id="version_suffix_{i}" type="text" bind:value={profile.suffix} placeholder="e.g. 'jp'" oninput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9_-]/g, ''); }} />
+								</div>
 							</div>
 							{#if performanceProfiles.length > 1}
-								<button type="button" class="remove-version-btn" onclick={() => removeVersion(i)}>Remove</button>
+								<button type="button" class="remove-version-btn" onclick={() => removeVersion(i)} aria-label={`Remove version ${profile.gameVersion || ''}`}>
+									<Icon icon="mdi:delete-outline" aria-hidden="true" />
+									<span>Remove</span>
+								</button>
 							{/if}
 						</div>
+						<div class="mode-grid">
+							<PerformanceControls mode="Handheld" bind:modeData={profile.profiles.handheld} />
+							<PerformanceControls mode="Docked" bind:modeData={profile.profiles.docked} />
+						</div>
 					</div>
-					<div class="mode-grid">
-						<PerformanceControls mode="Handheld" bind:modeData={profile.profiles.handheld} />
-						<PerformanceControls mode="Docked" bind:modeData={profile.profiles.docked} />
-					</div>
+				{/each}
+
+				<button type="button" class="add-version-btn" onclick={addNewVersion}>
+					<Icon icon="mdi:plus-circle-outline" aria-hidden="true" />
+					Add Data for Another Version
+				</button>
+			</section>
+
+			<section class="form-section">
+				<h2 class="section-title">Graphics Settings</h2>
+				<p class="section-description">
+					Detail the game's in-game graphical options. If present, this data is considered more authoritative than performance profiles for display.
+				</p>
+				<div class="form-card">
+					<GraphicsControls bind:settings={graphicsData} />
 				</div>
-			{/each}
+			</section>
 
-			<button type="button" class="add-version-btn" onclick={addNewVersion}>
-				<Icon icon="mdi:plus-circle-outline" /> Add data for another version
-			</button>
+			<section class="form-section">
+				<h2 class="section-title">YouTube Links</h2>
+				<p class="section-description">Add YouTube videos showcasing performance or graphical comparisons.</p>
+				<div class="form-card">
+					<YoutubeControls bind:links={youtubeLinks} />
+				</div>
+			</section>
 
-			<GraphicsControls bind:settings={graphicsData} />
-			<br>
-			<YoutubeControls bind:links={youtubeLinks} />
+			{#if form?.error}
+				<div class="error-message" role="alert">Error: {form.error}</div>
+			{/if}
 
 			<div class="form-footer">
-				<button class="submit-button" type="button" onclick={() => showConfirmation = true} disabled={isSubmitting}>
+				<button class="submit-button" type="button" onclick={handleSubmitClick} disabled={isSubmitting}>
 					{#if isSubmitting}
-						<Icon icon="line-md:loading-loop" /> Submitting...
+						<Icon icon="line-md:loading-loop" aria-hidden="true" />
+						<span>Submitting...</span>
 					{:else}
 						Submit for Review
 					{/if}
@@ -256,135 +290,152 @@
 			</div>
 		</form>
 	{/if}
+</main>
 
-	<ConfirmationModal
-		show={showConfirmation}
-		performanceProfiles={performanceProfiles}
-		graphicsData={graphicsData}
-		youtubeLinks={youtubeLinks}
-		updatedGroup={updatedGroup}
-		originalPerformance={existingPerformance}
-		originalGraphics={existingGraphics}
-		originalYoutubeLinks={existingYoutubeLinks}
-		originalGroup={allTitlesInGroup}
-		onCancel={() => showConfirmation = false}
-		onConfirm={(summary) => {
-			if (formElement) {
-				// Add the summary to a hidden input before submitting
-				const summaryInput = document.createElement('input');
-				summaryInput.type = 'hidden';
-				summaryInput.name = 'changeSummary';
-				summaryInput.value = JSON.stringify(summary);
-				formElement.appendChild(summaryInput);
-				formElement.requestSubmit();
-			}
-		}}
-	/>
-
-	{#if form?.error}
-		<p class="error-message">Error: {form.error}</p>
-	{/if}
-</div>
+<ConfirmationModal
+	{showConfirmation}
+	{performanceProfiles}
+	{graphicsData}
+	{changeSummary}
+	onCancel={() => showConfirmation = false}
+	onConfirm={() => {
+		if (formElement) {
+			const summaryInput = document.createElement('input');
+			summaryInput.type = 'hidden';
+			summaryInput.name = 'changeSummary';
+			summaryInput.value = JSON.stringify(changeSummary);
+			formElement.appendChild(summaryInput);
+			formElement.requestSubmit();
+		}
+	}} />
 
 <style>
-	.form-container { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
-	.back-link { display: inline-block; margin-bottom: 2rem; color: var(--text-secondary); }
+	.form-container { max-width: 900px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+	.back-link { display: inline-block; margin-bottom: 2rem; color: var(--text-secondary); text-decoration: none; }
+	.back-link:hover { text-decoration: underline; }
+
 	h1 { margin: 0; font-size: 2.5rem; }
 	.subtitle { margin: 0.5rem 0 2.5rem; font-size: 1.1rem; color: var(--text-secondary); }
 	.game-name { color: var(--primary-color); }
 
+	/* -- Messages -- */
 	.success-message {
-		display: flex; gap: 1.5rem; padding: 1.5rem;
-		text-align: left;
-		background-color: var(--surface-color);
-		color: var(--text-primary);
-		border: 1px solid var(--border-color);
-		border-left: 4px solid #4ade80;
-		border-radius: var(--radius-lg);
+		display: flex; gap: 1.5rem; padding: 1.5rem; text-align: left;
+		background-color: var(--surface-color); border: 1px solid var(--border-color);
+		border-left: 4px solid #4ade80; border-radius: var(--radius-lg);
 	}
-	.success-message > :global(svg) { font-size: 2.5rem; color: #4ade80; flex-shrink: 0; }
+	.success-message:focus { outline: none; } /* Programmatic focus target */
+	.success-message > :global(svg) { font-size: 2.5rem; color: #4ade80; flex-shrink: 0; margin-top: 0.25rem; }
 	.success-message h2 { margin: 0 0 0.5rem; }
 	.success-message p { margin-bottom: 1.5rem; color: var(--text-secondary); }
-	.success-actions { display: flex; gap: 1rem; }
+	.success-actions { display: flex; flex-wrap: wrap; gap: 1rem; }
+
+	.error-message {
+		margin-top: 1.5rem; margin-bottom: 1.5rem; padding: 1rem; font-weight: 500;
+		color: #b91c1c; background-color: #fee2e2; border: 1px solid #f87171;
+		border-radius: var(--radius-md);
+	}
+	.dark .error-message { background-color: #450a0a; color: #fca5a5; border-color: #991b1b; }
+
+	/* -- Buttons -- */
 	.cta-button {
 		display: inline-block; background-color: var(--primary-color); color: var(--primary-action-text);
 		padding: 10px 20px; border-radius: var(--radius-md); font-weight: 600; text-decoration: none;
 	}
 	.secondary-button {
 		display: inline-block; background-color: var(--surface-color); color: var(--text-primary);
+		border: 1px solid var(--border-color); padding: 10px 20px;
+		border-radius: var(--radius-md); font-weight: 600; text-decoration: none;
+	}
+
+	/* -- Form Structure -- */
+	.form-section {
+		margin-bottom: 3rem;
+	}
+	.section-title {
+		font-size: 1.5rem;
+		font-weight: 600;
+		margin: 0 0 0.5rem 0;
+	}
+	.section-description {
+		margin: 0 0 1.5rem;
+		color: var(--text-secondary);
+		max-width: 75ch;
+	}
+	.form-card {
+		background-color: var(--surface-color);
 		border: 1px solid var(--border-color);
-		padding: 10px 20px; border-radius: var(--radius-md); font-weight: 600; text-decoration: none;
-	}
-
-
-	.error-message {
-		margin-top: 1rem; padding: 1rem; font-weight: 500;
-		color: #b91c1c; background-color: #fee2e2; border: 1px solid #f87171;
-		border-radius: var(--radius-md);
-	}
-	.dark .error-message { background-color: #450a0a; color: #fca5a5; border-color: #991b1b; }
-
-
-	.version-section {
-		margin-bottom: 2.5rem; padding: 1.5rem;
-		background-color: var(--surface-color); border: 1px solid var(--border-color);
 		border-radius: var(--radius-lg);
+		padding: 1.5rem;
 	}
+	.version-card {
+		padding-top: 0;
+	}
+	.version-card + .version-card {
+		margin-top: 1.5rem;
+	}
+
 	.version-header {
-		display: flex; justify-content: space-between; align-items: flex-start;
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-end;
+		width: 100%;
+		padding: 1rem 0 1.5rem;
 		margin-bottom: 1.5rem;
+		flex-wrap: wrap;
+		gap: 1rem;
+		border-bottom: 1px solid var(--border-color);
 	}
-	.version-header h4 { margin: 0; font-size: 1.1rem; }
-	.version-input-wrapper { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; }
+	.version-title { font-size: 1.1rem; font-weight: 600; padding: 0; margin: 0; }
+	.version-controls { display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-left: auto; }
 
 	.form-field { display: flex; flex-direction: column; gap: 0.25rem; }
-	.form-field label { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.25rem; }
-	
-	.tooltip { position: relative; display: inline-flex; align-items: center; color: var(--text-secondary); }
-    .tooltip .tooltip-text {
-		visibility: hidden; width: 250px; background-color: var(--color-background-dark); color: var(--color-text-body-dark);
-        text-align: left; border-radius: var(--radius-md); padding: 0.75rem;
-        position: absolute; z-index: 1; bottom: 130%; left: 50%;
-        margin-left: -125px; opacity: 0; transition: opacity 0.3s;
-        font-size: 0.8rem; line-height: 1.4; box-shadow: var(--shadow-lg);
+	.form-field label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); }
+	.form-field input {
+		width: 120px; padding: 8px 10px; background-color: var(--input-bg);
+		color: var(--text-primary); border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
 	}
-    .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
 
-	.version-input {
-		width: 120px; padding: 8px 10px;
-		background-color: var(--input-bg); color: var(--text-primary);
-		border: 1px solid var(--border-color); border-radius: var(--radius-md);
-	}
 	.remove-version-btn {
+		display: inline-flex; align-items: center; gap: 0.25rem;
 		padding: 8px 12px; background: transparent; color: #ef4444;
 		border: 1px solid #ef4444; border-radius: var(--radius-md);
 		cursor: pointer; font-weight: 500; height: 38px;
+		transition: background-color 0.2s;
+		margin-left: 1rem;
 	}
 	.remove-version-btn:hover { background-color: color-mix(in srgb, #ef4444 10%, transparent); }
 
 	.mode-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; }
 	@media (min-width: 800px) { .mode-grid { grid-template-columns: 1fr 1fr; } }
-	
+
 	.add-version-btn {
-		display: flex; align-items: center; justify-content: center;
-		gap: 0.5rem; width: 100%; margin-bottom: 2rem; padding: 0.75rem;
-		background-color: transparent; color: var(--primary-color);
-		border: 2px dashed var(--border-color); border-radius: var(--radius-lg);
-		font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+		display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+		width: 100%; margin-top: 1.5rem; padding: 0.75rem; color: var(--primary-color);
+		background-color: var(--surface-color); border: 2px dashed var(--border-color);
+		border-radius: var(--radius-lg); font-weight: 600; cursor: pointer;
+		transition: border-color 0.2s ease, background-color 0.2s ease;
 	}
-	.add-version-btn:hover { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+	.add-version-btn:hover { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 5%, transparent); }
 
 	.form-footer {
 		margin-top: 2rem; padding-top: 1.5rem; text-align: right;
 		border-top: 1px solid var(--border-color);
 	}
 	.submit-button {
-		display: inline-flex; align-items: center; justify-content: center;
-		gap: 0.5rem; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600;
+		display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+		padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600;
 		background-color: var(--primary-color); color: var(--primary-action-text);
 		border: none; border-radius: var(--radius-md); cursor: pointer;
 		transition: background-color 0.2s ease;
 	}
 	.submit-button:hover { background-color: var(--primary-color-hover); }
 	.submit-button:disabled { opacity: 0.7; cursor: not-allowed; }
+
+	/* -- Focus States -- */
+	:is(a, button, input):focus-visible {
+		outline: 2px solid var(--accent-color, blue);
+		outline-offset: 2px;
+	}
 </style>

@@ -152,8 +152,17 @@ export const actions = {
 				filesToCommit.push({ path: `groups/${groupId}.json`, content: stringify(updatedGroupData.map(g => g.id), { space: 2 }), sha: shas.group });
 			}
 
-			if (filesToCommit.length === 0 && !changeSummary.some(s => s.includes('schema'))) {
-				return fail(400, { error: 'No changes detected.' });
+			const isSchemaUpdateOnly = changeSummary.length > 0 && changeSummary.every(s => s.includes('schema'));
+			if (changeSummary.length === 0) {
+				return fail(400, { error: 'No changes were detected. Please add or modify some data before submitting.' });
+			}
+			
+			if (changeSummary.every(s => s.includes('Added empty placeholder'))) {
+				return fail(400, { error: 'No new information was provided. Please add performance, graphics, or video data to submit.' });
+			}
+
+			if (filesToCommit.length === 0 && !isSchemaUpdateOnly) {
+				return fail(400, { error: 'No changes were detected that would result in a file modification.' });
 			}
 
 			const branchName = `contrib/${user.login}/${groupId}-${Date.now()}`;
