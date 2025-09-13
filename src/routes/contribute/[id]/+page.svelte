@@ -14,15 +14,38 @@
 
 	let { data, form } = $props();
 
-	let { id, name, allTitlesInGroup, existingPerformance, existingGraphics, existingYoutubeLinks, shas } = $derived(data);
+	let {
+		id,
+		name,
+		allTitlesInGroup,
+		existingPerformance,
+		existingGraphics,
+		existingYoutubeLinks,
+		shas
+	} = $derived(data);
+
 	let updatedGroup = $state([...(allTitlesInGroup || [])]);
+	
+	// Sanitize the initial performance data from the server to prevent SSR crashes
+	const sanitizedInitialPerformance = (existingPerformance || []).map(p => {
+		const defaultMode = { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' };
+		return {
+			...p,
+			profiles: {
+				docked: p.profiles?.docked || { ...defaultMode },
+				handheld: p.profiles?.handheld || { ...defaultMode }
+			}
+		};
+	});
+
 	let performanceProfiles = $state(
-		existingPerformance.length > 0 ? structuredClone(existingPerformance) : []
+		sanitizedInitialPerformance.length > 0 ? structuredClone(sanitizedInitialPerformance) : []
 	);
 	let graphicsData = $state(structuredClone(existingGraphics?.settings) || {});
 	let youtubeLinks = $state(structuredClone(existingYoutubeLinks) || []);
 
 	let isSubmitting = $state(false);
+	
 	let showConfirmation = $state(false);
 	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
 
