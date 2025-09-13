@@ -29,9 +29,18 @@
 	// Sanitize the initial performance data from the server to prevent SSR crashes
 	const sanitizedInitialPerformance = (existingPerformance || []).map(p => {
 		const defaultMode = { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' };
+		const docked = { ...defaultMode, ...(p.profiles?.docked || {}) };
+		const handheld = { ...defaultMode, ...(p.profiles?.handheld || {}) };
 		return {
 			...p,
 			profiles: {
+				docked,
+				handheld
+			}
+		};
+	});
+
+	let performanceProfiles = $state(
 				docked: p.profiles?.docked || { ...defaultMode },
 				handheld: p.profiles?.handheld || { ...defaultMode }
 			}
@@ -99,15 +108,15 @@
 		const savedDraft = await getDraft(id);
 		if (savedDraft) {
 			const restore = () => {
+				// Sanitize performance profiles loaded from a draft to prevent crashes
 				const rawProfiles = savedDraft.performanceProfiles || [];
 				performanceProfiles = rawProfiles.map(p => {
 					const defaultMode = { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' };
+					const docked = { ...defaultMode, ...(p.profiles?.docked || {}) };
+					const handheld = { ...defaultMode, ...(p.profiles?.handheld || {}) };
 					return {
 						...p,
-						profiles: {
-							docked: p.profiles?.docked || { ...defaultMode },
-							handheld: p.profiles?.handheld || { ...defaultMode }
-						}
+						profiles: { docked, handheld }
 					};
 				});
 
