@@ -822,8 +822,15 @@
 		border: none; padding: 0; background: none; cursor: pointer;
 		border-radius: var(--radius-md); overflow: hidden;
 		border: 1px solid var(--border-color);
+		aspect-ratio: 16 / 9; /* reserve space to prevent layout shift */
 	}
-	.screenshot-button img { transition: transform 0.2s; }
+	.screenshot-button img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover; /* ensure image fills the container */
+		display: block;
+		transition: transform 0.2s;
+	}
 	.screenshot-button:hover img { transform: scale(1.05); }
 
 	.loading-message { text-align: center; padding: 2rem; }
