@@ -99,14 +99,15 @@
 			}
 		}
 
-		performanceProfiles.push({
+	performanceProfiles.push({
+			tempId: crypto.randomUUID(), 
 			gameVersion: nextVersion,
 			suffix: '',
 			profiles: {
 				docked: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: '', fps_notes: '' },
 				handheld: { resolution_type: 'Fixed', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', fps_behavior: 'Locked', target_fps: '', fps_notes: '' }
 			},
-			isNew: true // Flag to identify new, unsaved entries
+			isNew: true 
 		});
 		performanceProfiles = performanceProfiles;
 	}
@@ -139,8 +140,10 @@
 			if (page.url.searchParams.get('from_draft') === 'true' || confirm('A saved draft was found. Would you like to restore it?')) {
 				restore();
 			}
-		} else if (performanceProfiles.length === 0) {
-			// If no existing profiles and no draft, start with one blank entry
+		}
+
+		// After handling drafts, if no profiles exist for any reason, add the default one
+		if (performanceProfiles.length === 0) {
 			addNewVersion();
 		}
 	});
@@ -188,41 +191,41 @@
 	{:else}
 		<GroupingControls 
 			initialGroup={allTitlesInGroup} 
-			primaryTitleId={id} 
-			onUpdate={(newGroup) => { updatedGroup = newGroup; }} 
-		/>
+		primaryTitleId={id} 
+		onUpdate={(newGroup) => { updatedGroup = newGroup; }} 
+	/>
 
-		<form
-			bind:this={formElement}
-			method="POST"
-			use:enhance={() => {
-				isSubmitting = true;
-				showConfirmation = false;
-				return async ({ update }) => {
-					await deleteDraft(id);
-					await update();
-					isSubmitting = false;
-				};
-			}}
-		>
-			<input type="hidden" name="titleId" value={id} />
-			<input type="hidden" name="gameName" value={name} />
-			<input type="hidden" name="performanceData" value={JSON.stringify(performanceProfiles)} />
-			<input type="hidden" name="graphicsData" value={JSON.stringify(graphicsData)} />
-			<input type="hidden" name="youtubeLinks" value={JSON.stringify(youtubeLinks)} />
-			<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
-			<input type="hidden" name="originalGroupData" value={JSON.stringify(allTitlesInGroup)} />
-			<input type="hidden" name="originalPerformanceData" value={JSON.stringify(existingPerformance)} />
-			<input type="hidden" name="originalGraphicsData" value={JSON.stringify(existingGraphics)} />
-			<input type="hidden" name="originalYoutubeLinks" value={JSON.stringify(data.originalYoutubeLinks)} />
-			<input type="hidden" name="shas" value={JSON.stringify(shas)} />
+	<form
+		bind:this={formElement}
+		method="POST"
+		use:enhance={() => {
+			isSubmitting = true;
+			showConfirmation = false;
+			return async ({ update }) => {
+				await deleteDraft(id);
+				await update();
+				isSubmitting = false;
+			};
+		}}
+	>
+		<input type="hidden" name="titleId" value={id} />
+		<input type="hidden" name="gameName" value={name} />
+		<input type="hidden" name="performanceData" value={JSON.stringify(performanceProfiles.map(({ tempId, ...p }) => p))} />
+		<input type="hidden" name="graphicsData" value={JSON.stringify(graphicsData)} />
+		<input type="hidden" name="youtubeLinks" value={JSON.stringify(youtubeLinks)} />
+		<input type="hidden" name="updatedGroupData" value={JSON.stringify(updatedGroup)} />
+		<input type="hidden" name="originalGroupData" value={JSON.stringify(allTitlesInGroup)} />
+		<input type="hidden" name="originalPerformanceData" value={JSON.stringify(existingPerformance)} />
+		<input type="hidden" name="originalGraphicsData" value={JSON.stringify(existingGraphics)} />
+		<input type="hidden" name="originalYoutubeLinks" value={JSON.stringify(data.originalYoutubeLinks)} />
+		<input type="hidden" name="shas" value={JSON.stringify(shas)} />
 
 			<section class="form-section">
 				<h2 class="section-title">Performance Profiles</h2>
 				<p class="section-description">
 					Submit performance data for one or more game versions. This includes resolution, FPS targets, and stability.
 				</p>
-				{#each performanceProfiles as profile, i (profile.tempId || profile.gameVersion + profile.suffix)}
+				{#each performanceProfiles as profile (profile.id || profile.tempId)}
 					<div class="form-card version-card" data-profile-index={i}>
 						<div class="version-header">
 							<h3 class="version-title">Profile for Version</h3>
