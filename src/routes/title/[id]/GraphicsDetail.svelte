@@ -78,6 +78,19 @@
 								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
 							{/if}
 							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
+							{#if dockedSettings.framerate.additionalLocks?.length > 0}
+								<div class="additional-notes">
+									<span class="field-note-extra">Additional In-game FPS Modes:</span>
+									<ul>
+										{#each dockedSettings.framerate.additionalLocks as lock}
+											<li>
+												{formatFramerate(lock)}
+												{#if lock.notes}<span class="field-note-nested">{lock.notes}</span>{/if}
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
 						</div>
 					{/if}
 					{#each Object.entries(dockedSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
@@ -109,6 +122,19 @@
 								<span class="field-note">{formatBuffering(handheldSettings.framerate.apiBuffering)}</span>
 							{/if}
 							{#if handheldSettings.framerate.notes}<span class="field-note">{handheldSettings.framerate.notes}</span>{/if}
+							{#if handheldSettings.framerate.additionalLocks?.length > 0}
+								<div class="additional-notes">
+									<span class="field-note-extra">Additional In-game FPS Modes:</span>
+									<ul>
+										{#each handheldSettings.framerate.additionalLocks as lock}
+											<li>
+												{formatFramerate(lock)}
+												{#if lock.notes}<span class="field-note-nested">{lock.notes}</span>{/if}
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
 						</div>
 					{/if}
 					{#each Object.entries(handheldSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
@@ -178,6 +204,30 @@
 	.field-note {
 		font-size: 0.9rem;
 		color: var(--text-secondary);
+	}
+	.field-note-extra {
+		color: var(--primary-color);
+		font-weight: 500;
+		margin-top: 0.25rem;
+	}
+	.additional-notes {
+		margin-top: 0.75rem;
+	}
+	.additional-notes ul {
+		list-style-type: disc;
+		padding-left: 1.25rem;
+		margin: 0.5rem 0 0;
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+	}
+	.additional-notes li {
+		margin-bottom: 0.25rem;
+	}
+	.field-note-nested {
+		display: block;
+		margin-left: 1.25rem;
+		font-style: italic;
+		opacity: 0.8;
 	}
 	.notice-card {
 		padding: 2rem;
