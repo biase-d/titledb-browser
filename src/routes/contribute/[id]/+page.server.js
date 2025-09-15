@@ -2,7 +2,7 @@ import { getGameDetails } from '$lib/games/getGameDetails';
 import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/github.js';
 import { error, redirect, fail } from '@sveltejs/kit';
 import stringify from 'json-stable-stringify';
-import { pruneEmptyValues, areSetsEqual, generateChangeSummary, isProfileEmpty } from '$lib/utils.js';
+import { pruneEmptyValues, generateChangeSummary, isProfileEmpty } from '$lib/utils.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
@@ -25,8 +25,10 @@ export const load = async ({ params, parent }) => {
 	const shas = {};
 	shas.performance = {};
 	for (const profile of performanceHistory) {
-		const path = `profiles/${groupId}/${profile.gameVersion}.json`;
-		shas.performance[profile.gameVersion] = await getFileSha(path);
+		const suffix = profile.suffix ? `$${profile.suffix}` : '';
+		const path = `profiles/${groupId}/${profile.gameVersion}${suffix}.json`;
+		const key = profile.suffix ? `${profile.gameVersion}-${profile.suffix}` : profile.gameVersion;
+		shas.performance[key] = await getFileSha(path);
 	}
 
 	shas.graphics = await getFileSha(`graphics/${groupId}.json`);
@@ -41,7 +43,6 @@ export const load = async ({ params, parent }) => {
 		existingPerformance: performanceHistory,
 		existingGraphics: game.graphics,
 		existingYoutubeLinks: youtubeLinks,
-		originalYoutubeLinks: youtubeLinks,
 		shas
 	};
 };
