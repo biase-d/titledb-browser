@@ -519,7 +519,7 @@
 										<textarea placeholder="Details on default stability, common dips, etc." bind:value={graphicsData.handheld.framerate.notes}></textarea>
 									</div>
 									<div class="additional-locks-section">
-										<label class="group-label">Additional FPS Lock Types</label>
+										<label class="group-label">Additional FPS Lock Type</label>
 										{#each graphicsData.handheld.framerate.additionalLocks || [] as lock, index}
 											<div class="additional-lock-item">
 												<div class="additional-lock-row">
