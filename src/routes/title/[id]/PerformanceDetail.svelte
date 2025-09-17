@@ -48,7 +48,7 @@
 
 		{#if performance.handheld}
 			{@const handheld = performance.handheld}
-			<div class="mode-section perf-mode-separator">
+			<div class="mode-section ">
 				<h3 class="perf-mode-title">Handheld</h3>
 				<div class="perf-grid">
 					{#if hasResolutionData(handheld)}
@@ -79,7 +79,7 @@
 
 		{#if performance.docked}
 			{@const docked = performance.docked}
-			<div class="mode-section">
+			<div class="mode-section perf-mode-separator">
 				<h3 class="perf-mode-title">Docked</h3>
 				<div class="perf-grid">
 					{#if hasResolutionData(docked)}
