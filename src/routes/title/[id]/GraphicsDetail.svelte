@@ -59,50 +59,6 @@
 		<p class="notice-card">No graphics settings have been submitted for this title yet</p>
 	{:else}
 		<div class="card">
-			<!-- Docked -->
-			<div class="setting-section">
-				<h3 class="setting-section-title">Docked</h3>
-				<div class="fields-grid">
-					{#if dockedSettings.resolution}
-						<div class="field">
-							<span class="field-key">Resolution</span>
-							<span class="field-value">{formatResolution(dockedSettings.resolution)}</span>
-							{#if dockedSettings.resolution.notes}<span class="field-note">{dockedSettings.resolution.notes}</span>{/if}
-						</div>
-					{/if}
-					{#if dockedSettings.framerate}
-						<div class="field">
-							<span class="field-key">Framerate</span>
-							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>
-							{#if dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
-								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
-							{/if}
-							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
-							{#if dockedSettings.framerate.additionalLocks?.length > 0}
-								<div class="additional-notes">
-									<span class="field-note-extra">Additional FPS Locks:</span>
-									<ul>
-										{#each dockedSettings.framerate.additionalLocks as lock}
-											<li>
-												{formatFramerate(lock)}
-												{#if lock.notes}<span class="field-note-nested">{lock.notes}</span>{/if}
-											</li>
-										{/each}
-									</ul>
-								</div>
-							{/if}
-						</div>
-					{/if}
-					{#each Object.entries(dockedSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
-						<div class="field">
-							<span class="field-key">{key}</span>
-							<span class="field-value">{fieldData.value}</span>
-							{#if fieldData.notes}<span class="field-note">{fieldData.notes}</span>{/if}
-						</div>
-					{/each}
-				</div>
-			</div>
-
 			<!-- Handheld -->
 			<div class="setting-section">
 				<h3 class="setting-section-title">Handheld</h3>
@@ -138,6 +94,49 @@
 						</div>
 					{/if}
 					{#each Object.entries(handheldSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
+						<div class="field">
+							<span class="field-key">{key}</span>
+							<span class="field-value">{fieldData.value}</span>
+							{#if fieldData.notes}<span class="field-note">{fieldData.notes}</span>{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+			<!-- Docked -->
+			<div class="setting-section">
+				<h3 class="setting-section-title">Docked</h3>
+				<div class="fields-grid">
+					{#if dockedSettings.resolution}
+						<div class="field">
+							<span class="field-key">Resolution</span>
+							<span class="field-value">{formatResolution(dockedSettings.resolution)}</span>
+							{#if dockedSettings.resolution.notes}<span class="field-note">{dockedSettings.resolution.notes}</span>{/if}
+						</div>
+					{/if}
+					{#if dockedSettings.framerate}
+						<div class="field">
+							<span class="field-key">Framerate</span>
+							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>
+							{#if dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
+								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
+							{/if}
+							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
+							{#if dockedSettings.framerate.additionalLocks?.length > 0}
+								<div class="additional-notes">
+									<span class="field-note-extra">Additional FPS Lock:</span>
+									<ul>
+										{#each dockedSettings.framerate.additionalLocks as lock}
+											<li>
+												{formatFramerate(lock)}
+												{#if lock.notes}<span class="field-note-nested">{lock.notes}</span>{/if}
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+						</div>
+					{/if}
+					{#each Object.entries(dockedSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
 						<div class="field">
 							<span class="field-key">{key}</span>
 							<span class="field-value">{fieldData.value}</span>

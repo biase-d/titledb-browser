@@ -45,36 +45,6 @@
 	</div>
 {:else}
 	<div class="perf-card">
-		{#if performance.docked}
-			{@const docked = performance.docked}
-			<div class="mode-section">
-				<h3 class="perf-mode-title">Docked</h3>
-				<div class="perf-grid">
-					{#if hasResolutionData(docked)}
-						<div class="perf-item">
-							<p class="label">Resolution</p>
-							<p class="value">{formatResolution(docked)}</p>
-							{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
-						</div>
-					{/if}
-					{#if docked.fps_behavior}
-						<div class="perf-item">
-							<p class="label">Framerate</p>
-							<div class="value-with-tooltip">
-								<p class="value">{formatFramerate(docked)}</p>
-								{#if docked.fps_behavior && fpsBehaviorDefinitions[docked.fps_behavior]}
-									<div class="tooltip">
-										<Icon icon="mdi:help-circle-outline" />
-										<span class="tooltip-text">{fpsBehaviorDefinitions[docked.fps_behavior]}</span>
-									</div>
-								{/if}
-							</div>
-							{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
-						</div>
-					{/if}
-				</div>
-			</div>
-		{/if}
 
 		{#if performance.handheld}
 			{@const handheld = performance.handheld}
@@ -106,6 +76,38 @@
 				</div>
 			</div>
 		{/if}
+
+		{#if performance.docked}
+			{@const docked = performance.docked}
+			<div class="mode-section">
+				<h3 class="perf-mode-title">Docked</h3>
+				<div class="perf-grid">
+					{#if hasResolutionData(docked)}
+						<div class="perf-item">
+							<p class="label">Resolution</p>
+							<p class="value">{formatResolution(docked)}</p>
+							{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
+						</div>
+					{/if}
+					{#if docked.fps_behavior}
+						<div class="perf-item">
+							<p class="label">Framerate</p>
+							<div class="value-with-tooltip">
+								<p class="value">{formatFramerate(docked)}</p>
+								{#if docked.fps_behavior && fpsBehaviorDefinitions[docked.fps_behavior]}
+									<div class="tooltip">
+										<Icon icon="mdi:help-circle-outline" />
+										<span class="tooltip-text">{fpsBehaviorDefinitions[docked.fps_behavior]}</span>
+									</div>
+								{/if}
+							</div>
+							{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
 	</div>
 {/if}
 
