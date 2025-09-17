@@ -1,4 +1,13 @@
 <script>
+	import Icon from '@iconify/svelte';
+
+	const fpsBehaviorDefinitions = {
+		Locked: '99.9-100% of time at target FPS.',
+		Stable: '99-99.9% of time at target FPS.',
+		Unstable: '90-99% of time at target FPS.',
+		'Very Unstable': 'Below 90% of time at target FPS.'
+	};
+
 	/**
 	 * @param {any} modeData
 	 */
@@ -51,7 +60,15 @@
 					{#if docked.fps_behavior}
 						<div class="perf-item">
 							<p class="label">Framerate</p>
-							<p class="value">{formatFramerate(docked)}</p>
+							<div class="value-with-tooltip">
+								<p class="value">{formatFramerate(docked)}</p>
+								{#if docked.fps_behavior && fpsBehaviorDefinitions[docked.fps_behavior]}
+									<div class="tooltip">
+										<Icon icon="mdi:help-circle-outline" />
+										<span class="tooltip-text">{fpsBehaviorDefinitions[docked.fps_behavior]}</span>
+									</div>
+								{/if}
+							</div>
 							{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
 						</div>
 					{/if}
@@ -74,7 +91,15 @@
 					{#if handheld.fps_behavior}
 						<div class="perf-item">
 							<p class="label">Framerate</p>
-							<p class="value">{formatFramerate(handheld)}</p>
+							<div class="value-with-tooltip">
+								<p class="value">{formatFramerate(handheld)}</p>
+								{#if handheld.fps_behavior && fpsBehaviorDefinitions[handheld.fps_behavior]}
+									<div class="tooltip">
+										<Icon icon="mdi:help-circle-outline" />
+										<span class="tooltip-text">{fpsBehaviorDefinitions[handheld.fps_behavior]}</span>
+									</div>
+								{/if}
+							</div>
 							{#if handheld.fps_notes}<p class="subtext">{handheld.fps_notes}</p>{/if}
 						</div>
 					{/if}
@@ -149,5 +174,45 @@
 	}
 	.notice-card p {
 		margin: 0;
+	}
+
+	.value-with-tooltip {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.tooltip {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		color: var(--text-secondary);
+		cursor: help;
+	}
+
+	.tooltip .tooltip-text {
+		visibility: hidden;
+		width: 220px;
+		background-color: #333;
+		color: #fff;
+		text-align: center;
+		border-radius: 6px;
+		padding: 8px;
+		position: absolute;
+		z-index: 10;
+		bottom: 125%;
+		left: 50%;
+		margin-left: -110px;
+		opacity: 0;
+		transition: opacity 0.3s;
+		font-size: 0.85rem;
+		font-weight: 400;
+		line-height: 1.4;
+		pointer-events: none;
+	}
+
+	.tooltip:hover .tooltip-text {
+		visibility: visible;
+		opacity: 1;
 	}
 </style>
