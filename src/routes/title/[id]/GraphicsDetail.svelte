@@ -80,7 +80,7 @@
 							{#if handheldSettings.framerate.notes}<span class="field-note">{handheldSettings.framerate.notes}</span>{/if}
 							{#if handheldSettings.framerate.additionalLocks?.length > 0}
 								<div class="additional-notes">
-									<span class="field-note-extra">Additional In-game FPS Modes:</span>
+									<span class="field-note-extra">Additional FPS Lock:</span>
 									<ul>
 										{#each handheldSettings.framerate.additionalLocks as lock}
 											<li>
