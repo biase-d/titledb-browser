@@ -43,6 +43,7 @@
 		loading="lazy"
 		width="200"
 		height="200"
+		sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
 	/>
 
 	<div class="card-info">
@@ -55,13 +56,13 @@
 			{#if docked.target_fps}
 				<span title={`Docked: ${docked.target_fps} FPS`}>
 					<Icon icon="mdi:television" />
-					{docked.target_fps}
+					{docked.target_fps === 'Unlocked' ? '60~' : docked.target_fps}
 				</span>
 			{/if}
 			{#if handheld.target_fps}
 				<span title={`Handheld: ${handheld.target_fps} FPS`}>
 					<Icon icon="mdi:nintendo-switch" />
-					{handheld.target_fps}
+					{handheld.target_fps === 'Unlocked' ? '60~' : handheld.target_fps}
 				</span>
 			{/if}
 		</div>
@@ -130,7 +131,7 @@
 	.card-perf-badge {
 		position: absolute;
 		top: 8px;
-		right: 8px;
+		left: 8px;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;

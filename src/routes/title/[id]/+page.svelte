@@ -196,7 +196,7 @@
 					class="banner-image"
 					role="presentation"
 					loading="lazy"
-					sizes="(max-width: 900px) 100vw, 900px"
+					sizes="(max-width: 1400px) 100vw, 1400px"
 				/>
 			{/if}
 			<div class="banner-overlay"></div>
@@ -209,7 +209,7 @@
 							alt="{name} icon"
 							class="game-icon"
 							loading="lazy"
-							sizes="150px"
+							sizes="120px"
 						/>
 					{:else}
 						<div class="game-icon-placeholder"></div>

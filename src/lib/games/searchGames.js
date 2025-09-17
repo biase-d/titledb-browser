@@ -86,19 +86,19 @@ if (q) {
 					jsonb_build_object(
 						'docked', jsonb_build_object(
 							'target_fps',
-							CASE
-								WHEN ${latestProfileSubquery.profiles}->'docked'->>'target_fps' IS NOT NULL
-								THEN ${latestProfileSubquery.profiles}->'docked'->>'target_fps'
-								ELSE ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'
-							END
+							COALESCE(
+								(${latestProfileSubquery.profiles}->'handheld'->>'target_fps'),
+									 (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+									 (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+							)
 						),
 						'handheld', jsonb_build_object(
 							'target_fps',
-							CASE
-								WHEN ${latestProfileSubquery.profiles}->'handheld'->>'target_fps' IS NOT NULL
-								THEN ${latestProfileSubquery.profiles}->'handheld'->>'target_fps'
-								ELSE ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'
-							END
+							COALESCE(
+								(${latestProfileSubquery.profiles}->'handheld'->>'target_fps'),
+									 (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+									 (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+							)
 						)
 					)
 				`
