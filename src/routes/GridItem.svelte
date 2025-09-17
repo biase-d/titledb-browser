@@ -1,6 +1,7 @@
 <script>
 	import Icon from '@iconify/svelte';
 	import { slide } from 'svelte/transition';
+	import { createImageSet } from '$lib/image';
 
 	let { titleData } = $props();
 
@@ -13,6 +14,8 @@
 	} = titleData;
 
 	const { docked = {}, handheld = {} } = performance;
+
+	const imageSet = $derived(createImageSet(iconUrl));
 
 	const titleName = $derived(names[0] || 'Unknown Title');
 	const performanceInfo = $derived(
@@ -38,12 +41,13 @@
 >
 	<img
 		class="card-icon"
-		src={iconUrl}
+		src={imageSet?.src || iconUrl}
+		srcset={imageSet?.srcset}
+		sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
 		alt={`Game icon for ${titleName}`}
 		loading="lazy"
 		width="200"
 		height="200"
-		sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
 	/>
 
 	<div class="card-info">
