@@ -47,10 +47,14 @@ function formatGraphics(modeData) {
 	}
 
 	let fpsText = 'N/A';
-	if (modeData.framerate && modeData.framerate.targetFps) {
-		fpsText = `${modeData.framerate.targetFps} FPS`;
+	if (modeData.framerate && modeData.framerate.lockType !== 'Unlocked') {
+		if (modeData.framerate.targetFps) {
+			fpsText = `${modeData.framerate.targetFps} FPS`
+		}
+	} else {
+		fpsText = 'Unlocked FPS'
 	}
-	
+
 	if (resText === 'N/A' && fpsText === 'N/A') return 'N/A';
 	return `${resText} / ${fpsText}`;
 }
