@@ -169,7 +169,7 @@ if (q) {
 				sql`(${latestProfilesForRecents.groupId} IS NOT NULL AND ${latestProfilesForRecents.profiles}::text != '{}')`
 			))
 			.orderBy(desc(gameGroups.lastUpdated))
-			.limit(10);
+			.limit(12);
 
 		const groupIds = recentGroups.map(row => row.groupId).filter(Boolean);
 

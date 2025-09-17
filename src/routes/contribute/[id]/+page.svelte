@@ -501,6 +501,7 @@
 												<option value="Unlocked">Unlocked</option>
 												<option value="API">API</option>
 												<option value="Custom">Custom</option>
+												<option value="Unknown">Unknown</option>
 											</select>
 										</div>
 										{#if graphicsData.handheld.framerate.lockType !== 'Unlocked'}
@@ -523,6 +524,7 @@
 														<option value="API">API Lock</option>
 														<option value="Custom">Custom Lock</option>
 														<option value="Unlocked">Unlocked</option>
+														<option value="Unknown">Unknown</option>
 													</select>
 													<input type="number" placeholder="Target FPS" bind:value={lock.targetFps} disabled={lock.lockType === 'Unlocked'} aria-label="Additional target FPS" />
 													<button type="button" class="remove-btn" onclick={() => removeAdditionalLock('handheld', index)}>
@@ -610,6 +612,7 @@
 												<option value="Unlocked">Unlocked</option>
 												<option value="API">API</option>
 												<option value="Custom">Custom</option>
+												<option value="Unknown">Unknown</option>
 											</select>
 										</div>
 										{#if graphicsData.docked.framerate.lockType !== 'Unlocked'}
@@ -632,6 +635,7 @@
 														<option value="API">API Lock</option>
 														<option value="Custom">Custom Lock</option>
 														<option value="Unlocked">Unlocked</option>
+														<option value="Unknown">Unknown</option>
 													</select>
 													<input type="number" placeholder="Target FPS" bind:value={lock.targetFps} disabled={lock.lockType === 'Unlocked'} aria-label="Additional target FPS" />
 													<button type="button" class="remove-btn" onclick={() => removeAdditionalLock('docked', index)}>
