@@ -80,7 +80,7 @@
 							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
 							{#if dockedSettings.framerate.additionalLocks?.length > 0}
 								<div class="additional-notes">
-									<span class="field-note-extra">Additional In-game FPS Modes:</span>
+									<span class="field-note-extra">Additional FPS Locks:</span>
 									<ul>
 										{#each dockedSettings.framerate.additionalLocks as lock}
 											<li>
