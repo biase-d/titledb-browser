@@ -196,7 +196,7 @@
 					class="banner-image"
 					role="presentation"
 					loading="lazy"
-					sizes="(max-width: 1400px) 100vw, 1400px"
+					sizes="(max-width: 1200px) 100vw, 1200px"
 				/>
 			{/if}
 			<div class="banner-overlay"></div>

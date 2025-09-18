@@ -1,6 +1,6 @@
 import { dev } from '$app/environment';
 
-const widths = [80, 150, 250, 400, 800, 1200, 1600, 2400];
+const widths = [80, 150, 250, 400, 800, 1200];
 
 /**
  * Creates a src and srcset for a Vercel-optimized image
