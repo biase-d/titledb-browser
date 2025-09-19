@@ -10,7 +10,6 @@
 
 	let { data, form } = $props();
 
-	const fpsOptions = [30, 40, 60];
 	const { id, name, allTitlesInGroup, existingPerformance, existingGraphics, existingYoutubeLinks, shas } = $derived(data);
 
 	let performanceProfiles = $state([]);
@@ -29,7 +28,7 @@
 	let groupingDebounceTimer;
 	
 	function sanitizeGraphics(g = {}) {
-		const framerateDefaults = { additionalLocks: [] };
+		const framerateDefaults = { additionalLocks: [], apiBuffering: 'Unknown' };
 		const resolutionDefaults = { notes: '', multipleResolutions: [''] };
 		const defaults = { resolution: resolutionDefaults, framerate: {}, custom: {} };
 
@@ -441,6 +440,7 @@
 					<section class="form-section">
 						<div class="form-card">
 							<div class="mode-container">
+								<!-- Handheld Graphics Form -->
 								<fieldset>
 									<legend>Handheld Mode</legend>
 									<h4 class="sub-legend">Resolution</h4>
@@ -504,6 +504,16 @@
 												<option value="Unknown">Unknown</option>
 											</select>
 										</div>
+										<div class="form-group">
+											<label for="api_buffering">Buffering Type</label>
+											<select id="api_buffering" bind:value={graphicsData.handheld.framerate.apiBuffering}>
+												<option value="Unknown">Unknown</option>
+												<option value="Double">Double buffer</option>
+												<option value="Double (Reversed)">Double buffer (Reversed)</option>
+												<option value="Triple">Triple buffer</option>
+												<option value="Quadruple">Quadruple buffer</option>
+											</select>
+										</div>
 										{#if graphicsData.handheld.framerate.lockType !== 'Unlocked'}
 										<div class="form-group">
 											<label>Default Target FPS</label>
@@ -552,7 +562,8 @@
 									{/each}
 									<button type="button" class="add-btn" onclick={() => addGraphicsField('handheld', 'custom')}><Icon icon="mdi:plus" /> Add Custom Setting</button>
 								</fieldset>
-																<fieldset class="docked">
+								<!-- Docked Mode Graphics Form -->
+								<fieldset class="docked">
 									<legend>Docked Mode</legend>
 									<h4 class="sub-legend">Resolution</h4>
 									<div class="form-grid">
@@ -613,6 +624,16 @@
 												<option value="API">API</option>
 												<option value="Custom">Custom</option>
 												<option value="Unknown">Unknown</option>
+											</select>
+										</div>
+										<div class="form-group">
+											<label for="api_buffering">Buffering Type</label>
+											<select id="api_buffering" bind:value={graphicsData.docked.framerate.apiBuffering}>
+												<option value="Unknown">Unknown</option>
+												<option value="Double">Double buffer</option>
+												<option value="Double (Reversed)">Double buffer (Reversed)</option>
+												<option value="Triple">Triple buffer</option>
+												<option value="Quadruple">Quadruple buffer</option>
 											</select>
 										</div>
 										{#if graphicsData.docked.framerate.lockType !== 'Unlocked'}
@@ -816,7 +837,11 @@
 										<div class="perf-item"><p class="label">Resolution</p><p class="value">{formatGfxResolution(graphicsData.docked.resolution)}</p></div>
 									{/if}
 									{#if graphicsData.docked.framerate}
-										<div class="perf-item"><p class="label">Framerate</p><p class="value">{formatGfxFramerate(graphicsData.docked.framerate)}</p></div>
+										<div class="perf-item">
+											<p class="label">Framerate</p>
+											<p class="value">{formatGfxFramerate(graphicsData.docked.framerate)}</p>
+											<p class="label">{graphicsData.docked.framerate.apiBuffering} Buffer</p>
+										</div>
 									{/if}
 									{#each Object.entries(graphicsData.docked.custom || {}) as [key, data]}
 										<div class="perf-item"><p class="label">{key}</p><p class="value">{data.value}</p></div>

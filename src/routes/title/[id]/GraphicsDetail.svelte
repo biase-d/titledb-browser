@@ -63,6 +63,7 @@
 			<div class="setting-section">
 				<h3 class="setting-section-title">Handheld</h3>
 				<div class="fields-grid">
+
 					{#if handheldSettings.resolution}
 						<div class="field">
 							<span class="field-key">Resolution</span>
@@ -70,14 +71,12 @@
 							{#if handheldSettings.resolution.notes}<span class="field-note">{handheldSettings.resolution.notes}</span>{/if}
 						</div>
 					{/if}
+
 					{#if handheldSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
 							<span class="field-value">{formatFramerate(handheldSettings.framerate)}</span>
-							{#if handheldSettings.framerate.apiBuffering && handheldSettings.framerate.apiBuffering !== 'Unknown'}
-								<span class="field-note">{formatBuffering(handheldSettings.framerate.apiBuffering)}</span>
-							{/if}
-							{#if handheldSettings.framerate.notes}<span class="field-note">{handheldSettings.framerate.notes}</span>{/if}
+
 							{#if handheldSettings.framerate.additionalLocks?.length > 0}
 								<div class="additional-notes">
 									<span class="field-note-extra">Additional FPS Lock:</span>
@@ -91,8 +90,19 @@
 									</ul>
 								</div>
 							{/if}
+
+							{#if handheldSettings.framerate.apiBuffering !== 'Unknown'}
+								<span class="field-note">{formatBuffering(handheldSettings.framerate.apiBuffering)}</span>
+							{/if}
+
+							{#if handheldSettings.framerate.notes}
+								<span class="field-note">{handheldSettings.framerate.notes}</span>
+							{/if}
+
 						</div>
+						
 					{/if}
+					
 					{#each Object.entries(handheldSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
 						<div class="field">
 							<span class="field-key">{key}</span>
@@ -106,6 +116,7 @@
 			<div class="setting-section">
 				<h3 class="setting-section-title">Docked</h3>
 				<div class="fields-grid">
+
 					{#if dockedSettings.resolution}
 						<div class="field">
 							<span class="field-key">Resolution</span>
@@ -113,14 +124,12 @@
 							{#if dockedSettings.resolution.notes}<span class="field-note">{dockedSettings.resolution.notes}</span>{/if}
 						</div>
 					{/if}
+
 					{#if dockedSettings.framerate}
 						<div class="field">
 							<span class="field-key">Framerate</span>
 							<span class="field-value">{formatFramerate(dockedSettings.framerate)}</span>
-							{#if dockedSettings.framerate.apiBuffering && dockedSettings.framerate.apiBuffering !== 'Unknown'}
-								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
-							{/if}
-							{#if dockedSettings.framerate.notes}<span class="field-note">{dockedSettings.framerate.notes}</span>{/if}
+
 							{#if dockedSettings.framerate.additionalLocks?.length > 0}
 								<div class="additional-notes">
 									<span class="field-note-extra">Additional FPS Lock:</span>
@@ -134,8 +143,19 @@
 									</ul>
 								</div>
 							{/if}
+
+							{#if dockedSettings.framerate.apiBuffering !== 'Unknown'}
+								<span class="field-note">{formatBuffering(dockedSettings.framerate.apiBuffering)}</span>
+							{/if}
+							
+							{#if dockedSettings.framerate.notes}
+								<span class="field-note">{dockedSettings.framerate.notes}</span>
+							{/if}
+
 						</div>
+
 					{/if}
+
 					{#each Object.entries(dockedSettings.custom || {}).filter(([key, data]) => key && data.value) as [key, fieldData]}
 						<div class="field">
 							<span class="field-key">{key}</span>
