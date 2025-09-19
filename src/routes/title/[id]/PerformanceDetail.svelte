@@ -5,7 +5,7 @@
 		Locked: '99.9-100% of time at target FPS.',
 		Stable: '99-99.9% of time at target FPS.',
 		Unstable: '90-99% of time at target FPS.',
-		'Very Unstable': 'Below 90% of time at target FPS.'
+		'Very Unstable': '0-90% of time at target FPS.'
 	};
 
 	/**

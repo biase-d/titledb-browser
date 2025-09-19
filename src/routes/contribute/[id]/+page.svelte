@@ -351,10 +351,10 @@
 													<div class="tooltip">
 														<Icon icon="mdi:help-circle-outline" />
 														<span class="tooltip-text">
-															<strong>Locked:</strong> 99.9-100% of time at target.<br>
-															<strong>Stable:</strong> 99-99.9% of time.<br>
-															<strong>Unstable:</strong> 90-99% of time.<br>
-															<strong>Very Unstable:</strong> Below 90% of time.
+															<strong>Locked:</strong> 99.9-100% of time at target<br>
+															<strong>Stable:</strong> 99-99.9% of time at target<br>
+															<strong>Unstable:</strong> 90-99% of time at target<br>
+															<strong>Very Unstable:</strong> 0-90% of time at target
 														</span>
 													</div>
 												</label>
