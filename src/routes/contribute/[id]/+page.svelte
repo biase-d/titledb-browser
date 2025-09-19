@@ -855,7 +855,11 @@
 										<div class="perf-item"><p class="label">Resolution</p><p class="value">{formatGfxResolution(graphicsData.handheld.resolution)}</p></div>
 									{/if}
 									{#if graphicsData.handheld.framerate}
-										<div class="perf-item"><p class="label">Framerate</p><p class="value">{formatGfxFramerate(graphicsData.handheld.framerate)}</p></div>
+										<div class="perf-item">
+											<p class="label">Framerate</p>
+											<p class="value">{formatGfxFramerate(graphicsData.handheld.framerate)}</p>
+											<p class="label">{graphicsData.handheld.framerate.apiBuffering} Buffer</p>
+										</div>
 									{/if}
 									{#each Object.entries(graphicsData.handheld.custom || {}) as [key, data]}
 										<div class="perf-item"><p class="label">{key}</p><p class="value">{data.value}</p></div>
