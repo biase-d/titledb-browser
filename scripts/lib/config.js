@@ -15,32 +15,25 @@ export const DATA_SOURCES = {
       const parts = [groupId, gameVersion, suffix || ''];
       return { key, parts };
     },
-    getKeyFromRecord: (r) => (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
-    buildRecord: (keyParts, content, metadata, lastUpdated) => {
-      if (content && Array.isArray(content.contributor)) {
-        const { contributor, ...profiles } = content;
-        return {
-          groupId: keyParts[0],
-          gameVersion: keyParts[1],
-          suffix: keyParts[2],
-          profiles,
-          contributor: contributor || [],
-          sourcePrUrl: metadata.sourcePrUrl,
-          lastUpdated
-        };
-      } else {
-        return {
-          groupId: keyParts[0],
-          gameVersion: keyParts[1],
-          suffix: keyParts[2],
-          profiles: content,
-          contributor: metadata.contributors || [],
-          sourcePrUrl: metadata.sourcePrUrl,
-          lastUpdated
-        };
-      }
-    },
-    upsert: (db, record) => db.insert(performanceProfiles).values(record).onConflictDoUpdate({
+     getKeyFromRecord: (r) => (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
+     buildRecord: (keyParts, content, metadata, lastUpdated) => {
+       const localContent = content || {};
+       const { contributor, ...profiles } = localContent;
+       const fileContributors = contributor ? (Array.isArray(contributor) ? contributor : [contributor]) : [];
+       const gitContributors = metadata.contributors || [];
+       const allContributors = [...new Set([...fileContributors, ...gitContributors])];
+
+       return {
+         groupId: keyParts[0],
+         gameVersion: keyParts[1],
+         suffix: keyParts[2] || null,
+         profiles,
+         contributor: allContributors,
+         sourcePrUrl: metadata.sourcePrUrl,
+         lastUpdated
+       };
+     },
+     upsert: (db, record) => db.insert(performanceProfiles).values(record).onConflictDoUpdate({
       target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
       set: {
         profiles: sql`excluded.profiles`,
@@ -50,23 +43,27 @@ export const DATA_SOURCES = {
       }
     })
   },
-  graphics: {
-    table: graphicsSettings,
-     path: 'graphics',
-     isHierarchical: false,
-     getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
-     getKeyFromRecord: (r) => r.groupId,
-     buildRecord: (keyParts, content, metadata, lastUpdated) => {
-       const { contributor, ...settings } = content;
-       return {
-         groupId: keyParts[0],
-         settings,
-         contributor: contributor || [],
-         lastUpdated
-       };
-     },
-     upsert: (db, record) => db.insert(graphicsSettings).values(record).onConflictDoUpdate({
-       target: graphicsSettings.groupId,
+   graphics: {
+     table: graphicsSettings,
+      path: 'graphics',
+      isHierarchical: false,
+      getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
+      getKeyFromRecord: (r) => r.groupId,
+      buildRecord: (keyParts, content, metadata, lastUpdated) => {
+        const { contributor, ...settings } = content;
+        const fileContributors = contributor ? (Array.isArray(contributor) ? contributor : [contributor]) : [];
+        const gitContributors = metadata.contributors || [];
+        const allContributors = [...new Set([...fileContributors, ...gitContributors])];
+
+        return {
+          groupId: keyParts[0],
+          settings,
+          contributor: allContributors,
+          lastUpdated
+        };
+      },
+      upsert: (db, record) => db.insert(graphicsSettings).values(record).onConflictDoUpdate({
+        target: graphicsSettings.groupId,
       set: {
         settings: sql`excluded.settings`,
         contributor: sql`excluded.contributor`,
