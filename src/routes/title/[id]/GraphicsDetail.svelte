@@ -10,7 +10,7 @@
  		if (!resData) return 'N/A';
  		switch (resData.resolutionType) {
  			case 'Fixed':
- 				return `${resData.fixedResolution ? 'Fixed at' + resData.fixedResolution : 'Fixed'}`;	
+ 				return `${resData.fixedResolution ? 'Fixed at' + ' ' + resData.fixedResolution : 'Fixed'}`;	
  			case 'Dynamic':
  				const min = resData.minResolution || '?';
  				const max = resData.maxResolution || '?';
