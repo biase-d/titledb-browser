@@ -39,13 +39,13 @@
 			{#if docked.target_fps}
 				<span class="perf-tag" title={`Docked: ${docked.target_fps} FPS`}>
 					<Icon icon="mdi:television" />
-					{docked.target_fps} FPS
+					{docked.target_fps === 'Unlocked' ? '60' : docked.target_fps} FPS
 				</span>
 			{/if}
 			{#if handheld.target_fps}
 				<span class="perf-tag" title={`Handheld: ${handheld.target_fps} FPS`}>
 					<Icon icon="mdi:nintendo-switch" />
-					{handheld.target_fps} FPS
+					{handheld.target_fps === 'Unlocked' ? '60' : handheld.target_fps} FPS
 				</span>
 			{/if}
 		</div>
