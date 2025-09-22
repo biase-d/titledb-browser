@@ -9,8 +9,9 @@
  	function formatResolution(resData) {
  		if (!resData) return 'N/A';
  		switch (resData.resolutionType) {
- 			case 'Fixed':
- 				return `${resData.fixedResolution ? 'Fixed at' + ' ' + resData.fixedResolution : 'Fixed'}`;	
+			case 'Fixed':
+				let { fixedRes } = resData;
+				return fixedRes ? `Fixed at ${fixedRes}` : 'N/A'
  			case 'Dynamic':
  				const min = resData.minResolution || '?';
  				const max = resData.maxResolution || '?';

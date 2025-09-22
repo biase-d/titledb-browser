@@ -18,7 +18,8 @@
 		if (!modeData) return 'N/A';
 		switch (modeData.resolution_type) {
 			case 'Fixed':
-				return `Fixed at ${modeData.resolution || 'N/A'}`;
+				let { resolution } = modeData;
+				return resolution ? `Fixed at ${resolution}` : 'N/A';
 			case 'Dynamic':
 				if (!modeData.min_res && !modeData.max_res) return 'Dynamic';
 				const min = modeData.min_res || '?';
