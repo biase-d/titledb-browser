@@ -1,27 +1,24 @@
 <script>
 	import { fade } from 'svelte/transition';
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
+
 	import Icon from '@iconify/svelte';
+
 	import { favorites } from '$lib/stores';
 	import { createImageSet } from '$lib/image';
+
 	import GraphicsDetail from './GraphicsDetail.svelte';
 	import YoutubeEmbeds from './YoutubeEmbeds.svelte';
 	import PerformanceDetail from './PerformanceDetail.svelte';
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte';
-	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 
-	let { data } = $props();
+	const { data } = $props();
 
+	let url = $derived(data.url)
 	let showComparisonModal = $state(false);
+
 	let isCopied = $state(false);
-	let isDetailsCollapsed = $state(true);
-
-	onMount(() => {
-		if (browser && window.innerWidth >= 1024) {
-			isDetailsCollapsed = false;
-		}
-	});
-
 	async function handleCopy() {
 		if (isCopied) return;
 		try {
@@ -35,12 +32,19 @@
 		}
 	}
 
-	let game = $derived(data.game);
-	let session = $derived(data.session);
-	let url = $derived(data.url)
-	let allTitlesInGroup = $derived(data.allTitlesInGroup || []);
-	let youtubeLinks = $derived(data.youtubeLinks || []);
-	let youtubeContributors = $derived.by(() => {
+	let isDetailsCollapsed = $state(true);
+	onMount(() => {
+		if (browser && window.innerWidth >= 1024) {
+			isDetailsCollapsed = false;
+		}
+	});
+
+
+	const game = data.game;
+	const session = data.session;	
+	const allTitlesInGroup = game.allTitlesInGroup;
+	const youtubeLinks = game.youtubeLinks || [];
+	const youtubeContributors = $derived.by(() => {
 		const contributors = new Set();
 		youtubeLinks.forEach(link => {
 			if (link.submittedBy) contributors.add(link.submittedBy);
@@ -49,7 +53,7 @@
 	});
 
 	let selectedVersionIndex = $state(0);
-	let performanceHistory = $derived(game.performanceHistory || []);
+	const performanceHistory = game.performanceHistory || [];
 	let performance = $derived(performanceHistory[selectedVersionIndex]);
 
 	function hasPerformanceData(modeData) {
@@ -63,7 +67,7 @@
 		return hasResolution || hasFps;
 	}
 
-	let currentProfileHasData = $derived(
+	const currentProfileHasData = $derived(
 		performance?.profiles && (hasPerformanceData(performance.profiles.docked) || hasPerformanceData(performance.profiles.handheld))
 	);
 
@@ -104,22 +108,16 @@
 		return false;
 	}
 
-	let gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics?.settings));
+	const gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics?.settings));
 
-	let allContributors = $derived.by(() => {
-		const contributors = new Set();
-		if (performance?.contributor) performance.contributor.forEach(c => contributors.add(c));
-		if (game.graphics?.contributor) game.graphics.contributor.forEach(c => contributors.add(c));
-		youtubeContributors.forEach(c => contributors.add(c));
-		return [...contributors];
-	});
+	const allContributors = game.allContributors
 
-	let isSingleContributor = $derived(allContributors.length === 1);
-	let singleContributorName = $derived(isSingleContributor ? allContributors[0] : null);
+	const isSingleContributor = allContributors.length === 1;
+	const singleContributorName = isSingleContributor ? allContributors[0] : null;
 
-	let id = $derived(game?.id);
-	let name = $derived(game?.names?.[0] || 'Loading...');
-	let otherTitlesInGroup = $derived(allTitlesInGroup.filter((t) => t.id !== id));
+	const id = $derived(game?.id);
+	const name = $derived(game.name || 'Loading...');
+	const otherTitlesInGroup = $derived(allTitlesInGroup.filter((t) => t.id !== id));
 
 	let isFavorited = $state(false);
 	$effect(() => {
@@ -131,43 +129,9 @@
 	});
 
 	let lightboxImage = $state('');
-	let bannerImages = $derived(createImageSet(game.bannerUrl));
-	let iconImages = $derived(createImageSet(game.iconUrl));
+	const bannerImages = createImageSet(game.bannerUrl);
+	const iconImages = createImageSet(game.iconUrl);
 
-	let isUnreleased = $derived((() => {
-		if (!game.releaseDate) return false;
-		const dateStr = game.releaseDate.toString();
-		const year = parseInt(dateStr.substring(0, 4), 10);
-		const month = parseInt(dateStr.substring(4, 6), 10) - 1;
-		const day = parseInt(dateStr.substring(6, 8), 10);
-		const release = new Date(year, month, day);
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
-		return release > today;
-	})());
-
-	function formatDate(dateInt) {
-		if (!dateInt) return 'N/A';
-		const dateStr = dateInt.toString();
-		const year = dateStr.substring(0, 4);
-		const month = dateStr.substring(4, 6);
-		const day = dateStr.substring(6, 8);
-		return new Date(`${year}-${month}-${day}`).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
-	}
-
-	function formatSize(bytes) {
-		if (!bytes || isNaN(bytes)) return 'N/A';
-		if (bytes === 0) return '0 Bytes';
-		const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-		const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-		const value = bytes / Math.pow(1024, i);
-		const formattedValue = value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
-		return `${formattedValue} ${sizes[i]}`;
-	}
 </script>
 
 <svelte:head>
@@ -244,11 +208,11 @@
 							<div class="details-list">
 								<div class="detail-item">
 									<span class="detail-label">Release Date</span>
-									<span class="detail-value">{formatDate(game.releaseDate)}</span>
+									<span class="detail-value">{game.formattedReleaseDate}</span>
 								</div>
 								<div class="detail-item">
 									<span class="detail-label">File Size</span>
-									<span class="detail-value">{formatSize(game.sizeInBytes)}</span>
+									<span class="detail-value">{game.formattedSize}</span>
 								</div>
 								<div class="detail-item">
 									<span class="detail-label">Title ID</span>
@@ -266,7 +230,7 @@
 					</div>
 				</div>
 
-				{#if isUnreleased}
+				{#if game.isUnreleased}
 					<div class="notice-card unreleased">
 						<Icon icon="mdi:clock-outline" />
 						<span>This game has not been released yet. Any submitted data may be from a demo or pre-release version.</span>
@@ -398,11 +362,11 @@
 							<div class="details-list">
 								<div class="detail-item">
 									<span class="detail-label">Release Date</span>
-									<span class="detail-value">{formatDate(game.releaseDate)}</span>
+									<span class="detail-value">{game.formattedReleaseDate}</span>
 								</div>
 								<div class="detail-item">
 									<span class="detail-label">File Size</span>
-									<span class="detail-value">{formatSize(game.sizeInBytes)}</span>
+									<span class="detail-value">{game.formattedSize}</span>
 								</div>
 								<div class="detail-item">
 									<span class="detail-label">Title ID</span>

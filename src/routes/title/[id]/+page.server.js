@@ -1,6 +1,6 @@
-import { error } from '@sveltejs/kit'
-import { getGameDetails } from '$lib/games/getGameDetails'
-
+import { error } from '@sveltejs/kit';
+import { getGameDetails } from '$lib/games/getGameDetails';
+import { Game } from '$lib/models/Game.js';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent, url }) => {
@@ -13,9 +13,11 @@ export const load = async ({ params, parent, url }) => {
 		error(404, 'Game not found');
 	}
 
+	const game = new Game(details);
+	
 	return {
 		session,
-		...details,
+		game,
 		url: {
 			href: url.href,
 			origin: url.origin,
