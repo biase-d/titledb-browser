@@ -17,7 +17,7 @@
 <style>
     .app-container {
         width: 100%; 
-        max-width: 1400px;
+        max-width: 1100px;
         margin: 0 auto;
     }
 </style>
