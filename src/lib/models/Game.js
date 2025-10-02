@@ -80,7 +80,7 @@ export class Game {
 		const contributors = new Set();
 		if (this.contributor) this.contributor.forEach(c => contributors.add(c));
 		if (this.graphics?.contributor) this.graphics.contributor.forEach(c => contributors.add(c));
-		if (this.youtubeContributors) this.youtubeContributors.forEach(c => contributors.add(c));
+		if (this.youtubeLinks) this.youtubeLinks.forEach(c => contributors.add(c.submittedBy));
 		return [...contributors];
 	}
 
