@@ -26,18 +26,17 @@ export async function searchGames(searchParams) {
 	const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q);
 
 if (q) {
-		if (isTitleIdSearch) {
-			whereClauses.push(eq(games.id, q.toUpperCase()));
-		} else {
-			// For text search, filter by titles that contain ALL of the search words
-			const searchWords = q.split(' ').filter(word => word.length > 0);
-			const allWordsCondition = and(
-					...searchWords.map(word => sql`unaccent(array_to_string(${games.names}, ' ')) ILIKE unaccent(${'%' + word + '%'})`)
-			);
-				whereClauses.push(allWordsCondition);
-			}
-		}
+	if (isTitleIdSearch) {
+		whereClauses.push(eq(games.id, q.toUpperCase()));
+	} else {
+		// For text search, filter by titles that contain ALL of the search words
+		const searchWords = q.split(' ').filter(word => word.length > 0);
+		const allWordsCondition = and(
+				...searchWords.map(word => sql`unaccent(array_to_string(${games.names}, ' ')) ILIKE unaccent(${'%' + word + '%'})`)
+		);
+		whereClauses.push(allWordsCondition);
 	}
+}
 	
 	if (dockedFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'docked'->>'target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps') = ${dockedFps}`);
 	if (handheldFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'handheld'->>'target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps') = ${handheldFps}`);
