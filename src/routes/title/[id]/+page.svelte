@@ -40,10 +40,10 @@
 	});
 
 
-	let game = data.game;
-	let session = data.session;	
-	let allTitlesInGroup = game.allTitlesInGroup;
-	let youtubeLinks = game.youtubeLinks || [];
+	let game = $derived(data.game);
+	let session = $derived(data.session);	
+	let allTitlesInGroup = $derived(game.allTitlesInGroup || []);
+	let youtubeLinks = $derived(game.youtubeLinks || []);
 	let youtubeContributors = $derived.by(() => {
 		const contributors = new Set();
 		youtubeLinks.forEach(link => {
@@ -53,7 +53,7 @@
 	});
 
 	let selectedVersionIndex = $state(0);
-	let performanceHistory = game.performanceHistory || [];
+	let performanceHistory = $derived(game.performanceHistory || []);
 	let performance = $derived(performanceHistory[selectedVersionIndex]);
 
 	function hasPerformanceData(modeData) {
@@ -110,10 +110,10 @@
 
 	let gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics?.settings));
 
-	let allContributors = game.allContributors
+	let allContributors = $derived(game.allContributors);
 
-	let isSingleContributor = allContributors.length === 1;
-	let singleContributorName = isSingleContributor ? allContributors[0] : null;
+	let isSingleContributor = $derived(allContributors.length === 1);
+	let singleContributorName = $derived(isSingleContributor ? allContributors[0] : null);
 
 	let id = $derived(game?.id);
 	let name = $derived(game.name || 'Loading...');
@@ -129,8 +129,10 @@
 	});
 
 	let lightboxImage = $state('');
-	let bannerImages = createImageSet(game.bannerUrl);
-	let iconImages = createImageSet(game.iconUrl);
+	let bannerImages = $derived(createImageSet(game.bannerUrl));
+	let iconImages = $derived(createImageSet(game.iconUrl));
+
+	let isUnreleased = $derived(game.isUnreleased)
 
 </script>
 
@@ -230,7 +232,7 @@
 					</div>
 				</div>
 
-				{#if game.isUnreleased}
+				{#if isUnreleased}
 					<div class="notice-card unreleased">
 						<Icon icon="mdi:clock-outline" />
 						<span>This game has not been released yet. Any submitted data may be from a demo or pre-release version.</span>
