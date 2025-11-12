@@ -13,7 +13,7 @@
 	import PerformanceDetail from './PerformanceDetail.svelte';
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte';
 
-	const { data } = $props();
+	let { data } = $props();
 
 	let url = $derived(data.url)
 	let showComparisonModal = $state(false);
@@ -40,11 +40,11 @@
 	});
 
 
-	const game = data.game;
-	const session = data.session;	
-	const allTitlesInGroup = game.allTitlesInGroup;
-	const youtubeLinks = game.youtubeLinks || [];
-	const youtubeContributors = $derived.by(() => {
+	let game = $derived(data.game);
+	let session = $derived(data.session);	
+	let allTitlesInGroup = $derived(game.allTitlesInGroup || []);
+	let youtubeLinks = $derived(game.youtubeLinks || []);
+	let youtubeContributors = $derived.by(() => {
 		const contributors = new Set();
 		youtubeLinks.forEach(link => {
 			if (link.submittedBy) contributors.add(link.submittedBy);
@@ -53,7 +53,7 @@
 	});
 
 	let selectedVersionIndex = $state(0);
-	const performanceHistory = game.performanceHistory || [];
+	let performanceHistory = $derived(game.performanceHistory || []);
 	let performance = $derived(performanceHistory[selectedVersionIndex]);
 
 	function hasPerformanceData(modeData) {
@@ -67,7 +67,7 @@
 		return hasResolution || hasFps;
 	}
 
-	const currentProfileHasData = $derived(
+	let currentProfileHasData = $derived(
 		performance?.profiles && (hasPerformanceData(performance.profiles.docked) || hasPerformanceData(performance.profiles.handheld))
 	);
 
@@ -108,16 +108,16 @@
 		return false;
 	}
 
-	const gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics?.settings));
+	let gameGraphicsHasData = $derived(hasGraphicsData(game?.graphics?.settings));
 
-	const allContributors = game.allContributors
+	let allContributors = $derived(game.allContributors);
 
-	const isSingleContributor = allContributors.length === 1;
-	const singleContributorName = isSingleContributor ? allContributors[0] : null;
+	let isSingleContributor = $derived(allContributors.length === 1);
+	let singleContributorName = $derived(isSingleContributor ? allContributors[0] : null);
 
-	const id = $derived(game?.id);
-	const name = $derived(game.name || 'Loading...');
-	const otherTitlesInGroup = $derived(allTitlesInGroup.filter((t) => t.id !== id));
+	let id = $derived(game?.id);
+	let name = $derived(game.name || 'Loading...');
+	let otherTitlesInGroup = $derived(allTitlesInGroup.filter((t) => t.id !== id));
 
 	let isFavorited = $state(false);
 	$effect(() => {
@@ -129,8 +129,10 @@
 	});
 
 	let lightboxImage = $state('');
-	const bannerImages = createImageSet(game.bannerUrl);
-	const iconImages = createImageSet(game.iconUrl);
+	let bannerImages = $derived(createImageSet(game.bannerUrl));
+	let iconImages = $derived(createImageSet(game.iconUrl));
+
+	let isUnreleased = $derived(game.isUnreleased)
 
 </script>
 
@@ -230,7 +232,7 @@
 					</div>
 				</div>
 
-				{#if game.isUnreleased}
+				{#if isUnreleased}
 					<div class="notice-card unreleased">
 						<Icon icon="mdi:clock-outline" />
 						<span>This game has not been released yet. Any submitted data may be from a demo or pre-release version.</span>

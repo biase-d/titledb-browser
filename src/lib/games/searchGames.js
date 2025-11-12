@@ -6,6 +6,7 @@ const PAGE_SIZE = 50;
 
 export async function searchGames(searchParams) {
 	await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+	await db.execute(sql`CREATE EXTENSION IF NOT EXISTS unaccent;`);
 
 	const page = parseInt(searchParams.get('page') || '1', 10);
 	const q = searchParams.get('q') || '';
@@ -25,19 +26,17 @@ export async function searchGames(searchParams) {
 	const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q);
 
 if (q) {
-		if (isTitleIdSearch) {
-			whereClauses.push(eq(games.id, q.toUpperCase()));
-		} else {
-			// For text search, filter by titles that contain ALL of the search words
-			const searchWords = q.split(' ').filter(word => word.length > 0);
-			if (searchWords.length > 0) {
-				const allWordsCondition = and(
-					...searchWords.map(word => sql`array_to_string(${games.names}, ' ') ILIKE ${'%' + word + '%'}`)
-				);
-				whereClauses.push(allWordsCondition);
-			}
-		}
+	if (isTitleIdSearch) {
+		whereClauses.push(eq(games.id, q.toUpperCase()));
+	} else {
+		// For text search, filter by titles that contain ALL of the search words
+		const searchWords = q.split(' ').filter(word => word.length > 0);
+		const allWordsCondition = and(
+				...searchWords.map(word => sql`unaccent(array_to_string(${games.names}, ' ')) ILIKE unaccent(${'%' + word + '%'})`)
+		);
+		whereClauses.push(allWordsCondition);
 	}
+}
 	
 	if (dockedFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'docked'->>'target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps') = ${dockedFps}`);
 	if (handheldFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'handheld'->>'target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps') = ${handheldFps}`);
@@ -60,7 +59,7 @@ if (q) {
 			return desc(games.id);
 		}
 		if (q) {
-			return sql`word_similarity(array_to_string(${games.names}, ' '), ${q}) DESC`;
+			return sql`word_similarity(unaccent(array_to_string(${games.names}, ' ')), unaccent(${q})) DESC`;
 		}
 
 		switch (sort) {

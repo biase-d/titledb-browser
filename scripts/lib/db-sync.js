@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { sql, eq } from 'drizzle-orm';
 import { simpleGit } from 'simple-git';
-import { games, gameGroups, performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
+import { games, gameGroups } from '../../src/lib/db/schema.js';
 import { DATA_SOURCES } from './config.js';
 import { discoverDataSources, parseSizeToBytes, getBaseId } from './data-sources.js';
 
@@ -14,7 +14,7 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
   console.log('Starting database synchronization...');
 
   // Discover all data sources, groups, title mappings, and data files
-  const { allGroupIds, customGroupMap, mainGamesList, discoveredFiles } = await discoverDataSources(REPOS);
+  const { allGroupIds, mainGamesList, discoveredFiles } = await discoverDataSources(REPOS);
 
   // Ensure all game group parent rows exist in the database
   if (allGroupIds.size > 0) {
@@ -23,10 +23,10 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
     await db.insert(gameGroups).values(groupsToInsert).onConflictDoNothing();
   }
 
-  // Sync the base game data from titledb_filtered. This must happen before timestamping
-  await syncBaseGameData(db, REPOS, mainGamesList, customGroupMap, metadata);
+  // Sync the base game data from titledb_filtered. This must happen before other data syncs
+  await syncBaseGameData(db, REPOS, mainGamesList, metadata);
 
-  // Sync the performance, graphics, and video data from nx-performance
+  // Sync the performance, graphics, video, and group data from nx-performance
   const affectedGroupIds = new Set();
   const groupLatestUpdate = new Map(); // Tracks the most recent update timestamp for each group
 
@@ -52,39 +52,35 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
 }
 
 /**
- * A generic function to sync a specific data type (performance, graphics, videos)
+ * A generic function to sync a specific data type (performance, graphics, videos, groups)
  */
 async function syncDataType(context) {
   const { db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds, groupLatestUpdate, filesToProcess } = context;
   console.log(`- Syncing ${type}...`);
 
   const dataDir = path.join(REPOS.nx_performance.path, config.path);
-  const dbRecords = await db.select().from(config.table);
+  // For 'groups', there's no primary table to select from, so we provide an empty array
+  const dbRecords = type === 'groups' ? [] : await db.select().from(config.table);
   const localFileKeys = new Set();
+  const recordsToUpsert = []; // Array to hold records for batch processing
 
-  const dbRecordsMap = new Map(dbRecords.map(r => {
-    const key = config.getKeyFromRecord(r);
-    return [key, r];
-  }));
+  const dbRecordsMap = new Map(dbRecords.map(r => [config.getKeyFromRecord(r), r]));
 
-  const processFile = async (groupId, fileName) => {
+  for (const { groupId, fileName } of filesToProcess) {
     const { key: fileKey, parts: keyParts } = config.getKey(groupId, { name: fileName });
     localFileKeys.add(fileKey);
 
     try {
       const lastUpdated = (type === 'performance' ? dateMap.performance?.[fileKey] : dateMap[type]?.[groupId]) || new Date();
-
       const dbRecord = dbRecordsMap.get(fileKey);
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
-      const hasChanged = !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
+      const hasChanged = type === 'groups' || !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
 
-      if (!hasChanged) return;
+      if (!hasChanged) continue;
 
       const filePath = config.isHierarchical ? path.join(dataDir, groupId, fileName) : path.join(dataDir, fileName);
       const content = JSON.parse(await fs.readFile(filePath, 'utf-8'));
-      
-      // For performance profiles, check if it's just an empty placeholder
-      // A placeholder has contributors but no other keys (like 'docked' or 'handheld')
+
       if (type === 'performance') {
         const contentKeys = Object.keys(content);
         const isPlaceholder = contentKeys.length === 1 && contentKeys[0] === 'contributor';
@@ -96,7 +92,7 @@ async function syncDataType(context) {
             groupLatestUpdate.set(groupId, lastUpdated);
           }
         }
-      } else {
+      } else if (type !== 'groups') { // Groups don't affect the group timestamp directly
         const existingDate = groupLatestUpdate.get(groupId);
         if (!existingDate || lastUpdated > existingDate) {
           groupLatestUpdate.set(groupId, lastUpdated);
@@ -108,30 +104,62 @@ async function syncDataType(context) {
       const metadata = (type === 'performance') ? (contributorMap.performance?.[fileKey] || {}) : { contributors: contributorMap[type]?.[fileKey] || [] };
       const recordData = config.buildRecord(keyParts, content, metadata, lastUpdated);
 
-      if (type === 'videos') {
-        await config.upsert(db, recordData, groupId);
+      if (Array.isArray(recordData)) {
+        recordsToUpsert.push(...recordData);
       } else {
-        await config.upsert(db, recordData);
+        recordsToUpsert.push(recordData);
       }
       affectedGroupIds.add(groupId);
     } catch (error) {
       console.error(`[SKIPPING] Failed to process file '${fileName}' for group ${groupId}: ${error.message}`);
     }
-  };
-  
-  const processingPromises = filesToProcess.map(({ groupId, fileName }) => processFile(groupId, fileName));
-  await Promise.all(processingPromises);
-  
+  }
+
+  if (recordsToUpsert.length > 0) {
+    console.log(`Upserting ${recordsToUpsert.length} ${type} record(s)...`);
+    if (type === 'videos') {
+      const recordsByGroup = recordsToUpsert.reduce((acc, record) => {
+        if (!acc[record.groupId]) acc[record.groupId] = [];
+        acc[record.groupId].push(record);
+        return acc;
+      }, {});
+      for (const [groupId, groupRecords] of Object.entries(recordsByGroup)) {
+        await config.upsert(db, groupRecords, groupId);
+      }
+    } else if (type === 'groups') {
+      for (const record of recordsToUpsert) {
+        await config.upsert(db, record);
+      }
+    } else {
+      await config.upsert(db, recordsToUpsert);
+    }
+  }
+
   for (const [key, record] of dbRecordsMap.entries()) {
     if (!localFileKeys.has(key)) {
       console.log(`Deleting ${type} for ${key}`);
       const deleteCondition = (type === 'performance') ? eq(config.table.id, record.id) : eq(config.table.groupId, record.groupId);
       await db.delete(config.table).where(deleteCondition);
-      
+
       const existingDate = groupLatestUpdate.get(record.groupId);
       const now = new Date();
       if (!existingDate || now > existingDate) {
         groupLatestUpdate.set(record.groupId, now);
+      }
+    }
+  }
+
+  if (type === 'groups') {
+    // Get all groupIds that are *not* default from the DB
+    const allCustomGroupIdsInDb = (await db.selectDistinct({ groupId: games.groupId }).from(games).where(sql`${games.groupId} != substring(${games.id}, 1, 13) || '000'`)).map(g => g.groupId);
+
+    for (const customGroupId of allCustomGroupIdsInDb) {
+      if (!localFileKeys.has(customGroupId)) {
+        console.log(`Deleting group for ${customGroupId} (reverting members)...`);
+        // Revert all games in this now-deleted group back to their default group ID
+        await db.update(games)
+          .set({ groupId: sql`substring(${games.id}, 1, 13) || '000'` })
+          .where(eq(games.groupId, customGroupId));
       }
     }
   }
@@ -140,7 +168,7 @@ async function syncDataType(context) {
 /**
  * Syncs the base game information from the titledb_filtered repository
  */
-async function syncBaseGameData(db, REPOS, mainGamesList, customGroupMap, metadata) {
+async function syncBaseGameData(db, REPOS, mainGamesList, metadata) {
   console.log('Syncing base game data...');
   const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid');
   const titledbRepoPath = REPOS.titledb_filtered.path;
@@ -151,10 +179,10 @@ async function syncBaseGameData(db, REPOS, mainGamesList, customGroupMap, metada
     console.log(' -> titledb_filtered has not changed. Skipping game data sync.');
     return;
   }
-  
+
   console.log(' -> Changes detected in titledb_filtered. Syncing all game records.');
   metadata.titledbFilteredHash = currentTitledbHash;
-  
+
   const gamesToUpsert = [];
   for (const [id, names] of Object.entries(mainGamesList)) {
     if (!names || !Array.isArray(names) || names.length === 0) continue;
@@ -162,7 +190,7 @@ async function syncBaseGameData(db, REPOS, mainGamesList, customGroupMap, metada
     try {
       details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
     } catch (e) { /* ignore */ }
-    const groupId = customGroupMap.get(id) || getBaseId(id);
+    const groupId = getBaseId(id); // Always use the default base ID. The 'groups' sync will handle overrides
     gamesToUpsert.push({
       id, groupId, names,
       publisher: details.publisher, releaseDate: details.releaseDate,
