@@ -81,9 +81,12 @@ export async function discoverDataSources(REPOS) {
   const mainJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main.json');
   const mainGamesList = JSON.parse(await fs.readFile(mainJsonPath, 'utf-8'));
 
-  // Ensure all games from the main list have a group ID accounted for
   for (const id of Object.keys(mainGamesList)) {
-    allGroupIds.add(customGroupMap.get(id) || getBaseId(id));
+    allGroupIds.add(getBaseId(id));
+
+    if (customGroupMap.has(id)) {
+      allGroupIds.add(customGroupMap.get(id));
+    }
   }
 
   console.log(`Discovered ${allGroupIds.size} unique game groups.`);
