@@ -94,5 +94,45 @@ export const DATA_SOURCES = {
         await db.insert(youtubeLinks).values(records);
       }
     }
+  },
+  groups: {
+    table: games,
+    path: 'groups',
+    isHierarchical: false,
+    getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
+    getKeyFromRecord: (r) => r.groupId, // a placeholder for the generic logic
+    
+    buildRecord: (keyParts, content, metadata, lastUpdated) => {
+      return {
+        customGroupId: keyParts[0],
+        titleIds: Array.isArray(content) ? content : [],
+      };
+    },
+    
+    upsert: async (db, record) => {
+      const { customGroupId, titleIds } = record;
+      
+      const updatePromises = [];
+
+      if (titleIds.length > 0) {
+        updatePromises.push(
+          db.update(games)
+            .set({ groupId: customGroupId })
+            .where(inArray(games.id, titleIds))
+        );
+      }
+      
+      // This handles cases where a title is removed from a group file
+      updatePromises.push(
+        db.update(games)
+          .set({ groupId: sql`substring(${games.id}, 1, 13) || '000'` }) // Sets the default group ID
+          .where(and(
+            eq(games.groupId, customGroupId),
+            titleIds.length > 0 ? notInArray(games.id, titleIds) : undefined
+          ))
+      );
+      
+      await Promise.all(updatePromises);
+    }
   }
 };

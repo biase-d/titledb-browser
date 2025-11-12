@@ -25,7 +25,7 @@ export async function discoverDataSources(REPOS) {
   const allGroupIds = new Set();
   const customGroupMap = new Map();
   const dataRepoPath = REPOS.nx_performance.path;
-  const discoveredFiles = { performance: [], graphics: [], videos: [] };
+  const discoveredFiles = { performance: [], graphics: [], videos: [], groups: [] };
 
   // Read custom group mappings
   const groupsDir = path.join(dataRepoPath, 'groups');
@@ -48,7 +48,8 @@ export async function discoverDataSources(REPOS) {
   const dataTypes = [
     { name: 'performance', path: 'profiles', isHierarchical: true },
     { name: 'graphics', path: 'graphics', isHierarchical: false },
-    { name: 'videos', path: 'videos', isHierarchical: false }
+    { name: 'videos', path: 'videos', isHierarchical: false },
+    { name: 'groups', path: 'groups', isHierarchical: false },
   ];
 
   for (const type of dataTypes) {
