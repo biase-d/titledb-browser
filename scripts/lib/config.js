@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { sql, eq } from 'drizzle-orm';
-import { performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
+import { games, performanceProfiles, graphicsSettings, youtubeLinks } from '../../src/lib/db/schema.js';
 
 export const DATA_SOURCES = {
   performance: {
