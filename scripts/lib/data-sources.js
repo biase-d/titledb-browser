@@ -6,17 +6,13 @@ export function getBaseId(titleId) {
 }
 
 /**
- * Reads the data repositories to discover all game groups and title mappings
- * @param {object} REPOS - The repository configuration object
- * @returns {Promise<{allGroupIds: Set<string>, customGroupMap: Map<string, string>, mainGamesList: object}>}
- */
-/**
  * Reads data repositories to discover game groups, title mappings, and all data files
  * @param {object} REPOS - The repository configuration object
  * @returns {Promise<{
  *   allGroupIds: Set<string>,
  *   customGroupMap: Map<string, string>,
  *   mainGamesList: object,
+ *   regionsList: object,
  *   discoveredFiles: { performance: {groupId: string, fileName: string}[], graphics: {groupId: string, fileName: string}[], videos: {groupId: string, fileName: string}[] }
  * }>}
  */
@@ -77,9 +73,17 @@ export async function discoverDataSources(REPOS) {
     }
   }
 
-  // Read the main titles list from titledb_filtered
   const mainJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main.json');
+  const regionsJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main_regions.json');
+  
   const mainGamesList = JSON.parse(await fs.readFile(mainJsonPath, 'utf-8'));
+  
+  let regionsList = {};
+  try {
+    regionsList = JSON.parse(await fs.readFile(regionsJsonPath, 'utf-8'));
+  } catch (e) {
+    console.warn('Could not read main_regions.json. Skipping region data.');
+  }
 
   for (const id of Object.keys(mainGamesList)) {
     allGroupIds.add(getBaseId(id));
@@ -90,7 +94,7 @@ export async function discoverDataSources(REPOS) {
   }
 
   console.log(`Discovered ${allGroupIds.size} unique game groups.`);
-  return { allGroupIds, customGroupMap, mainGamesList, discoveredFiles };
+  return { allGroupIds, customGroupMap, mainGamesList, regionsList, discoveredFiles };
 }
 
 /**
