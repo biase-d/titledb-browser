@@ -1,14 +1,16 @@
 <script>
 	import Icon from '@iconify/svelte';
 	import AuthButton from './AuthButton.svelte';
+    import SettingsModal from './SettingsModal.svelte';
 	import { browser } from '$app/environment';
 	import { tick } from 'svelte';
 
 	let { data } = $props();
 	let isMobileMenuOpen = $state(false);
+    let showSettings = $state(false);
 
-	let menuButton;
-	let mobileNav;
+	let menuButton = $state(null);
+	let mobileNav = $state(null);
 
 	const ariaExpanded = $derived(isMobileMenuOpen.toString());
 	const ariaLabel = $derived(isMobileMenuOpen ? 'Close menu' : 'Open menu');
@@ -54,6 +56,11 @@
 		<nav class="desktop-nav" aria-label="Main navigation">
 			<a href="/favorites">Favorites</a>
 			<a href="/contribute">Contribute</a>
+            
+            <button class="icon-btn" onclick={() => showSettings = true} title="Settings">
+                <Icon icon="mdi:cog" width="20" height="20" />
+            </button>
+
 			<div class="auth-wrapper">
 				<AuthButton session={data.session} />
 			</div>
@@ -91,6 +98,9 @@
 			<nav>
 				<a href="/favorites" onclick={closeMenu}>Favorites</a>
 				<a href="/contribute" onclick={closeMenu}>Contribute</a>
+                <button class="mobile-nav-btn" onclick={() => { closeMenu(); showSettings = true; }}>
+                    Settings
+                </button>
 				<div class="auth-wrapper">
 					<AuthButton session={data.session} />
 				</div>
@@ -98,6 +108,8 @@
 		</div>
 	</div>
 {/if}
+
+<SettingsModal bind:show={showSettings} />
 
 <style>
 	header {
@@ -165,6 +177,23 @@
 		border-radius: var(--radius-sm);
 	}
 
+    .icon-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 50%;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .icon-btn:hover {
+        background-color: var(--input-bg);
+        color: var(--text-primary);
+    }
+
 	.desktop-nav .auth-wrapper {
 		padding-left: 1.5rem;
 		margin-left: 0.5rem;
@@ -224,17 +253,21 @@
         width: 100%;
     }
 
-	.mobile-nav nav a {
+	.mobile-nav nav a, .mobile-nav-btn {
 		font-size: 1.5rem;
 		font-weight: 600;
 		color: var(--text-primary);
 		text-decoration: none;
 		padding: 0.5rem;
 		transition: color 0.2s ease;
+        background: none;
+        border: none;
+        cursor: pointer;
 	}
 
 	.mobile-nav nav a:hover,
-	.mobile-nav nav a:focus-visible {
+	.mobile-nav nav a:focus-visible,
+    .mobile-nav-btn:hover {
 		color: var(--primary-color);
 		text-decoration: none;
 	}
