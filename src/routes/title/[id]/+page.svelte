@@ -2,16 +2,21 @@
 	import { fade } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+    import { goto } from '$app/navigation';
 
 	import Icon from '@iconify/svelte';
 
 	import { favorites } from '$lib/stores';
+	import { preferences } from '$lib/stores/preferences';
 	import { createImageSet } from '$lib/image';
+	import { getRegionLabel } from '$lib/regions';
+	import { getLocalizedName } from '$lib/i18n';
 
 	import GraphicsDetail from './GraphicsDetail.svelte';
 	import YoutubeEmbeds from './YoutubeEmbeds.svelte';
 	import PerformanceDetail from './PerformanceDetail.svelte';
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte';
+	import RegionPopover from './RegionPopover.svelte';
 
 	let { data } = $props();
 
@@ -38,8 +43,7 @@
 			isDetailsCollapsed = false;
 		}
 	});
-
-
+  
 	let game = $derived(data.game);
 	let session = $derived(data.session);	
 	let allTitlesInGroup = $derived(game.allTitlesInGroup || []);
@@ -58,10 +62,10 @@
 
 	function hasPerformanceData(modeData) {
 		if (!modeData) return false;
-		const hasResolution =
-			!!(modeData.resolution ||
-			(modeData.resolutions && modeData.resolutions.split(',').filter(Boolean).length > 0) ||
-			modeData.min_res ||
+		const hasResolution = 
+			!!(modeData.resolution || 
+			(modeData.resolutions && modeData.resolutions.split(',').filter(Boolean).length > 0) || 
+			modeData.min_res || 
 			modeData.max_res);
 		const hasFps = !!modeData.target_fps;
 		return hasResolution || hasFps;
@@ -116,7 +120,6 @@
 	let singleContributorName = $derived(isSingleContributor ? allContributors[0] : null);
 
 	let id = $derived(game?.id);
-	let name = $derived(game.name || 'Loading...');
 	let otherTitlesInGroup = $derived(allTitlesInGroup.filter((t) => t.id !== id));
 
 	let isFavorited = $state(false);
@@ -128,11 +131,47 @@
 		}
 	});
 
+	let preferredRegion = $state(data.preferredRegion || 'US');
+	
+	// Sync with client-side store
+	preferences.subscribe(p => {
+		if (p.region) preferredRegion = p.region;
+	});
+
+	let name = $derived(getLocalizedName(game.names, preferredRegion));
+	let altNames = $derived(game.names ? game.names.filter(n => n !== name) : []);
+
 	let lightboxImage = $state('');
 	let bannerImages = $derived(createImageSet(game.bannerUrl));
 	let iconImages = $derived(createImageSet(game.iconUrl));
 
-	let isUnreleased = $derived(game.isUnreleased)
+	let isUnreleased = $derived(game.isUnreleased);
+
+    let hasRequested = $state(data.hasRequested);
+    let isRequesting = $state(false);
+
+    async function toggleRequest() {
+        if (!session?.user) {
+            goto('/auth/signin?callbackUrl=' + url.href);
+            return;
+        }
+        
+        isRequesting = true;
+        try {
+            const res = await fetch('/api/v1/requests', {
+                method: 'POST',
+                body: JSON.stringify({ gameId: id })
+            });
+            if (res.ok) {
+                const result = await res.json();
+                hasRequested = result.requested;
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            isRequesting = false;
+        }
+    }
 
 </script>
 
@@ -154,18 +193,21 @@
 {#if game}
 	<div class="page-container" in:fade={{ duration: 200 }}>
 		<div class="banner-header">
-			{#if bannerImages}
-				<img
-					src={bannerImages.src}
-					srcset={bannerImages.srcset}
-					alt=""
-					class="banner-image"
-					role="presentation"
-					loading="lazy"
-					sizes="(max-width: 1200px) 100vw, 1200px"
-				/>
-			{/if}
-			<div class="banner-overlay"></div>
+			<div class="banner-bg-wrapper">
+				{#if bannerImages}
+					<img
+						src={bannerImages.src}
+						srcset={bannerImages.srcset}
+						alt=""
+						class="banner-image"
+						role="presentation"
+						loading="lazy"
+						sizes="(max-width: 1200px) 100vw, 1200px"
+					/>
+				{/if}
+				<div class="banner-overlay"></div>
+			</div>
+
 			<div class="header-content-wrapper">
 				<div class="header-content">
 					{#if iconImages}
@@ -181,8 +223,17 @@
 						<div class="game-icon-placeholder"></div>
 					{/if}
 					<div class="title-info">
-						<h1>{name}</h1>
-						{#if game.publisher}<p class="publisher">{game.publisher}</p>{/if}
+						<h1 lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>{name}</h1>
+						<div class="subtitle-row">
+							{#if game.publisher}
+								<a href="/publisher/{encodeURIComponent(game.publisher)}" class="publisher-link">
+									{game.publisher}
+								</a>
+							{/if}
+							{#if game.regions && game.regions.length > 0}
+								<RegionPopover regions={game.regions} />
+							{/if}
+						</div>
 					</div>
 					<div class="header-actions">
 						<button class="favorite-button" onclick={() => favorites.toggle(id)} title={isFavorited ? 'Remove from favorites' : 'Add to favorites'}>
@@ -227,6 +278,16 @@
 										{/if}
 									</div>
 								</div>
+								{#if altNames.length > 0}
+									<div class="detail-item">
+										<span class="detail-label">Also Known As</span>
+										<ul class="alt-names-list">
+											{#each altNames as alt}
+												<li>{alt}</li>
+											{/each}
+										</ul>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -243,11 +304,25 @@
 					<div class="notice-card no-data-cta">
 						<h3>No Performance Data Yet</h3>
 						<p>This title is in our database, but no community performance data has been submitted for it.</p>
-						{#if session?.user}
-							<a href="/contribute/{id}" class="cta-button">Be the first to contribute!</a>
-						{:else}
-							<a href="/auth/signin?callbackUrl=/contribute/{id}" class="cta-button">Sign in to contribute</a>
-						{/if}
+						
+                        <div class="cta-group">
+                            {#if session?.user}
+                                <a href="/contribute/{id}" class="cta-button">Be the first to contribute!</a>
+                            {:else}
+                                <a href="/auth/signin?callbackUrl=/contribute/{id}" class="cta-button">Sign in to contribute</a>
+                            {/if}
+
+                            <button 
+                                class="request-button" 
+                                class:active={hasRequested} 
+                                onclick={toggleRequest}
+                                disabled={isRequesting}
+                                title={hasRequested ? "You have requested data for this game" : "Request data for this game"}
+                            >
+                                <Icon icon={hasRequested ? "mdi:check" : "mdi:hand-back-right"} />
+                                {hasRequested ? 'Data Requested' : 'Request Data'}
+                            </button>
+                        </div>
 					</div>
 				{:else}
 					<section>
@@ -312,10 +387,16 @@
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
+									{@const label = getRegionLabel(title.regions)}
 									<li>
 										<a href={`/title/${title.id}`}>
 											<span>{title.name}</span>
-											<span class="other-title-id">{title.id}</span>
+											<div class="other-title-meta">
+												<span class="other-title-id">{title.id}</span>
+												{#if label}
+													<span class="region-codes">{label}</span>
+												{/if}
+											</div>
 										</a>
 									</li>
 								{/each}
@@ -381,6 +462,16 @@
 										{/if}
 									</div>
 								</div>
+								{#if altNames.length > 0}
+									<div class="detail-item">
+										<span class="detail-label">Also Known As</span>
+										<ul class="alt-names-list">
+											{#each altNames as alt}
+												<li>{alt}</li>
+											{/each}
+										</ul>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -390,10 +481,16 @@
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
+									{@const label = getRegionLabel(title.regions)}
 									<li>
 										<a href={`/title/${title.id}`}>
 											<span>{title.name}</span>
-											<span class="other-title-id">{title.id}</span>
+											<div class="other-title-meta">
+												<span class="other-title-id">{title.id}</span>
+												{#if label}
+													<span class="region-codes">{label}</span>
+												{/if}
+											</div>
 										</a>
 									</li>
 								{/each}
@@ -438,10 +535,19 @@
 
 	.banner-header {
 		position: relative;
-		border-radius: var(--radius-lg);
-		overflow: hidden;
+		/* Removed overflow: hidden to allow popover to display */
 		color: white;
 		margin: 1.5rem 0;
+		z-index: 10; /* Ensure header is above content if popover drops down */
+	}
+
+	/* New wrapper for the background elements that need clipping */
+	.banner-bg-wrapper {
+		position: absolute;
+		inset: 0;
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		z-index: -1;
 	}
 
 	.banner-image {
@@ -465,7 +571,7 @@
 
 	.header-content {
 		display: grid;
-		grid-template-areas:
+		grid-template-areas: 
 			"icon title actions";
 		grid-template-columns: auto 1fr auto;
 		align-items: center;
@@ -516,10 +622,26 @@
 	@media (min-width: 768px) {
 		.title-info h1 { font-size: 2.5rem; }
 	}
-	.publisher {
+	
+	.subtitle-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		margin-top: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.publisher-link {
 		font-size: 1.1rem;
 		opacity: 0.8;
-		margin: 0.25rem 0 0;
+		color: white;
+		text-decoration: none;
+		border-bottom: 1px dotted rgba(255,255,255,0.5);
+		transition: opacity 0.2s;
+	}
+	.publisher-link:hover {
+		opacity: 1;
+		border-bottom-style: solid;
 	}
 
 	.header-actions {
@@ -695,6 +817,20 @@
 	.copy-icon { color: var(--text-secondary); }
 	.copy-feedback { font-size: 0.8rem; font-weight: 500; color: var(--primary-color); }
 
+	.alt-names-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.alt-names-list li {
+		font-size: 0.9rem;
+		color: var(--text-primary);
+		line-height: 1.4;
+	}
+
 	.other-versions-list, .contributor-list {
 		list-style: none; padding: 0; margin: 0;
 		display: flex; flex-direction: column; gap: 0.75rem;
@@ -716,11 +852,24 @@
 		background-color: var(--input-bg);
 		text-decoration: none;
 	}
+	.other-title-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-top: 0.1rem;
+	}
 	.other-title-id {
 		font-size: 0.8rem;
 		color: var(--text-secondary);
 		font-weight: 400;
-		margin-top: 0.1rem;
+	}
+	.region-codes {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		background-color: var(--input-bg);
+		padding: 1px 4px;
+		border-radius: 4px;
+		border: 1px solid var(--border-color);
 	}
 
 	.notice-card {
@@ -809,4 +958,36 @@
 		z-index: 100;
 	}
 	.lightbox img { max-width: 90%; max-height: 90%; border-radius: var(--radius-md); }
+
+    .cta-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .request-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 10px 20px;
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        cursor: pointer;
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        transition: all 0.2s;
+    }
+
+    .request-button:hover {
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    .request-button.active {
+        background-color: color-mix(in srgb, #f59e0b 10%, transparent);
+        border-color: #f59e0b;
+        color: #d97706;
+    }
 </style>

@@ -1,25 +1,64 @@
-import { db } from '$lib/db'
-import { games } from '$lib/db/schema'
-import { inArray } from 'drizzle-orm'
+import { db } from '$lib/db';
+import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
+import { inArray, eq, desc, sql } from 'drizzle-orm';
 
 export const load = async ({ cookies }) => {
-  const favoriteIdsCookie = cookies.get('favorites')
+  const favoriteIdsCookie = cookies.get('favorites');
   if (!favoriteIdsCookie) {
-    return { favoritedGames: [] }
+    return { favoritedGames: [] };
   }
 
-  const ids = JSON.parse(favoriteIdsCookie)
+  let ids = [];
+  try {
+    ids = JSON.parse(favoriteIdsCookie);
+  } catch (e) {
+    return { favoritedGames: [] };
+  }
+
   if (!Array.isArray(ids) || ids.length === 0) {
-    return { favoritedGames: [] }
+    return { favoritedGames: [] };
   }
 
-  const favoritedGames = await db
+  const latestProfileSubquery = db.$with('latest_profile').as(
+    db.selectDistinctOn([performanceProfiles.groupId], {
+      groupId: performanceProfiles.groupId,
+      profiles: performanceProfiles.profiles
+    }).from(performanceProfiles).orderBy(performanceProfiles.groupId, desc(performanceProfiles.gameVersion))
+  );
+
+  const favoritedGames = await db.with(latestProfileSubquery)
     .select({
       id: games.id,
-      names: games.names
+      groupId: games.groupId,
+      names: games.names,
+      regions: games.regions,
+      iconUrl: games.iconUrl,
+      publisher: games.publisher,
+      performance: sql`
+        jsonb_build_object(
+          'docked', jsonb_build_object(
+            'target_fps', 
+            COALESCE(
+              (${latestProfileSubquery.profiles}->'docked'->>'target_fps'), 
+              (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'),
+              (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType')
+            )
+          ),
+          'handheld', jsonb_build_object(
+            'target_fps', 
+            COALESCE(
+              (${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), 
+              (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+              (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+            )
+          )
+        )
+      `
     })
     .from(games)
-    .where(inArray(games.id, ids))
+    .leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
+    .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+    .where(inArray(games.id, ids));
 
-  return { favoritedGames }
-}
+  return { favoritedGames };
+};

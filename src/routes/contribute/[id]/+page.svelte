@@ -7,6 +7,10 @@
 	import { generateChangeSummary, pruneEmptyValues, isProfileEmpty, isGraphicsEmpty } from '$lib/utils.js';
 
 	import Icon from '@iconify/svelte';
+	import PerformanceTab from './components/PerformanceTab.svelte';
+	import GraphicsTab from './components/GraphicsTab.svelte';
+	import YoutubeTab from './components/YoutubeTab.svelte';
+	import GroupingTab from './components/GroupingTab.svelte';
 
 	let { data, form } = $props();
 
@@ -59,10 +63,10 @@
 		if (!modeData) return 'N/A';
 		switch (modeData.resolution_type) {
 			case 'Fixed': return `Fixed at ${modeData.resolution || 'N/A'}`;
-			case 'Dynamic':
+			case 'Dynamic': 
 				if (!modeData.min_res && !modeData.max_res) return 'Dynamic';
 				return `Dynamic ${modeData.min_res || '?'} ~ ${modeData.max_res || '?'}`;
-			case 'Multiple Fixed':
+			case 'Multiple Fixed': 
 				return `Multiple: ${modeData.resolutions?.split(',').filter(Boolean).map(r => r.trim()).join(', ') || 'N/A'}`;
 			default: return 'N/A';
 		}
@@ -77,7 +81,7 @@
 		if (!resData) return 'N/A';
 		switch (resData.resolutionType) {
 			case 'Fixed': return `Fixed at ${resData.fixedResolution || 'N/A'}`;
-			case 'Dynamic':
+			case 'Dynamic': 
 				const min = resData.minResolution || '?';
 				const max = resData.maxResolution || '?';
 				if (min === '?' && max === '?') return 'Dynamic';
@@ -160,12 +164,12 @@
 				nextVersion = parts.join('.');
 			}
 		}
-		performanceProfiles.push({
-			tempId: crypto.randomUUID(), gameVersion: nextVersion, suffix: '',
-			profiles: {
-				docked: { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' },
-				handheld: { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' }
-			}
+		performanceProfiles.push({ 
+			tempId: crypto.randomUUID(), gameVersion: nextVersion, suffix: '', 
+			profiles: { 
+				docked: { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' }, 
+				handheld: { resolution_type: 'Fixed', fps_behavior: 'Locked', resolution: '', resolutions: '', min_res: '', max_res: '', resolution_notes: '', target_fps: '', fps_notes: '' } 
+			} 
 		});
 	}
 	function removeVersion(idToRemove) {
@@ -265,7 +269,7 @@
 			</div>
 		</div>
 	{:else}
-		<form
+		<form 
 			bind:this={formElement}
 			method="POST"
 			use:enhance={() => {
@@ -299,470 +303,17 @@
 			</div>
 
 			<div class="tab-content">
-				<!-- Performance Tab -->
 				{#if activeTab === 'performance'}
-					<section class="form-section">
-						{#each performanceProfiles as profile, i (profile.id || profile.tempId)}
-							<div class="form-card version-card">
-								<div class="version-header">
-									<h3 class="version-title">Profile for Version</h3>
-									<div class="version-controls">
-										<div class="form-field">
-											<label for="game_version_{i}">Game Version</label>
-											<input id="game_version_{i}" type="text" bind:value={profile.gameVersion} placeholder="e.g. 1.1.0" required />
-										</div>
-										<div class="form-field">
-											<label for="version_suffix_{i}">Region / Suffix</label>
-											<input id="version_suffix_{i}" type="text" bind:value={profile.suffix} placeholder="e.g. 'jp'" oninput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9_-]/g, ''); }} />
-										</div>
-									</div>
-									{#if performanceProfiles.length > 1}
-										<button type="button" class="remove-version-btn" onclick={() => removeVersion(profile.id || profile.tempId)} aria-label={`Remove version ${profile.gameVersion || ''}`}>
-											<Icon icon="mdi:delete-outline" aria-hidden="true" />
-										</button>
-									{/if}
-								</div>
-								<div class="mode-container">
-									<!-- Handheld Performance -->
-									<fieldset class="handheld">
-										<legend>Handheld</legend>
-										<div class="form-grid">
-											<div class="form-group">
-												<label for="handheld_resolution_type_{i}">Resolution Type</label>
-												<select id="handheld_resolution_type_{i}" bind:value={profile.profiles.handheld.resolution_type}>
-													<option value="Fixed">Fixed</option>
-													<option value="Dynamic">Dynamic</option>
-													<option value="Multiple Fixed">Multiple Fixed</option>
-												</select>
-											</div>
-											{#if profile.profiles.handheld.resolution_type === 'Fixed'}
-												<div class="form-group">
-													<label for="handheld_resolution_{i}">Resolution</label>
-													<input type="text" id="handheld_resolution_{i}" bind:value={profile.profiles.handheld.resolution} placeholder="e.g., 1280x720" />
-												</div>
-											{/if}
-											<div class="form-group form-group-full">
-												<label for="handheld_resolution_notes_{i}">Resolution Notes</label>
-												<textarea id="handheld_resolution_notes_{i}" bind:value={profile.profiles.handheld.resolution_notes} placeholder="Upscaling, visual quality, etc."></textarea>
-											</div>
-											<div class="form-group">
-												<label for="handheld_fps_behavior_{i}">
-													FPS Stability
-													<div class="tooltip">
-														<Icon icon="mdi:help-circle-outline" />
-														<span class="tooltip-text">
-															<strong>Locked:</strong> 99.9-100% of time at target<br>
-															<strong>Stable:</strong> 99-99.9% of time at target<br>
-															<strong>Unstable:</strong> 90-99% of time at target<br>
-															<strong>Very Unstable:</strong> 0-90% of time at target
-														</span>
-													</div>
-												</label>
-												<select id="handheld_fps_behavior_{i}" bind:value={profile.profiles.handheld.fps_behavior}>
-													<option value="Locked">Locked</option>
-													<option value="Stable">Stable</option>
-													<option value="Unstable">Unstable</option>
-													<option value="Very Unstable">Very Unstable</option>
-												</select>
-											</div>
-											<div class="form-group">
-												<label for="handheld_target_fps_{i}">Target FPS</label>
-												<input type="number" id="handheld_target_fps_{i}" bind:value={profile.profiles.handheld.target_fps} placeholder="e.g., 30" />
-											</div>
-											<div class="form-group form-group-full">
-												<label for="handheld_fps_notes_{i}">FPS Notes</label>
-												<textarea id="handheld_fps_notes_{i}" bind:value={profile.profiles.handheld.fps_notes} placeholder="Common dips, stability details, etc."></textarea>
-											</div>
-										</div>
-									</fieldset>
-									<!-- Docked Performance -->
-									<fieldset class="docked">
-										<legend>Docked</legend>
-										<div class="form-grid">
-											<div class="form-group">
-												<label for="docked_resolution_type_{i}">Resolution Type</label>
-												<select id="docked_resolution_type_{i}" bind:value={profile.profiles.docked.resolution_type}>
-													<option value="Fixed">Fixed</option>
-													<option value="Dynamic">Dynamic</option>
-													<option value="Multiple Fixed">Multiple Fixed</option>
-												</select>
-											</div>
-											{#if profile.profiles.docked.resolution_type === 'Fixed'}
-												<div class="form-group">
-													<label for="docked_resolution_{i}">Resolution</label>
-													<input type="text" id="docked_resolution_{i}" bind:value={profile.profiles.docked.resolution} placeholder="e.g., 1920x1080" />
-												</div>
-											{/if}
-											<div class="form-group form-group-full">
-												<label for="docked_resolution_notes_{i}">Resolution Notes</label>
-												<textarea id="docked_resolution_notes_{i}" bind:value={profile.profiles.docked.resolution_notes} placeholder="Upscaling, visual quality, etc."></textarea>
-											</div>
-											<div class="form-group">
-												<label for="docked_fps_behavior_{i}">
-													FPS Stability
-													<div class="tooltip">
-														<Icon icon="mdi:help-circle-outline" />
-														<span class="tooltip-text">
-															<strong>Locked:</strong> 99.9-100% of time at target.<br>
-															<strong>Stable:</strong> 99-99.9% of time.<br>
-															<strong>Unstable:</strong> 90-99% of time.<br>
-															<strong>Very Unstable:</strong> Below 90% of time.
-														</span>
-													</div>
-												</label>
-												<select id="docked_fps_behavior_{i}" bind:value={profile.profiles.docked.fps_behavior}>
-													<option value="Locked">Locked</option>
-													<option value="Stable">Stable</option>
-													<option value="Unstable">Unstable</option>
-													<option value="Very Unstable">Very Unstable</option>
-												</select>
-											</div>
-											<div class="form-group">
-												<label for="docked_target_fps_{i}">Target FPS</label>
-												<input type="number" id="docked_target_fps_{i}" bind:value={profile.profiles.docked.target_fps} placeholder="e.g., 60" />
-											</div>
-											<div class="form-group form-group-full">
-												<label for="docked_fps_notes_{i}">FPS Notes</label>
-												<textarea id="docked_fps_notes_{i}" bind:value={profile.profiles.docked.fps_notes} placeholder="Common dips, stability details, etc."></textarea>
-											</div>
-										</div>
-									</fieldset>
-								</div>
-							</div>
-						{/each}
-						<button type="button" class="add-version-btn" onclick={addNewVersion}>
-							<Icon icon="mdi:plus-circle-outline" /> Add Data for Another Version
-						</button>
-					</section>
+					<PerformanceTab bind:performanceProfiles {addNewVersion} {removeVersion} />
 				{/if}
-				<!-- Graphics Tab -->
 				{#if activeTab === 'graphics'}
-					<section class="form-section">
-						<div class="form-card">
-							<div class="mode-container">
-								<!-- Handheld Graphics Form -->
-								<fieldset>
-									<legend>Handheld Mode</legend>
-									<h4 class="sub-legend">Resolution</h4>
-									<div class="form-grid">
-										<div class="form-group">
-											<label>Resolution Type</label>
-											<select bind:value={graphicsData.handheld.resolution.resolutionType}>
-												<option value="Fixed">Fixed</option>
-												<option value="Dynamic">Dynamic</option>
-												<option value="Multiple Fixed">Multiple Fixed</option>
-											</select>
-										</div>
-										{#if graphicsData.handheld.resolution.resolutionType === 'Fixed'}
-										<div class="form-group">
-											<label>Resolution</label>
-											<input placeholder="e.g., 1280x720" bind:value={graphicsData.handheld.resolution.fixedResolution} />
-										</div>
-										{/if}
-										{#if graphicsData.handheld.resolution.resolutionType === 'Dynamic'}
-											<div class="form-group">
-												<label>Min Resolution</label>
-												<input placeholder="e.g., 960x540" bind:value={graphicsData.handheld.resolution.minResolution} />
-											</div>
-											<div class="form-group">
-												<label>Max Resolution</label>
-												<input placeholder="e.g., 1280x720" bind:value={graphicsData.handheld.resolution.maxResolution} />
-											</div>
-										{/if}
-									</div>
-									{#if graphicsData.handheld.resolution.resolutionType === 'Multiple Fixed'}
-										<div class="additional-locks-section">
-											<label class="group-label">Resolutions</label>
-											{#each graphicsData.handheld.resolution.multipleResolutions as res, i}
-												<div class="additional-lock-row resolution">
-													<input placeholder="e.g., 1024x576" bind:value={graphicsData.handheld.resolution.multipleResolutions[i]} />
-													{#if graphicsData.handheld.resolution.multipleResolutions.length > 1}
-														<button type="button" class="remove-btn" onclick={() => removeResolution('handheld', i)}>
-															<Icon icon="mdi:minus-circle" />
-														</button>
-													{/if}
-												</div>
-											{/each}
-											<button type="button" class="add-btn" onclick={() => addResolution('handheld')}>
-												<Icon icon="mdi:plus" /> Add Resolution
-											</button>
-										</div>
-									{/if}
-									<div class="form-group form-group-full notes-field">
-										<label>Resolution Notes</label>
-										<textarea placeholder="e.g., May exhibit some aliasing..." bind:value={graphicsData.handheld.resolution.notes}></textarea>
-									</div>
-									<hr/>
-									<h4 class="sub-legend">Framerate</h4>
-									<div class="form-grid">
-										<div class="form-group">
-											<label>Default FPS Lock Type</label>
-											<select bind:value={graphicsData.handheld.framerate.lockType}>
-												<option value="Unlocked">Unlocked</option>
-												<option value="API">API</option>
-												<option value="Custom">Custom</option>
-												<option value="Unknown">Unknown</option>
-											</select>
-										</div>
-										<div class="form-group">
-											<label for="api_buffering">Buffering Type</label>
-											<select id="api_buffering" bind:value={graphicsData.handheld.framerate.apiBuffering}>
-												<option value="Unknown">Unknown</option>
-												<option value="Double">Double buffer</option>
-												<option value="Double (Reversed)">Double buffer (Reversed)</option>
-												<option value="Triple">Triple buffer</option>
-												<option value="Quadruple">Quadruple buffer</option>
-											</select>
-										</div>
-										{#if graphicsData.handheld.framerate.lockType !== 'Unlocked'}
-										<div class="form-group">
-											<label>Default Target FPS</label>
-											<input type="number" placeholder="e.g., 30" bind:value={graphicsData.handheld.framerate.targetFps} />
-										</div>
-										{/if}
-									</div>
-									<div class="form-group form-group-full">
-										<label>Default Framerate Notes</label>
-										<textarea placeholder="Details on default stability, common dips, etc." bind:value={graphicsData.handheld.framerate.notes}></textarea>
-									</div>
-									<div class="additional-locks-section">
-										<label class="group-label">Additional FPS Lock Type</label>
-										{#each graphicsData.handheld.framerate.additionalLocks || [] as lock, index}
-											<div class="additional-lock-item">
-												<div class="additional-lock-row">
-													<select bind:value={lock.lockType} aria-label="Additional lock type">
-														<option value="API">API Lock</option>
-														<option value="Custom">Custom Lock</option>
-														<option value="Unlocked">Unlocked</option>
-														<option value="Unknown">Unknown</option>
-													</select>
-													<input type="number" placeholder="Target FPS" bind:value={lock.targetFps} disabled={lock.lockType === 'Unlocked'} aria-label="Additional target FPS" />
-													<button type="button" class="remove-btn" onclick={() => removeAdditionalLock('handheld', index)}>
-														<Icon icon="mdi:minus-circle" />
-													</button>
-												</div>
-												<textarea class="notes-input" placeholder="Notes for this mode (e.g., 'Quality Mode')" bind:value={lock.notes}></textarea>
-											</div>
-										{/each}
-										<button type="button" class="add-btn" onclick={() => addAdditionalLock('handheld')}>
-											<Icon icon="mdi:plus" /> Add FPS Lock Type
-										</button>
-									</div>
-									<hr/>
-									<h4 class="sub-legend">Custom Settings</h4>
-									{#each Object.entries(graphicsData.handheld.custom || {}) as [key, fieldData]}
-										<div class="field-wrapper">
-											<div class="field-row">
-												<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateGraphicsKey('handheld', key, e.currentTarget.value, 'custom')} />
-												<input type="text" placeholder="Value" bind:value={fieldData.value} />
-												<button type="button" class="remove-btn" onclick={() => removeGraphicsField('handheld', key, 'custom')}><Icon icon="mdi:minus-circle" /></button>
-											</div>
-											<textarea placeholder="Notes..." bind:value={fieldData.notes} class="notes-input"></textarea>
-										</div>
-									{/each}
-									<button type="button" class="add-btn" onclick={() => addGraphicsField('handheld', 'custom')}><Icon icon="mdi:plus" /> Add Custom Setting</button>
-								</fieldset>
-								<!-- Docked Mode Graphics Form -->
-								<fieldset class="docked">
-									<legend>Docked Mode</legend>
-									<h4 class="sub-legend">Resolution</h4>
-									<div class="form-grid">
-										<div class="form-group">
-											<label>Resolution Type</label>
-											<select bind:value={graphicsData.docked.resolution.resolutionType}>
-												<option value="Fixed">Fixed</option>
-												<option value="Dynamic">Dynamic</option>
-												<option value="Multiple Fixed">Multiple Fixed</option>
-											</select>
-										</div>
-										{#if graphicsData.docked.resolution.resolutionType === 'Fixed'}
-											<div class="form-group">
-												<label>Resolution</label>
-												<input placeholder="e.g., 1920x1080" bind:value={graphicsData.docked.resolution.fixedResolution} />
-											</div>
-										{/if}
-										{#if graphicsData.docked.resolution.resolutionType === 'Dynamic'}
-											<div class="form-group">
-												<label>Min Resolution</label>
-												<input placeholder="e.g., 1600x900" bind:value={graphicsData.docked.resolution.minResolution} />
-											</div>
-											<div class="form-group">
-												<label>Max Resolution</label>
-												<input placeholder="e.g., 1920x1080" bind:value={graphicsData.docked.resolution.maxResolution} />
-											</div>
-										{/if}
-									</div>
-									{#if graphicsData.docked.resolution.resolutionType === 'Multiple Fixed'}
-										<div class="additional-locks-section">
-											<label class="group-label">Resolutions</label>
-											{#each graphicsData.docked.resolution.multipleResolutions as res, i}
-												<div class="additional-lock-row resolution">
-													<input placeholder="e.g., 1280x720" bind:value={graphicsData.docked.resolution.multipleResolutions[i]} />
-													{#if graphicsData.docked.resolution.multipleResolutions.length > 1}
-														<button type="button" class="remove-btn" onclick={() => removeResolution('docked', i)}>
-															<Icon icon="mdi:minus-circle" />
-														</button>
-													{/if}
-												</div>
-											{/each}
-											<button type="button" class="add-btn" onclick={() => addResolution('docked')}>
-												<Icon icon="mdi:plus" /> Add Resolution
-											</button>
-										</div>
-									{/if}
-									<div class="form-group form-group-full notes-field">
-										<label>Resolution Notes</label>
-										<textarea placeholder="e.g., Utilizes TAAU, FSR 1.0..." bind:value={graphicsData.docked.resolution.notes}></textarea>
-									</div>
-									<hr/>
-									<h4 class="sub-legend">Framerate</h4>
-									<div class="form-grid">
-										<div class="form-group">
-											<label>Default FPS Lock Type</label>
-											<select bind:value={graphicsData.docked.framerate.lockType}>
-												<option value="Unlocked">Unlocked</option>
-												<option value="API">API</option>
-												<option value="Custom">Custom</option>
-												<option value="Unknown">Unknown</option>
-											</select>
-										</div>
-										<div class="form-group">
-											<label for="api_buffering">Buffering Type</label>
-											<select id="api_buffering" bind:value={graphicsData.docked.framerate.apiBuffering}>
-												<option value="Unknown">Unknown</option>
-												<option value="Double">Double buffer</option>
-												<option value="Double (Reversed)">Double buffer (Reversed)</option>
-												<option value="Triple">Triple buffer</option>
-												<option value="Quadruple">Quadruple buffer</option>
-											</select>
-										</div>
-										{#if graphicsData.docked.framerate.lockType !== 'Unlocked'}
-											<div class="form-group">
-												<label>Default Target FPS</label>
-												<input type="number" placeholder="e.g., 60" bind:value={graphicsData.docked.framerate.targetFps} />
-											</div>
-										{/if}
-									</div>
-									<div class="form-group form-group-full">
-										<label>Default Framerate Notes</label>
-										<textarea placeholder="Details on default stability, common dips, etc." bind:value={graphicsData.docked.framerate.notes}></textarea>
-									</div>
-									<div class="additional-locks-section">
-										<label class="group-label">Additional FPS Lock Type</label>
-										{#each graphicsData.docked.framerate.additionalLocks || [] as lock, index}
-											<div class="additional-lock-item">
-												<div class="additional-lock-row">
-													<select bind:value={lock.lockType} aria-label="Additional lock type">
-														<option value="API">API Lock</option>
-														<option value="Custom">Custom Lock</option>
-														<option value="Unlocked">Unlocked</option>
-														<option value="Unknown">Unknown</option>
-													</select>
-													<input type="number" placeholder="Target FPS" bind:value={lock.targetFps} disabled={lock.lockType === 'Unlocked'} aria-label="Additional target FPS" />
-													<button type="button" class="remove-btn" onclick={() => removeAdditionalLock('docked', index)}>
-														<Icon icon="mdi:minus-circle" />
-													</button>
-												</div>
-												<textarea class="notes-input" placeholder="Notes for this mode (e.g., 'Performance Mode')" bind:value={lock.notes}></textarea>
-											</div>
-										{/each}
-										<button type="button" class="add-btn" onclick={() => addAdditionalLock('docked')}>
-											<Icon icon="mdi:plus" /> Add FPS Lock Type
-										</button>
-									</div>
-									<hr/>
-									<h4 class="sub-legend">Custom Settings</h4>
-									{#each Object.entries(graphicsData.docked.custom || {}) as [key, fieldData]}
-										<div class="field-wrapper">
-											<div class="field-row">
-												<input type="text" placeholder="Custom Setting" value={key} onchange={(e) => updateGraphicsKey('docked', key, e.currentTarget.value, 'custom')} />
-												<input type="text" placeholder="Value" bind:value={fieldData.value} />
-												<button type="button" class="remove-btn" onclick={() => removeGraphicsField('docked', key, 'custom')}><Icon icon="mdi:minus-circle" /></button>
-											</div>
-											<textarea placeholder="Notes..." bind:value={fieldData.notes} class="notes-input"></textarea>
-										</div>
-									{/each}
-									<button type="button" class="add-btn" onclick={() => addGraphicsField('docked', 'custom')}><Icon icon="mdi:plus" /> Add Custom Setting</button>
-								</fieldset>
-								<fieldset>
-									<legend>Shared Settings</legend>
-									{#each Object.entries(graphicsData.shared || {}) as [key, fieldData]}
-										<div class="field-wrapper">
-											<div class="field-row">
-												<input type="text" placeholder="Shared Setting" value={key} onchange={(e) => updateGraphicsKey('shared', key, e.currentTarget.value, null)} />
-												<input type="text" placeholder="Value" bind:value={fieldData.value} />
-												<button type="button" class="remove-btn" onclick={() => removeGraphicsField('shared', key, null)}><Icon icon="mdi:minus-circle" /></button>
-											</div>
-											<textarea placeholder="Notes..." bind:value={fieldData.notes} class="notes-input"></textarea>
-										</div>
-									{/each}
-									<button type="button" class="add-btn" onclick={() => addGraphicsField('shared', null)}><Icon icon="mdi:plus" /> Add Shared Setting</button>
-								</fieldset>
-							</div>
-						</div>
-					</section>
+					<GraphicsTab bind:graphicsData {addResolution} {removeResolution} {addAdditionalLock} {removeAdditionalLock} {addGraphicsField} {updateGraphicsKey} {removeGraphicsField} />
 				{/if}
-				<!-- YouTube Tab -->
 				{#if activeTab === 'youtube'}
-					<section class="form-section">
-						<div class="form-card">
-							<div class="links-list">
-								{#each youtubeLinks as link, i (i)}
-									<div class="link-entry">
-										<div class="link-row">
-											<input type="url" placeholder="https://www.youtube.com/watch?v=..." bind:value={link.url} />
-											<button class="remove-btn" onclick={() => removeYoutubeLink(i)} title="Remove Link">
-												<Icon icon="mdi:close" />
-											</button>
-										</div>
-										<textarea placeholder="Optional notes (e.g., 'Docked gameplay', 'Comparison video')" bind:value={link.notes}></textarea>
-									</div>
-								{/each}
-							</div>
-							<button type="button" class="add-btn" onclick={addYoutubeLink}>
-								<Icon icon="mdi:plus-circle" /> Add Another Video
-							</button>
-						</div>
-					</section>
+					<YoutubeTab bind:youtubeLinks {addYoutubeLink} {removeYoutubeLink} />
 				{/if}
-				<!-- Grouping Tab -->
 				{#if activeTab === 'grouping'}
-					<section class="form-section">
-						<div class="form-card">
-							<div class="current-group-list">
-								{#each updatedGroup as title (title.id)}
-									<div class="group-item">
-										<span>{title.name} ({title.id})</span>
-										<button type="button" onclick={() => removeFromGroup(title.id)} title="Remove from group" disabled={title.id === id}>
-											<Icon icon="mdi:close" />
-										</button>
-									</div>
-								{/each}
-							</div>
-							<div class="search-section">
-								<label for="group-search">Add another title to this group</label>
-								<div class="search-input-wrapper">
-									<input id="group-search" type="text" bind:value={groupingSearchInput} oninput={handleGroupingSearchInput} placeholder="Search by name or Title ID..." />
-									{#if groupingSearchLoading}<div class="spinner"></div>{/if}
-								</div>
-								{#if groupingSearchResults.length > 0}
-									<ul class="search-results">
-										{#each groupingSearchResults as result}
-											<li class:in-group={isAlreadyInGroup(result.id)}>
-												<div class="result-info">
-													<span class="result-name">{result.name}</span>
-													<span class="result-id">{result.id}</span>
-												</div>
-												<button type="button" class="add-button" onclick={() => addToGroup(result)} disabled={isAlreadyInGroup(result.id)}>
-													<Icon icon={isAlreadyInGroup(result.id) ? 'mdi:check' : 'mdi:plus'} /> {isAlreadyInGroup(result.id) ? 'Added' : 'Add'}
-												</button>
-											</li>
-										{/each}
-									</ul>
-								{/if}
-							</div>
-						</div>
-					</section>
+					<GroupingTab bind:updatedGroup bind:groupingSearchInput bind:groupingSearchResults bind:groupingSearchLoading {handleGroupingSearchInput} {addToGroup} {removeFromGroup} {isAlreadyInGroup} {id} />
 				{/if}
 			</div>
 
@@ -947,295 +498,6 @@ h1 {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* --- Form Structure --- */
-.form-card {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-}
-.version-card + .version-card { margin-top: 1.5rem; }
-.version-header {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding-bottom: 1.5rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-}
-.version-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0;
-}
-.version-controls {
-  display: flex;
-  gap: 1rem;
-  margin-left: auto;
-}
-.mode-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-@media (min-width: 640px) {
-  .form-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  }
-}
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.form-group-full { grid-column: 1 / -1; }
-.form-field label,
-.form-group label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-input,
-select,
-textarea {
-  width: 100%;
-  padding: 8px 12px;
-  font-size: 1rem;
-  font-family: inherit;
-  color: var(--text-primary);
-  background-color: var(--input-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-.form-field input { width: 120px; }
-textarea { min-height: 80px; resize: vertical; }
-
-/* --- Fieldsets & Sub-sections --- */
-fieldset {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 1rem 1.5rem 1.5rem;
-  background-color: var(--input-bg);
-}
-fieldset.docked {
-  background-image: radial-gradient(color-mix(in srgb, var(--border-color) 30%, transparent) 1px, transparent 1px);
-  background-size: 10px 10px;
-}
-legend {
-  font-weight: 600;
-  padding: 0 0.5rem;
-  color: var(--primary-color);
-}
-.sub-legend {
-  font-size: 1rem;
-  font-weight: 500;
-  margin: 1rem 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-hr {
-  border: none;
-  border-top: 1px solid var(--border-color);
-  margin: 1rem 0;
-}
-/* --- Additional Locks Section --- */
-.additional-locks-section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  width: 100%;
-}
-
-.additional-locks-section .group-label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.additional-locks-section .add-btn {
-  margin-top: 0.5rem;
-  padding: 0.5rem 1rem;
-}
-
-/* --- Lock Items --- */
-.additional-lock-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px dashed var(--border-color);
-}
-
-.additional-lock-item:last-of-type {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-/* --- Lock Rows --- */
-.additional-lock-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 0.75rem;
-  width: 100%;
-  align-items: center;
-}
-
-.additional-lock-row.resolution {
-  grid-template-columns: 1fr auto;
-}
-
-.additional-lock-row .remove-btn {
-  height: 100%;
-}
-
-/* --- Notes --- */
-.notes-field {
-  margin-top: 1rem;
-}
-
-.notes-input {
-  font-size: 0.9rem;
-  min-height: 40px !important;
-}
-
-
-/* --- Buttons --- */
-.remove-btn,
-.remove-version-btn {
-  background: transparent;
-  color: #ef4444;
-  border: 1px solid transparent;
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-.remove-btn:hover,
-.remove-version-btn:hover {
-  background-color: color-mix(in srgb, #ef4444 10%, transparent);
-  border-color: #ef4444;
-}
-.add-btn,
-.add-version-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 1.5rem;
-  padding: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  color: var(--primary-color);
-  background-color: var(--surface-color);
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius-lg);
-  transition: all 0.2s;
-}
-.add-btn:hover,
-.add-version-btn:hover {
-  border-color: var(--primary-color);
-  background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
-}
-.add-button {
-  background-color: var(--input-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-.add-button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* --- Grouping & Custom Fields --- */
-.current-group-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-.group-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: var(--surface-color);
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
-}
-.group-item button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-secondary);
-}
-.group-item button[disabled] {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-.search-input-wrapper { position: relative; }
-.search-results {
-  list-style: none;
-  margin-top: 0.5rem;
-  padding: 0;
-  max-height: 200px;
-  overflow-y: auto;
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-}
-.search-results li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-.field-wrapper { margin-bottom: 1.5rem; }
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-/* --- Links --- */
-.links-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.link-entry {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.link-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* --- Tooltip --- */
-.tooltip { position: relative; display: inline-flex; align-items: center; color: var(--text-secondary); margin-left: 0.25rem; }
-.tooltip .tooltip-text { visibility: hidden; width: 250px; background-color: #333; color: #fff; text-align: left; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -125px; opacity: 0; transition: opacity 0.3s; font-size: 0.8rem; line-height: 1.4; pointer-events: none; }
-.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
-.tooltip-text strong { color: #eee; }
-
 /* --- Footer & Submission --- */
 .form-footer {
   position: fixed;
@@ -1288,8 +550,7 @@ hr {
   background-color: var(--background-color);
   border-radius: var(--radius-lg);
 }
-.modal-header,
-.modal-footer {
+.modal-header, .modal-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1317,8 +578,7 @@ hr {
   gap: 1rem;
   border-top: 1px solid var(--border-color);
 }
-.cancel-btn,
-.confirm-btn {
+.cancel-btn, .confirm-btn {
   padding: 0.6rem 1.2rem;
   font-weight: 600;
   border-radius: var(--radius-md);
@@ -1406,8 +666,7 @@ hr {
   flex-wrap: wrap;
   gap: 1rem;
 }
-.cta-button,
-.secondary-button {
+.cta-button, .secondary-button {
   display: inline-block;
   padding: 10px 20px;
   font-weight: 600;

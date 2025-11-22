@@ -96,8 +96,8 @@ export const actions = {
 					newContributors.forEach(c => allContributors.add(c));
 					
 					const profiles = pruneEmptyValues(submittedProfile.profiles);
-					const fileContent = isProfileEmpty(submittedProfile)
-						? { contributor: newContributors }
+					const fileContent = isProfileEmpty(submittedProfile) 
+						? { contributor: newContributors } 
 						: { contributor: newContributors, ...profiles };
 					
 					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
@@ -150,7 +150,14 @@ export const actions = {
 			}
 			
 			if (changeSummary.some(s => s.includes('grouping'))) {
-				filesToCommit.push({ path: `groups/${groupId}.json`, content: stringify(updatedGroupData.map(g => g.id), { space: 2 }), sha: shas.group });
+
+				let groupSha = shas.group;
+				
+				const targetGroupPath = `groups/${groupId}.json`;
+				const freshSha = await getFileSha(targetGroupPath);
+				groupSha = freshSha;
+
+				filesToCommit.push({ path: targetGroupPath, content: stringify(updatedGroupData.map(g => g.id), { space: 2 }), sha: groupSha });
 			}
 
 			const isSchemaUpdateOnly = changeSummary.length > 0 && changeSummary.every(s => s.includes('schema'));
