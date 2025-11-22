@@ -2,6 +2,7 @@ export class Game {
 	id;
 	groupId;
 	names;
+	regions;
 	publisher;
 	releaseDate;
 	sizeInBytes;
@@ -10,8 +11,8 @@ export class Game {
 	screenshots;
 	graphics;
 	performanceHistory;
-	contributor; // from latest profile
-	sourcePrUrl; // from latest profile
+	contributor;
+	sourcePrUrl;
 
 	allTitlesInGroup;
 	youtubeLinks;
