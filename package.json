@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build:index": "node scripts/build-index.js",
+		"build:index": "node scripts/build.js",
 		"build": "vite build",
 		"preview": "vite preview",
 		"dev:seed": "npm run build:index",
@@ -43,6 +43,7 @@
 		"@fontsource/fira-mono": "^5.2.6",
 		"@octokit/rest": "^22.0.0",
 		"@resvg/resvg-js": "^2.6.2",
+		"@vercel/blob": "^2.0.0",
 		"chart.js": "^4.5.0",
 		"drizzle-orm": "^0.44.4",
 		"idb": "^8.0.3",
@@ -50,6 +51,7 @@
 		"lodash-es": "^4.17.21",
 		"postgres": "^3.4.7",
 		"satori": "^0.16.2",
-		"satori-html": "^0.3.2"
+		"satori-html": "^0.3.2",
+		"sharp": "^0.34.5"
 	}
 }
