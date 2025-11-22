@@ -2,6 +2,7 @@
     import '../app.css'
     import Header from './Header.svelte';
     import Footer from './Footer.svelte';
+    import OnboardingModal from './OnboardingModal.svelte';
 
 	let { data, children } = $props()
 </script>
@@ -13,6 +14,8 @@
 </main>
 
 <Footer />
+
+<OnboardingModal />
 
 <style>
     .app-container {
