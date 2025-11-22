@@ -1,4 +1,4 @@
-import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex, primaryKey } from 'drizzle-orm/pg-core';
 
 export const resolutionTypeEnum = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed']);
 export const fpsBehaviorEnum = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unstable', 'Very Unstable']);
@@ -13,6 +13,7 @@ export const games = pgTable('games', {
 	id: text('id').primaryKey(),
 	groupId: text('group_id').notNull().references(() => gameGroups.id),
 	names: text('names').array().notNull(),
+	regions: text('regions').array(),
 	publisher: text('publisher'),
 	releaseDate: integer('release_date'),
 	sizeInBytes: bigint('size_in_bytes', { mode: 'number' }),
@@ -51,4 +52,14 @@ export const youtubeLinks = pgTable('youtube_links', {
 	notes: text('notes'),
 	submittedBy: text('submitted_by'),
 	submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow()
+});
+
+export const dataRequests = pgTable('data_requests', {
+	gameId: text('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+	userId: text('user_id').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+}, (table) => {
+	return {
+		pk: primaryKey({ columns: [table.gameId, table.userId] })
+	};
 });
