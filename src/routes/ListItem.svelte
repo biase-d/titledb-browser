@@ -61,7 +61,7 @@
             {#if showRegionBadge}
 				<span class="region-badge" title="Available in: {regionLabel}">
                     <Icon icon="mdi:earth" width="12" height="12" />
-                    {regionLabel}
+                    <span class="badge-text">{regionLabel}</span>
                 </span>
 			{/if}
 			<span class="title-id">{id}</span>
@@ -170,11 +170,18 @@
 		padding: 2px 6px;
 		border-radius: 4px;
 		border: 1px solid var(--border-color);
-        max-width: 120px;
+        max-width: 140px;
+	}
+	
+    .region-badge :global(svg) {
+        flex-shrink: 0;
+    }
+
+    .badge-text {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-	}
+    }
 
 	.perf-tags {
 		display: none;
