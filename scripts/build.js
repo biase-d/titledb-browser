@@ -38,19 +38,14 @@ async function applyMigrationsToStaging(client, stagingSchema) {
 async function setupExtensions(sqlClient) {
     console.log('Setting up persistent extensions schema...');
     await sqlClient`CREATE SCHEMA IF NOT EXISTS extensions`;
-
     const extensions = ['pg_trgm', 'unaccent'];
-    
     for (const ext of extensions) {
         try {
             await sqlClient.unsafe(`CREATE EXTENSION IF NOT EXISTS "${ext}" SCHEMA extensions`);
         } catch (e) {
             try {
-                console.log(`Extension ${ext} might exist elsewhere. Attempting to move to 'extensions' schema...`);
                 await sqlClient.unsafe(`ALTER EXTENSION "${ext}" SET SCHEMA extensions`);
-            } catch (moveError) {
-                console.warn(`Could not setup extension ${ext}:`, moveError.message);
-            }
+            } catch (moveError) {}
         }
     }
 }
@@ -59,7 +54,7 @@ async function setupExtensions(sqlClient) {
   const connectionString = process.env.POSTGRES_URL;
   if (!connectionString) process.exit(1);
 
-  const sqlClient = postgres(connectionString);
+  const sqlClient = postgres(connectionString, { ssl: 'require', max: 1 });
 
   try {
     const useCache = !process.argv.includes('--no-cache');
@@ -71,7 +66,7 @@ async function setupExtensions(sqlClient) {
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
     
-    const stagingClient = postgres(connectionString);
+    const stagingClient = postgres(connectionString, { ssl: 'require', max: 1 });
     
     console.log('Applying database migrations to staging...');
     await applyMigrationsToStaging(stagingClient, stagingSchema);
@@ -98,7 +93,6 @@ async function setupExtensions(sqlClient) {
         console.log('⚠️ Skipping data sync.');
     } else {
         console.log(`Syncing data into ${stagingSchema}...`);
-      
         const db = drizzle(stagingClient);
         await db.transaction(async (tx) => {
             await tx.execute(sql.raw(`SET search_path TO "${stagingSchema}"`));
@@ -115,18 +109,26 @@ async function setupExtensions(sqlClient) {
 
     await stagingClient.end();
 
-    console.log('Performing atomic schema swap...');
+    console.log('Performing atomic data swap (Truncate & Copy)...');
+    
     await sqlClient.begin(async (tx) => {
-      await tx`CREATE SCHEMA IF NOT EXISTS public`;
-      await tx`DROP SCHEMA IF EXISTS public_backup CASCADE`;
-      await tx`ALTER SCHEMA public RENAME TO public_backup`;
-      await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
+        const tables = ['game_groups', 'games', 'performance_profiles', 'graphics_settings', 'youtube_links', 'data_requests'];
+        
+        await tx`SET session_replication_role = 'replica'`;
+
+        for (const table of tables) {
+            await tx.unsafe(`CREATE TABLE IF NOT EXISTS public."${table}" (LIKE "${stagingSchema}"."${table}" INCLUDING ALL)`);
+            await tx.unsafe(`TRUNCATE TABLE public."${table}" RESTART IDENTITY CASCADE`);
+            await tx.unsafe(`INSERT INTO public."${table}" SELECT * FROM "${stagingSchema}"."${table}"`);
+        }
+        
+        await tx`SET session_replication_role = 'origin'`;
     });
     
     console.log('Swap complete.');
     
-    console.log('Cleaning up backup schema...');
-    await sqlClient`DROP SCHEMA IF EXISTS public_backup CASCADE`;
+    console.log(`Cleaning up staging schema ${stagingSchema}...`);
+    await sqlClient`DROP SCHEMA IF EXISTS ${sqlClient(stagingSchema)} CASCADE`;
 
   } catch (error) {
     console.error('Build failed:', error);
