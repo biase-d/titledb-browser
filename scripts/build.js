@@ -3,7 +3,6 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { sql } from 'drizzle-orm';
 
 import { loadCache, saveCache } from './lib/cache.js';
 import { cloneOrPull, buildFullContributorMap, buildDateMapOptimized } from './lib/git-api.js';
@@ -18,36 +17,18 @@ const REPOS = {
 async function applyMigrationsToStaging(client, stagingSchema) {
   const journalPath = path.join('drizzle', 'meta', '_journal.json');
   const journal = JSON.parse(await fs.readFile(journalPath, 'utf-8'));
-  
   const entries = journal.entries.sort((a, b) => a.idx - b.idx);
 
   await client.begin(async (tx) => {
     await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
-    
-    const res = await tx`SHOW search_path`;
-    console.log(`[Migration] search_path is set to: ${res[0].search_path}`);
-
     for (const entry of entries) {
       const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
       let migrationSql = await fs.readFile(migrationPath, 'utf-8');
-
       migrationSql = migrationSql.replace(/"public"\./g, `"${stagingSchema}".`);
-      
       const statements = migrationSql.split('--> statement-breakpoint');
-
-      console.log(`Applying migration ${entry.tag} (${statements.length} statements)...`);
-
       for (const statement of statements) {
         const trimmed = statement.trim();
-        if (trimmed.length > 0) {
-          try {
-            await tx.unsafe(trimmed);
-          } catch (e) {
-            console.error(`Failed to execute statement in ${entry.tag}:`);
-            console.error(trimmed);
-            throw e;
-          }
-        }
+        if (trimmed.length > 0) await tx.unsafe(trimmed);
       }
     }
   });
@@ -55,27 +36,24 @@ async function applyMigrationsToStaging(client, stagingSchema) {
 
 (async () => {
   const connectionString = process.env.POSTGRES_URL;
-  
-  if (!connectionString) {
-    console.error('Error: POSTGRES_URL environment variable is missing.');
-    process.exit(1);
-  }
+  if (!connectionString) process.exit(1);
 
   const sqlClient = postgres(connectionString, { ssl: 'require', max: 1 });
 
   try {
     const useCache = !process.argv.includes('--no-cache');
-    
     console.log('--- Starting Zero-Downtime Build Process ---');
     
     const stagingSchema = `staging_${Date.now()}`;
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
     
-    const stagingClient = postgres(connectionString, { 
-      ssl: 'require', 
-      max: 1
-    });
+    try {
+        await sqlClient`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public`;
+        await sqlClient`CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public`;
+    } catch (e) { console.log('Extension creation warning:', e.message); }
+
+    const stagingClient = postgres(connectionString, { ssl: 'require', max: 1 });
     
     console.log('Applying database migrations to staging...');
     await applyMigrationsToStaging(stagingClient, stagingSchema);
@@ -90,11 +68,7 @@ async function applyMigrationsToStaging(client, stagingSchema) {
     let forceTitleRefresh = false;
     if (cachedMetadata?.lastProcessedDate) {
       const lastDate = new Date(cachedMetadata.lastProcessedDate);
-      const hoursSinceLastUpdate = (new Date() - lastDate) / (1000 * 60 * 60);
-      if (hoursSinceLastUpdate > 24) {
-        console.log('Last update was over 24 hours ago. Forcing title database refresh.');
-        forceTitleRefresh = true;
-      }
+      if ((new Date() - lastDate) / (1000 * 60 * 60) > 24) forceTitleRefresh = true;
     }
 
     const metadata = {
@@ -103,54 +77,46 @@ async function applyMigrationsToStaging(client, stagingSchema) {
     };
 
     if (process.argv.includes('--skip-data')) {
-        console.log('⚠️ Skipping data sync (--skip-data flag detected). Staging DB will be empty!');
+        console.log('⚠️ Skipping data sync.');
     } else {
         console.log(`Syncing data into ${stagingSchema}...`);
-        
-        const db = drizzle(stagingClient);
-
-        await db.transaction(async (tx) => {
-            await tx.execute(sql.raw(`SET search_path TO "${stagingSchema}"`));
-            await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+        await stagingClient.begin(async (tx) => {
+            await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
+            const txDb = drizzle(tx);
+            await syncDatabase(txDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
         });
     }
 
     await saveCache(contributorMap, metadata);
     
     if (!process.argv.includes('--skip-data')) {
-        const tableCountResult = await stagingClient`
-            SELECT count(*) 
-            FROM information_schema.tables 
-            WHERE table_schema = ${stagingSchema}
-        `;
-        const tableCount = parseInt(tableCountResult[0].count);
-        console.log(`[Safety Check] Tables in ${stagingSchema}: ${tableCount}`);
-
-        if (tableCount < 5) {
-            throw new Error(`[Safety Check Failed] Staging schema ${stagingSchema} has too few tables (${tableCount}). Aborting swap.`);
-        }
+        const tableCountResult = await stagingClient`SELECT count(*) FROM information_schema.tables WHERE table_schema = ${stagingSchema}`;
+        if (parseInt(tableCountResult[0].count) < 5) throw new Error(`Staging schema ${stagingSchema} incomplete. Aborting.`);
     }
 
     await stagingClient.end();
 
-    console.log('Performing atomic schema swap (Blue/Green deployment)...');
+    console.log('Performing atomic schema swap...');
     await sqlClient.begin(async (tx) => {
       await tx`CREATE SCHEMA IF NOT EXISTS public`;
       await tx`DROP SCHEMA IF EXISTS public_backup CASCADE`;
       await tx`ALTER SCHEMA public RENAME TO public_backup`;
       await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
       
-      console.log('Recreating extensions in public schema...');
-      
-      // Drop from anywhere to avoid collisions
-      await tx`DROP EXTENSION IF EXISTS pg_trgm CASCADE`;
-      await tx`DROP EXTENSION IF EXISTS unaccent CASCADE`;
-      
-      await tx`CREATE EXTENSION pg_trgm SCHEMA public`;
-      await tx`CREATE EXTENSION unaccent SCHEMA public`;
+      try {
+        await tx`ALTER EXTENSION pg_trgm SET SCHEMA public`;
+      } catch (e) {
+        await tx`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public`;
+      }
+
+      try {
+        await tx`ALTER EXTENSION unaccent SET SCHEMA public`;
+      } catch (e) {
+        await tx`CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public`;
+      }
     });
     
-    console.log('Swap complete. Live site is now serving new data.');
+    console.log('Swap complete.');
     
     console.log('Cleaning up backup schema...');
     await sqlClient`DROP SCHEMA IF EXISTS public_backup CASCADE`;
