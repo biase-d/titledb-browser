@@ -122,7 +122,7 @@ async function setupExtensions(sqlClient) {
     
     await sqlClient.begin(async (tx) => {
         await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS public`);
-        await tx.unsafe(`ALTER SCHEMA public RENAME TO "${backupSchema}"`);c
+        await tx.unsafe(`ALTER SCHEMA public RENAME TO "${backupSchema}"`);
         await tx.unsafe(`ALTER SCHEMA "${stagingSchema}" RENAME TO public`);
         await tx.unsafe(`GRANT USAGE ON SCHEMA public TO public`);
         await tx.unsafe(`GRANT CREATE ON SCHEMA public TO public`);
@@ -130,7 +130,7 @@ async function setupExtensions(sqlClient) {
     
     console.log('Swap complete.');
 
-    console.log('🔫 Terminating all other database connections to flush OID cache...');
+    console.log('Terminating all other database connections to flush OID cache...');
     try {
         await sqlClient`
             SELECT pg_terminate_backend(pid)
