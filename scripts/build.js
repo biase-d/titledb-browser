@@ -22,10 +22,13 @@ async function applyMigrationsToStaging(client, stagingSchema) {
 
   await client.begin(async (tx) => {
     await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
+    
     for (const entry of entries) {
       const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
       let migrationSql = await fs.readFile(migrationPath, 'utf-8');
+      
       migrationSql = migrationSql.replace(/"public"\./g, `"${stagingSchema}".`);
+      
       const statements = migrationSql.split('--> statement-breakpoint');
       for (const statement of statements) {
         const trimmed = statement.trim();
@@ -65,7 +68,7 @@ async function setupExtensions(sqlClient) {
     const stagingSchema = `staging_${Date.now()}`;
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
-    
+
     const stagingClient = postgres(connectionString, { ssl: 'require', max: 1 });
     
     console.log('Applying database migrations to staging...');
@@ -107,6 +110,11 @@ async function setupExtensions(sqlClient) {
         if (parseInt(tableCountResult[0].count) < 5) throw new Error(`Staging schema ${stagingSchema} incomplete. Aborting.`);
     }
 
+    console.log('Granting permissions on staging tables...');
+    await stagingClient.unsafe(`GRANT USAGE ON SCHEMA "${stagingSchema}" TO public`);
+    await stagingClient.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${stagingSchema}" TO public`);
+    await stagingClient.unsafe(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${stagingSchema}" TO public`);
+
     await stagingClient.end();
 
     console.log('Performing atomic Schema Swap...');
@@ -121,6 +129,15 @@ async function setupExtensions(sqlClient) {
     });
     
     console.log('Swap complete.');
+
+    try {
+        console.log('Verifying public schema integrity...');
+        const check = await sqlClient`SELECT count(*) FROM public.performance_profiles`;
+        console.log(`Verification passed: public.performance_profiles has ${check[0].count} rows.`);
+    } catch (e) {
+        console.error('CRITICAL: Verification failed. The table public.performance_profiles is missing or inaccessible.');
+        throw e;
+    }
     
     console.log('Cleaning up old backup schema...');
     await sqlClient`DROP SCHEMA IF EXISTS backup_schema CASCADE`;
