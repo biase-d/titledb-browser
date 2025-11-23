@@ -21,9 +21,6 @@ async function applyMigrationsToStaging(client, stagingSchema) {
   const entries = journal.entries.sort((a, b) => a.idx - b.idx);
 
   await client.unsafe(`SET search_path TO "${stagingSchema}"`);
-  
-  const res = await client.unsafe(`SHOW search_path`);
-  console.log(`Migration client search_path set to: ${res[0].search_path}`);
 
   for (const entry of entries) {
     const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
@@ -63,18 +60,22 @@ async function applyMigrationsToStaging(client, stagingSchema) {
   try {
     const useCache = !process.argv.includes('--no-cache');
     
-    console.log('--- Starting Build Process ---');
+    console.log('--- Starting Zero-Downtime Build Process ---');
     
     const stagingSchema = `staging_${Date.now()}`;
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
-
+    
     const stagingClient = postgres(connectionString, { 
       ssl: 'require', 
       max: 1,
-      onnotice: () => {}
+      onconnect: async (sql) => {
+        await sql.unsafe(`SET search_path TO "${stagingSchema}"`);
+      }
     });
     
+    await stagingClient`SELECT 1`;
+
     const stagingDb = drizzle(stagingClient);
 
     console.log('Applying database migrations to staging...');
@@ -105,9 +106,23 @@ async function applyMigrationsToStaging(client, stagingSchema) {
     console.log(`Syncing data into ${stagingSchema}...`);
     
     await stagingClient.unsafe(`SET search_path TO "${stagingSchema}"`);
+
     await syncDatabase(stagingDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+
     await saveCache(contributorMap, metadata);
     
+    const tableCountResult = await stagingClient`
+        SELECT count(*) 
+        FROM information_schema.tables 
+        WHERE table_schema = ${stagingSchema}
+    `;
+    const tableCount = parseInt(tableCountResult[0].count);
+    console.log(`[Safety Check] Tables in ${stagingSchema}: ${tableCount}`);
+
+    if (tableCount < 5) { // We expect at least games, game_groups, performance_profiles, graphics_settings, youtube_links
+        throw new Error(`[Safety Check Failed] Staging schema ${stagingSchema} has too few tables (${tableCount}). Aborting swap to protect production data.`);
+    }
+
     await stagingClient.end();
 
     console.log('Performing atomic schema swap (Blue/Green deployment)...');
@@ -118,7 +133,7 @@ async function applyMigrationsToStaging(client, stagingSchema) {
       await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
     });
     
-    console.log('Swap complete. Live site is now serving new data.');
+    console.log('Swap complete. Live site is now serving new data');
     
     console.log('Cleaning up backup schema...');
     await sqlClient`DROP SCHEMA IF EXISTS public_backup CASCADE`;
