@@ -1,23 +1,38 @@
 import { simpleGit } from 'simple-git';
 import { Octokit } from '@octokit/rest';
-import path from 'node:path';
+import fs from 'node:fs/promises';
 
-const git = simpleGit();
 const octokit = new Octokit({ auth: process.env.ACCESS_TOKEN });
 
 /**
  * Clones a repository if it doesn't exist, or pulls the latest changes if it does
+ * Handles corrupt directories by wiping and re-cloning.
  * @param {string} repoPath - The local path to the repository
  * @param {string} repoUrl - The remote URL of the repository
  */
 export async function cloneOrPull(repoPath, repoUrl) {
-  try {
-    // A simple way to check for existence is to get its status
-    await git.cwd(repoPath).status();
-    console.log(`Pulling latest changes for ${repoPath}...`);
-    await git.cwd(repoPath).pull();
-  } catch (e) {
+  const exists = await fs.access(repoPath).then(() => true).catch(() => false);
+
+  if (exists) {
+    try {
+      console.log(`Pulling latest changes for ${repoPath}...`);
+      // Use a fresh instance for this path to avoid concurrency issues
+      const git = simpleGit(repoPath);
+      await git.pull();
+    } catch (e) {
+      console.warn(`Git pull failed for ${repoPath}. The directory might be corrupt. Cleaning up and re-cloning...`);
+      console.error(`Error details: ${e.message}`);
+      
+      // Wipe the directory and try again
+      await fs.rm(repoPath, { recursive: true, force: true });
+      
+      console.log(`Cloning ${repoUrl} into ${repoPath}...`);
+      const git = simpleGit();
+      await git.clone(repoUrl, repoPath);
+    }
+  } else {
     console.log(`Cloning ${repoUrl} into ${repoPath}...`);
+    const git = simpleGit();
     await git.clone(repoUrl, repoPath);
   }
 }
@@ -187,7 +202,10 @@ export async function buildDateMapOptimized(repoPath) {
   console.log('Building file date map from Git history (optimized)...');
   const dateMap = { performance: {}, graphics: {}, videos: {} };
 
-  const logOutput = await git.cwd(repoPath).raw([
+  // Use a specific instance for this repo
+  const git = simpleGit(repoPath);
+
+  const logOutput = await git.raw([
     'log',
     '--name-only',
     '--format=format:--%ct', // %ct is the committer timestamp as a UNIX timestamp

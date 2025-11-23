@@ -18,9 +18,14 @@ export async function getGameDetails(titleId) {
 
 	const { groupId } = game;
 
+	// Fetch related data in parallel
 	const [groupInfo, allTitlesInGroup, allPerformanceProfiles, graphics, links] = await Promise.all([
 		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
-		db.query.games.findMany({ where: eq(games.groupId, groupId), columns: { id: true, names: true } }),
+		// Explicitly select regions for the group members too
+		db.query.games.findMany({ 
+			where: eq(games.groupId, groupId), 
+			columns: { id: true, names: true, regions: true } 
+		}),
 		db.query.performanceProfiles.findMany({ where: eq(performanceProfiles.groupId, groupId) }),
 		db.query.graphicsSettings.findFirst({ where: eq(graphicsSettings.groupId, groupId) }),
 		db.query.youtubeLinks.findMany({ where: eq(youtubeLinks.groupId, groupId) })
@@ -63,7 +68,12 @@ export async function getGameDetails(titleId) {
 
 	return {
 		game: gameData,
-		allTitlesInGroup: allTitlesInGroup.map((t) => ({ id: t.id, name: t.names[0] })),
+		// Pass the regions to the group list as well
+		allTitlesInGroup: allTitlesInGroup.map((t) => ({ 
+			id: t.id, 
+			name: t.names[0],
+			regions: t.regions 
+		})),
 		youtubeLinks: links,
 		youtubeContributors: groupInfo?.youtubeContributors || []
 	};

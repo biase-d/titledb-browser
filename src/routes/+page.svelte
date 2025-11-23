@@ -4,15 +4,18 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import Icon from '@iconify/svelte';
-    import ListItem from './ListItem.svelte';
-    import GridItem from './GridItem.svelte';
-    import Drafts from './Drafts.svelte';
+	import ListItem from './ListItem.svelte';
+	import GridItem from './GridItem.svelte';
+	import Drafts from './Drafts.svelte';
+	import SearchHero from './SearchHero.svelte';
+	import { createImageSet } from '$lib/image';
 
 	let { data } = $props();
 
 	let results = $derived(data.results);
 	let recentUpdates = $derived(data.recentUpdates || []);
 	let pagination = $derived(data.pagination);
+	let stats = $derived(data.stats);
 
 	let search = $state('');
 	let dockedFps = $state('');
@@ -20,11 +23,11 @@
 	let resolutionType = $state('');
 	let selectedSort = $state('date-desc');
 	let currentPage = $state(1);
-	let viewMode = $state('list'); // 'list' or 'grid'
+	let viewMode = $state('list');
 
-	/**
-     * @type {number | undefined}
-     */
+	// Dynamic Hero Background based on the latest update
+	let heroBanner = $derived(recentUpdates.length > 0 ? createImageSet(recentUpdates[0].iconUrl) : null);
+
 	let debounceTimer;
 
 	onMount(() => {
@@ -69,13 +72,25 @@
 		}, 350);
 	}
 
-	/**
-     * @param {number} newPage
-     */
 	function changePage(newPage) {
 		currentPage = newPage;
 		updateData({ resetPage: false });
 		if (browser) window.scrollTo({ top: 0, behavior: 'smooth' });
+	}
+
+	function handlePillFilter(filter) {
+		// Reset all filters first
+		search = '';
+		dockedFps = '';
+		handheldFps = '';
+		resolutionType = '';
+		
+		if (filter.type === 'q') search = filter.value;
+		if (filter.type === 'fps') {
+			dockedFps = filter.value;
+			handheldFps = filter.value;
+		}
+		updateData({ resetPage: true });
 	}
 
 	let hasActiveFilters = $derived(dockedFps || handheldFps || resolutionType);
@@ -94,16 +109,16 @@
 </svelte:head>
 
 <main class="main-content">
-	<div class="hero-section">
-		<h1>Switch Performance</h1>
-		<p>A community-driven database of game performance metrics, from framerates to resolution</p>
-		<div class="search-input-wrapper">
-			<Icon icon="mdi:magnify" class="search-icon" />
-			<input bind:value={search} oninput={() => updateData({ resetPage: true })} type="text" placeholder="Search by game name or title ID..." class="search-input"/>
-			{#if search}<button class="clear-button" onclick={() => { search = ''; updateData({ resetPage: true }); }} title="Clear search"><Icon icon="mdi:close"/></button>{/if}
-		</div>
-	</div>
+	<SearchHero 
+		stats={stats}
+		heroImage={heroBanner}
+		bind:searchValue={search}
+		onSearch={() => updateData({ resetPage: true })}
+		onFilter={handlePillFilter}
+	/>
+
 	<Drafts />
+
 	{#if !search && !hasActiveFilters && recentUpdates.length > 0}
 		<section class="results-section">
 			<div class='section-header-wrapper'>
@@ -158,78 +173,6 @@
 		gap: 3rem;
 		padding: 1rem;
 		margin: 0 auto;
-	}
-
-	.hero-section {
-		text-align: center;
-		padding: 2rem 0;
-	}
-
-	@media (min-width: 1024px) {
-		.hero-section {
-			padding-top: 0;
-		}
-	}
-
-	.hero-section h1 {
-		font-size: 2.5rem;
-		font-weight: 700;
-		margin: 0 0 0.5rem;
-	}
-
-	.hero-section p {
-		font-size: 1.125rem;
-		color: var(--text-secondary);
-		max-width: 600px;
-		margin: 0 auto 2rem;
-	}
-
-	.search-input-wrapper {
-		position: relative;
-		max-width: 600px;
-		margin: 0 auto;
-	}
-	
-	.search-input-wrapper :global(svg.search-icon) {
-		position: absolute;
-		left: 16px;
-		top: 50%;
-		transform: translateY(-50%);
-		color: var(--text-secondary);
-		pointer-events: none;
-	}
-
-	.search-input {
-		width: 100%;
-		padding: 14px 16px 14px 48px;
-		font-size: 1rem;
-		border: 1px solid var(--border-color);
-		border-radius: var(--radius-lg);
-		background-color: var(--surface-color);
-		color: var(--text-primary);
-		transition: border-color 0.2s, box-shadow 0.2s;
-	}
-
-	.search-input:focus {
-		outline: none;
-		border-color: var(--primary-color);
-		box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
-	}
-
-	.clear-button {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 8px;
-		border: none;
-		background: transparent;
-		color: var(--text-secondary);
-		cursor: pointer;
-	}
-
-	.clear-button:hover {
-		color: var(--text-primary);
 	}
 
 	.section-header-wrapper {
