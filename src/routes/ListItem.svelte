@@ -13,11 +13,13 @@
 
     const imageSet = $derived(createImageSet(iconUrl));
     
-    // Reactive name based on store
     let preferredRegion = $state('US');
     preferences.subscribe(p => preferredRegion = p.region);
     
 	const titleName = $derived(getLocalizedName(names, preferredRegion));
+
+	const regionLabel = $derived(getRegionLabel(regions));
+	const showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
 
 	const performanceInfo = $derived(
 		[
@@ -27,9 +29,6 @@
 			.filter(Boolean)
 			.join(', ')
 	);
-
-	const regionLabel = $derived(getRegionLabel(regions));
-	const showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
 
 	const ariaLabel = $derived(
 		`View details for ${titleName}.${performanceInfo ? ` Performance: ${performanceInfo}.` : ''}`
@@ -60,7 +59,7 @@
         </span>
 		<div class="meta-row">
             {#if showRegionBadge}
-				<span class="region-badge">
+				<span class="region-badge" title="Available in: {regionLabel}">
                     <Icon icon="mdi:earth" width="12" height="12" />
                     {regionLabel}
                 </span>
@@ -171,6 +170,10 @@
 		padding: 2px 6px;
 		border-radius: 4px;
 		border: 1px solid var(--border-color);
+        max-width: 120px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
 	}
 
 	.perf-tags {

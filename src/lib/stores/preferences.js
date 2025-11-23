@@ -21,7 +21,7 @@ export const COUNTRY_GROUPS = [
         label: 'Asia Pacific',
         options: [
             { id: 'JP', label: 'Japan', flag: '🇯🇵' },
-            { id: 'KR', label: 'South Korea', flag: '🇰🇷' },
+            { id: 'KR', label: 'Korea', flag: '🇰🇷' },
             { id: 'HK', label: 'Hong Kong', flag: '🇭🇰' },
             { id: 'TW', label: 'Taiwan', flag: '🇹🇼' },
             { id: 'CN', label: 'China', flag: '🇨🇳' },
@@ -77,17 +77,13 @@ function createPreferencesStore() {
             update(state => {
                 const newState = { ...state, region: regionCode };
                 
-                // 1. Save to LocalStorage (for client-side logic)
                 localStorage.setItem('preferred_region', regionCode);
                 
-                // 2. Save to Cookie (for server-side rendering/search)
-                // Max-age: 1 year
                 document.cookie = `preferred_region=${regionCode}; path=/; max-age=31536000; SameSite=Lax`;
                 
                 return newState;
             });
 
-            // 3. Refresh data to reflect changes immediately
             invalidateAll();
         }
     };
