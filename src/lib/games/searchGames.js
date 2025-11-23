@@ -5,14 +5,6 @@ import { desc, eq, sql, inArray, or, and, count, countDistinct } from 'drizzle-o
 const PAGE_SIZE = 50;
 
 export async function searchGames(searchParams) {
-    // Safety net: Ensure extensions exist
-    try {
-        await db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;`);
-        await db.execute(sql`CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public;`);
-    } catch (e) {
-        // ignore runtime fallback
-    }
-
 	const page = parseInt(searchParams.get('page') || '1', 10);
 	const q = searchParams.get('q') || '';
 	const publisher = searchParams.get('publisher');
@@ -40,16 +32,16 @@ export async function searchGames(searchParams) {
 		} else {
 			const searchWords = q.split(' ').filter(word => word.length > 0);
 			const allWordsCondition = and(
-                    // Explicitly use public.unaccent to avoid search_path issues
-					...searchWords.map(word => sql`public.unaccent(array_to_string(${games.names}, ' ')) ILIKE public.unaccent(${'%' + word + '%'})`)
+                    // Explicitly use extensions.unaccent
+					...searchWords.map(word => sql`extensions.unaccent(array_to_string(${games.names}, ' ')) ILIKE extensions.unaccent(${'%' + word + '%'})`)
 			);
 			whereClauses.push(allWordsCondition);
 		}
 	}
 
 	if (publisher) {
-        // Explicitly use public.unaccent
-		whereClauses.push(sql`public.unaccent(${games.publisher}) ILIKE public.unaccent(${publisher})`);
+        // Explicitly use extensions.unaccent
+		whereClauses.push(sql`extensions.unaccent(${games.publisher}) ILIKE extensions.unaccent(${publisher})`);
 	}
     
     if (regionFilter) {
@@ -139,8 +131,8 @@ export async function searchGames(searchParams) {
 	if (isTitleIdSearch) {
 		finalQuery.orderBy(desc(innerQuery.id));
 	} else if (q) {
-        // Explicitly use public.word_similarity and public.unaccent
-		finalQuery.orderBy(sql`public.word_similarity(public.unaccent(array_to_string(${innerQuery.names}, ' ')), public.unaccent(${q})) DESC`);
+        // Explicitly use extensions.word_similarity and extensions.unaccent
+		finalQuery.orderBy(sql`extensions.word_similarity(extensions.unaccent(array_to_string(${innerQuery.names}, ' ')), extensions.unaccent(${q})) DESC`);
 	} else {
 		switch (sort) {
 			case 'name-asc': finalQuery.orderBy(sql`${innerQuery.names}[1] ASC`); break;

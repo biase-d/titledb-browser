@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { sql } from 'drizzle-orm';
 
 import { loadCache, saveCache } from './lib/cache.js';
 import { cloneOrPull, buildFullContributorMap, buildDateMapOptimized } from './lib/git-api.js';
@@ -34,26 +35,43 @@ async function applyMigrationsToStaging(client, stagingSchema) {
   });
 }
 
+async function setupExtensions(sqlClient) {
+    console.log('Setting up persistent extensions schema...');
+    await sqlClient`CREATE SCHEMA IF NOT EXISTS extensions`;
+
+    const extensions = ['pg_trgm', 'unaccent'];
+    
+    for (const ext of extensions) {
+        try {
+            await sqlClient.unsafe(`CREATE EXTENSION IF NOT EXISTS "${ext}" SCHEMA extensions`);
+        } catch (e) {
+            try {
+                console.log(`Extension ${ext} might exist elsewhere. Attempting to move to 'extensions' schema...`);
+                await sqlClient.unsafe(`ALTER EXTENSION "${ext}" SET SCHEMA extensions`);
+            } catch (moveError) {
+                console.warn(`Could not setup extension ${ext}:`, moveError.message);
+            }
+        }
+    }
+}
+
 (async () => {
   const connectionString = process.env.POSTGRES_URL;
   if (!connectionString) process.exit(1);
 
-  const sqlClient = postgres(connectionString, { ssl: 'require', max: 1 });
+  const sqlClient = postgres(connectionString);
 
   try {
     const useCache = !process.argv.includes('--no-cache');
     console.log('--- Starting Zero-Downtime Build Process ---');
     
+    await setupExtensions(sqlClient);
+
     const stagingSchema = `staging_${Date.now()}`;
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
     
-    try {
-        await sqlClient`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public`;
-        await sqlClient`CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public`;
-    } catch (e) { console.log('Extension creation warning:', e.message); }
-
-    const stagingClient = postgres(connectionString, { ssl: 'require', max: 1 });
+    const stagingClient = postgres(connectionString);
     
     console.log('Applying database migrations to staging...');
     await applyMigrationsToStaging(stagingClient, stagingSchema);
@@ -80,10 +98,11 @@ async function applyMigrationsToStaging(client, stagingSchema) {
         console.log('⚠️ Skipping data sync.');
     } else {
         console.log(`Syncing data into ${stagingSchema}...`);
-        await stagingClient.begin(async (tx) => {
-            await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
-            const txDb = drizzle(tx);
-            await syncDatabase(txDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+      
+        const db = drizzle(stagingClient);
+        await db.transaction(async (tx) => {
+            await tx.execute(sql.raw(`SET search_path TO "${stagingSchema}"`));
+            await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
         });
     }
 
@@ -102,18 +121,6 @@ async function applyMigrationsToStaging(client, stagingSchema) {
       await tx`DROP SCHEMA IF EXISTS public_backup CASCADE`;
       await tx`ALTER SCHEMA public RENAME TO public_backup`;
       await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
-      
-      try {
-        await tx`ALTER EXTENSION pg_trgm SET SCHEMA public`;
-      } catch (e) {
-        await tx`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public`;
-      }
-
-      try {
-        await tx`ALTER EXTENSION unaccent SET SCHEMA public`;
-      } catch (e) {
-        await tx`CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public`;
-      }
     });
     
     console.log('Swap complete.');
