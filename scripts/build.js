@@ -20,8 +20,6 @@ async function applyMigrationsToStaging(client, stagingSchema) {
   
   const entries = journal.entries.sort((a, b) => a.idx - b.idx);
 
-  await client.unsafe(`SET search_path TO "${stagingSchema}"`);
-
   for (const entry of entries) {
     const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
     let migrationSql = await fs.readFile(migrationPath, 'utf-8');
@@ -66,16 +64,15 @@ async function applyMigrationsToStaging(client, stagingSchema) {
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
     
-    const stagingClient = postgres(connectionString, { 
+    const stagingUrl = new URL(connectionString);
+    stagingUrl.searchParams.set('options', `-c search_path=${stagingSchema}`);
+    
+    console.log(`Connecting to staging schema via URL options...`);
+    const stagingClient = postgres(stagingUrl.toString(), { 
       ssl: 'require', 
-      max: 1,
-      onconnect: async (sql) => {
-        await sql.unsafe(`SET search_path TO "${stagingSchema}"`);
-      }
+      max: 1 
     });
     
-    await stagingClient`SELECT 1`;
-
     const stagingDb = drizzle(stagingClient);
 
     console.log('Applying database migrations to staging...');
@@ -103,24 +100,27 @@ async function applyMigrationsToStaging(client, stagingSchema) {
       titledbFilteredHash: forceTitleRefresh ? null : cachedMetadata?.titledbFilteredHash
     };
 
-    console.log(`Syncing data into ${stagingSchema}...`);
-    
-    await stagingClient.unsafe(`SET search_path TO "${stagingSchema}"`);
-
-    await syncDatabase(stagingDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+    if (process.argv.includes('--skip-data')) {
+        console.log('⚠️ Skipping data sync (--skip-data flag detected). Staging DB will be empty!');
+    } else {
+        console.log(`Syncing data into ${stagingSchema}...`);
+        await syncDatabase(stagingDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+    }
 
     await saveCache(contributorMap, metadata);
     
-    const tableCountResult = await stagingClient`
-        SELECT count(*) 
-        FROM information_schema.tables 
-        WHERE table_schema = ${stagingSchema}
-    `;
-    const tableCount = parseInt(tableCountResult[0].count);
-    console.log(`[Safety Check] Tables in ${stagingSchema}: ${tableCount}`);
+    if (!process.argv.includes('--skip-data')) {
+        const tableCountResult = await stagingClient`
+            SELECT count(*) 
+            FROM information_schema.tables 
+            WHERE table_schema = ${stagingSchema}
+        `;
+        const tableCount = parseInt(tableCountResult[0].count);
+        console.log(`[Safety Check] Tables in ${stagingSchema}: ${tableCount}`);
 
-    if (tableCount < 5) { // We expect at least games, game_groups, performance_profiles, graphics_settings, youtube_links
-        throw new Error(`[Safety Check Failed] Staging schema ${stagingSchema} has too few tables (${tableCount}). Aborting swap to protect production data.`);
+        if (tableCount < 5) {
+            throw new Error(`[Safety Check Failed] Staging schema ${stagingSchema} has too few tables (${tableCount}). Aborting swap.`);
+        }
     }
 
     await stagingClient.end();
