@@ -15,23 +15,17 @@ const REPOS = {
   titledb_filtered: { url: 'https://github.com/masagrator/titledb_filtered.git', path: path.join(DATA_DIR, 'titledb_filtered') }
 };
 
-async function applyMigrations(client, targetSchema) {
+async function applyMigrationsToStaging(client, stagingSchema) {
   const journalPath = path.join('drizzle', 'meta', '_journal.json');
   const journal = JSON.parse(await fs.readFile(journalPath, 'utf-8'));
   const entries = journal.entries.sort((a, b) => a.idx - b.idx);
 
   await client.begin(async (tx) => {
-    await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS "${targetSchema}"`);
-    await tx.unsafe(`SET search_path TO "${targetSchema}"`);
-    
+    await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
     for (const entry of entries) {
       const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
       let migrationSql = await fs.readFile(migrationPath, 'utf-8');
-      
-      if (targetSchema !== 'public') {
-          migrationSql = migrationSql.replace(/"public"\./g, `"${targetSchema}".`);
-      }
-
+      migrationSql = migrationSql.replace(/"public"\./g, `"${stagingSchema}".`);
       const statements = migrationSql.split('--> statement-breakpoint');
       for (const statement of statements) {
         const trimmed = statement.trim();
@@ -64,18 +58,19 @@ async function setupExtensions(sqlClient) {
 
   try {
     const useCache = !process.argv.includes('--no-cache');
-    console.log('--- Starting Zero-Downtime Build Process (Truncate Strategy) ---');
+    console.log('--- Starting Zero-Downtime Build Process (Blue/Green) ---');
     
     await setupExtensions(sqlClient);
 
-    console.log('Ensuring public schema structure is up to date...');
-    await applyMigrations(sqlClient, 'public');
-
     const stagingSchema = `staging_${Date.now()}`;
     console.log(`Creating staging schema: ${stagingSchema}`);
-
+    await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
+    
     const stagingClient = postgres(connectionString, { ssl: 'require', max: 1 });
-    await applyMigrations(stagingClient, stagingSchema);
+    
+    console.log('Applying database migrations to staging...');
+    await applyMigrationsToStaging(stagingClient, stagingSchema);
+
     await fs.mkdir(DATA_DIR, { recursive: true });
     await Promise.all(Object.values(REPOS).map(repo => cloneOrPull(repo.path, repo.url)));
 
@@ -106,55 +101,42 @@ async function setupExtensions(sqlClient) {
     }
 
     await saveCache(contributorMap, metadata);
+    
+    if (!process.argv.includes('--skip-data')) {
+        const tableCountResult = await stagingClient`SELECT count(*) FROM information_schema.tables WHERE table_schema = ${stagingSchema}`;
+        if (parseInt(tableCountResult[0].count) < 5) throw new Error(`Staging schema ${stagingSchema} incomplete. Aborting.`);
+    }
+    
+    console.log('Granting permissions on staging tables...');
+    await stagingClient.unsafe(`GRANT USAGE ON SCHEMA "${stagingSchema}" TO public`);
+    await stagingClient.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${stagingSchema}" TO public`);
+    await stagingClient.unsafe(`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "${stagingSchema}" TO public`);
+
     await stagingClient.end();
 
-    console.log('Performing atomic Data Copy (Truncate & Fill)...');
+    console.log('Performing atomic Schema Swap...');
     
     await sqlClient.begin(async (tx) => {
-        const tables = [
-            'game_groups',          
-            'games',                
-            'performance_profiles', 
-            'graphics_settings',    
-            'youtube_links',        
-            'data_requests'         
-        ];
-        
-
-        console.log('  > Truncating public tables...');
-        for (const table of tables) {
-            await tx.unsafe(`TRUNCATE TABLE public."${table}" RESTART IDENTITY CASCADE`);
-        }
-
-        console.log('  > Copying data from staging...');
-        for (const table of tables) {
-            await tx.unsafe(`INSERT INTO public."${table}" SELECT * FROM "${stagingSchema}"."${table}"`);
-            
-
-            try {
-                await tx.unsafe(`
-                    DO $$
-                    DECLARE
-                        seq_name text;
-                    BEGIN
-                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table}' AND column_name = 'id') THEN
-                            seq_name := pg_get_serial_sequence('public."${table}"', 'id');
-                            IF seq_name IS NOT NULL THEN
-                                EXECUTE 'SELECT setval(''' || seq_name || ''', COALESCE(MAX(id), 1)) FROM public."${table}"';
-                            END IF;
-                        END IF;
-                    END $$;
-                `);
-            } catch (seqError) {
-                console.warn(`    Warning: Could not reset sequence for ${table} (might not have one).`);
-            }
-        }
+        await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS public`);
+        await tx.unsafe(`DROP SCHEMA IF EXISTS backup_schema CASCADE`);
+        await tx.unsafe(`ALTER SCHEMA public RENAME TO backup_schema`);
+        await tx.unsafe(`ALTER SCHEMA "${stagingSchema}" RENAME TO public`);
+        await tx.unsafe(`GRANT USAGE ON SCHEMA public TO public`);
+        await tx.unsafe(`GRANT CREATE ON SCHEMA public TO public`);
     });
     
     console.log('Swap complete.');
     
-    console.log(`Cleaning up staging schema ${stagingSchema}...`);
-    await sqlClient`DROP SCHEMA IF EXISTS ${sqlClient(stagingSchema)} CASCADE`;
+    try {
+        const check = await sqlClient`SELECT count(*) FROM public.performance_profiles`;
+        console.log(`Verification passed: public.performance_profiles has ${check[0].count} rows.`);
+    } catch (e) {
+        console.error('CRITICAL: Verification failed. The table is missing or inaccessible.');
+        throw e;
+    }
+    
+    console.log('Cleaning up old backup schema...');
+    await sqlClient`DROP SCHEMA IF EXISTS backup_schema CASCADE`;
 
   } catch (error) {
     console.error('Build failed:', error);

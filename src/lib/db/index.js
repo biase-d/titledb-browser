@@ -7,7 +7,8 @@ import * as schema from './schema'
 const useSsl = !dev
 
 const client = postgres(POSTGRES_URL, {
-  ssl: useSsl
+  ssl: useSsl,
+  prepare: false 
 })
 
 export const db = drizzle(client, { schema, logger: dev })
