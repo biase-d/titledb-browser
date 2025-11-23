@@ -62,7 +62,11 @@ async function setupExtensions(sqlClient) {
     
     await setupExtensions(sqlClient);
 
-    const stagingSchema = `staging_${Date.now()}`;
+    const runId = Date.now();
+    const stagingSchema = `staging_${runId}`;
+    // using a unique backup name to prevent issues with cancelled builds
+    const backupSchema = `backup_${runId}`;
+
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
     
@@ -106,7 +110,7 @@ async function setupExtensions(sqlClient) {
         const tableCountResult = await stagingClient`SELECT count(*) FROM information_schema.tables WHERE table_schema = ${stagingSchema}`;
         if (parseInt(tableCountResult[0].count) < 5) throw new Error(`Staging schema ${stagingSchema} incomplete. Aborting.`);
     }
-    
+
     console.log('Granting permissions on staging tables...');
     await stagingClient.unsafe(`GRANT USAGE ON SCHEMA "${stagingSchema}" TO public`);
     await stagingClient.unsafe(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "${stagingSchema}" TO public`);
@@ -118,8 +122,7 @@ async function setupExtensions(sqlClient) {
     
     await sqlClient.begin(async (tx) => {
         await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS public`);
-        await tx.unsafe(`DROP SCHEMA IF EXISTS backup_schema CASCADE`);
-        await tx.unsafe(`ALTER SCHEMA public RENAME TO backup_schema`);
+        await tx.unsafe(`ALTER SCHEMA public RENAME TO "${backupSchema}"`);
         await tx.unsafe(`ALTER SCHEMA "${stagingSchema}" RENAME TO public`);
         await tx.unsafe(`GRANT USAGE ON SCHEMA public TO public`);
         await tx.unsafe(`GRANT CREATE ON SCHEMA public TO public`);
@@ -135,8 +138,21 @@ async function setupExtensions(sqlClient) {
         throw e;
     }
     
-    console.log('Cleaning up old backup schema...');
-    await sqlClient`DROP SCHEMA IF EXISTS backup_schema CASCADE`;
+    console.log('Cleaning up old schemas...');
+    
+    const schemas = await sqlClient`
+        SELECT schema_name 
+        FROM information_schema.schemata 
+        WHERE schema_name LIKE 'staging_%' OR schema_name LIKE 'backup_%'
+    `;
+
+    for (const s of schemas) {
+        const name = s.schema_name;
+        if (name !== 'public' && name !== 'extensions' && name !== 'information_schema') {
+            console.log(`Dropping old schema: ${name}`);
+            await sqlClient.unsafe(`DROP SCHEMA IF EXISTS "${name}" CASCADE`);
+        }
+    }
 
   } catch (error) {
     console.error('Build failed:', error);
