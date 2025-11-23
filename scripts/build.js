@@ -139,6 +139,23 @@ async function applyMigrationsToStaging(client, stagingSchema) {
       await tx`DROP SCHEMA IF EXISTS public_backup CASCADE`;
       await tx`ALTER SCHEMA public RENAME TO public_backup`;
       await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
+      
+      console.log('Preserving extensions...');
+      try {
+        await tx`ALTER EXTENSION pg_trgm SET SCHEMA public`;
+        console.log('Moved pg_trgm to public');
+      } catch (e) {
+        console.log('pg_trgm not found in backup or move failed, creating new...');
+        await tx`CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public`;
+      }
+
+      try {
+        await tx`ALTER EXTENSION unaccent SET SCHEMA public`;
+        console.log('Moved unaccent to public');
+      } catch (e) {
+        console.log('unaccent not found in backup or move failed, creating new...');
+        await tx`CREATE EXTENSION IF NOT EXISTS unaccent SCHEMA public`;
+      }
     });
     
     console.log('Swap complete. Live site is now serving new data.');
