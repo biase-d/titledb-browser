@@ -20,29 +20,36 @@ async function applyMigrationsToStaging(client, stagingSchema) {
   
   const entries = journal.entries.sort((a, b) => a.idx - b.idx);
 
-  for (const entry of entries) {
-    const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
-    let migrationSql = await fs.readFile(migrationPath, 'utf-8');
-
-    migrationSql = migrationSql.replace(/"public"\./g, `"${stagingSchema}".`);
+  await client.begin(async (tx) => {
+    await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
     
-    const statements = migrationSql.split('--> statement-breakpoint');
+    const res = await tx`SHOW search_path`;
+    console.log(`[Migration] search_path is set to: ${res[0].search_path}`);
 
-    console.log(`Applying migration ${entry.tag} (${statements.length} statements)...`);
+    for (const entry of entries) {
+      const migrationPath = path.join('drizzle', `${entry.tag}.sql`);
+      let migrationSql = await fs.readFile(migrationPath, 'utf-8');
 
-    for (const statement of statements) {
-      const trimmed = statement.trim();
-      if (trimmed.length > 0) {
-        try {
-          await client.unsafe(trimmed);
-        } catch (e) {
-          console.error(`Failed to execute statement in ${entry.tag}:`);
-          console.error(trimmed);
-          throw e;
+      migrationSql = migrationSql.replace(/"public"\./g, `"${stagingSchema}".`);
+      
+      const statements = migrationSql.split('--> statement-breakpoint');
+
+      console.log(`Applying migration ${entry.tag} (${statements.length} statements)...`);
+
+      for (const statement of statements) {
+        const trimmed = statement.trim();
+        if (trimmed.length > 0) {
+          try {
+            await tx.unsafe(trimmed);
+          } catch (e) {
+            console.error(`Failed to execute statement in ${entry.tag}:`);
+            console.error(trimmed);
+            throw e;
+          }
         }
       }
     }
-  }
+  });
 }
 
 (async () => {
@@ -64,17 +71,11 @@ async function applyMigrationsToStaging(client, stagingSchema) {
     console.log(`Creating staging schema: ${stagingSchema}`);
     await sqlClient`CREATE SCHEMA IF NOT EXISTS ${sqlClient(stagingSchema)}`;
     
-    const stagingUrl = new URL(connectionString);
-    stagingUrl.searchParams.set('options', `-c search_path=${stagingSchema}`);
-    
-    console.log(`Connecting to staging schema via URL options...`);
-    const stagingClient = postgres(stagingUrl.toString(), { 
+    const stagingClient = postgres(connectionString, { 
       ssl: 'require', 
-      max: 1 
+      max: 1
     });
     
-    const stagingDb = drizzle(stagingClient);
-
     console.log('Applying database migrations to staging...');
     await applyMigrationsToStaging(stagingClient, stagingSchema);
 
@@ -104,7 +105,14 @@ async function applyMigrationsToStaging(client, stagingSchema) {
         console.log('⚠️ Skipping data sync (--skip-data flag detected). Staging DB will be empty!');
     } else {
         console.log(`Syncing data into ${stagingSchema}...`);
-        await syncDatabase(stagingDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+        
+        await stagingClient.begin(async (tx) => {
+            await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
+            
+            const txDb = drizzle(tx);
+            
+            await syncDatabase(txDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+        });
     }
 
     await saveCache(contributorMap, metadata);
@@ -133,7 +141,7 @@ async function applyMigrationsToStaging(client, stagingSchema) {
       await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
     });
     
-    console.log('Swap complete. Live site is now serving new data');
+    console.log('Swap complete. Live site is now serving new data.');
     
     console.log('Cleaning up backup schema...');
     await sqlClient`DROP SCHEMA IF EXISTS public_backup CASCADE`;
