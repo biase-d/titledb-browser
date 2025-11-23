@@ -109,29 +109,32 @@ async function setupExtensions(sqlClient) {
 
     await stagingClient.end();
 
-    console.log('Performing atomic data swap (Truncate & Copy)...');
+    console.log('Performing atomic schema swap...');
     
     await sqlClient.begin(async (tx) => {
-        const tables = [
-            'game_groups',          // Root
-            'games',                // Depends on game_groups
-            'performance_profiles', // Depends on game_groups
-            'graphics_settings',    // Depends on game_groups
-            'youtube_links',        // Depends on game_groups
-            'data_requests'         // Depends on games
-        ];
-        
-        for (const table of tables) {
-            await tx.unsafe(`CREATE TABLE IF NOT EXISTS public."${table}" (LIKE "${stagingSchema}"."${table}" INCLUDING ALL)`);
-            await tx.unsafe(`TRUNCATE TABLE public."${table}" RESTART IDENTITY CASCADE`);
-            await tx.unsafe(`INSERT INTO public."${table}" SELECT * FROM "${stagingSchema}"."${table}"`);
-        }
+      await tx`CREATE SCHEMA IF NOT EXISTS public`;
+      await tx`DROP SCHEMA IF EXISTS public_backup CASCADE`;
+      await tx`ALTER SCHEMA public RENAME TO public_backup`;
+      await tx`ALTER SCHEMA ${sqlClient(stagingSchema)} RENAME TO public`;
     });
     
-    console.log('Swap complete.');
+    console.log('Swap complete. Terminating other connections to force refresh...');
     
-    console.log(`Cleaning up staging schema ${stagingSchema}...`);
-    await sqlClient`DROP SCHEMA IF EXISTS ${sqlClient(stagingSchema)} CASCADE`;
+    try {
+        await sqlClient`
+          SELECT pg_terminate_backend(pid)
+          FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND pid <> pg_backend_pid()
+            AND backend_type = 'client backend'
+        `;
+        console.log('Connections terminated.');
+    } catch (e) {
+        console.warn('Could not terminate connections (might lack permissions), but swap succeeded.');
+    }
+
+    console.log('Cleaning up backup schema...');
+    await sqlClient`DROP SCHEMA IF EXISTS public_backup CASCADE`;
 
   } catch (error) {
     console.error('Build failed:', error);
