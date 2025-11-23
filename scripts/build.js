@@ -109,29 +109,21 @@ async function setupExtensions(sqlClient) {
 
     await stagingClient.end();
 
-    console.log('Performing atomic data swap (Truncate & Copy)...');
+    console.log('Performing atomic Schema Swap...');
     
     await sqlClient.begin(async (tx) => {
-        const tables = [
-            'game_groups',          // Root
-            'games',                // Depends on game_groups
-            'performance_profiles', // Depends on game_groups
-            'graphics_settings',    // Depends on game_groups
-            'youtube_links',        // Depends on game_groups
-            'data_requests'         // Depends on games
-        ];
-        
-        for (const table of tables) {
-            await tx.unsafe(`CREATE TABLE IF NOT EXISTS public."${table}" (LIKE "${stagingSchema}"."${table}" INCLUDING ALL)`);
-            await tx.unsafe(`TRUNCATE TABLE public."${table}" RESTART IDENTITY CASCADE`);
-            await tx.unsafe(`INSERT INTO public."${table}" SELECT * FROM "${stagingSchema}"."${table}"`);
-        }
+        await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS public`);
+        await tx.unsafe(`DROP SCHEMA IF EXISTS backup_schema CASCADE`);
+        await tx.unsafe(`ALTER SCHEMA public RENAME TO backup_schema`);
+        await tx.unsafe(`ALTER SCHEMA "${stagingSchema}" RENAME TO public`);
+        await tx.unsafe(`GRANT USAGE ON SCHEMA public TO public`);
+        await tx.unsafe(`GRANT CREATE ON SCHEMA public TO public`);
     });
     
     console.log('Swap complete.');
     
-    console.log(`Cleaning up staging schema ${stagingSchema}...`);
-    await sqlClient`DROP SCHEMA IF EXISTS ${sqlClient(stagingSchema)} CASCADE`;
+    console.log('Cleaning up old backup schema...');
+    await sqlClient`DROP SCHEMA IF EXISTS backup_schema CASCADE`;
 
   } catch (error) {
     console.error('Build failed:', error);
