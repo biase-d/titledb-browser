@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { sql } from 'drizzle-orm';
 
 import { loadCache, saveCache } from './lib/cache.js';
 import { cloneOrPull, buildFullContributorMap, buildDateMapOptimized } from './lib/git-api.js';
@@ -106,12 +107,11 @@ async function applyMigrationsToStaging(client, stagingSchema) {
     } else {
         console.log(`Syncing data into ${stagingSchema}...`);
         
-        await stagingClient.begin(async (tx) => {
-            await tx.unsafe(`SET search_path TO "${stagingSchema}"`);
-            
-            const txDb = drizzle(tx);
-            
-            await syncDatabase(txDb, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+        const db = drizzle(stagingClient);
+
+        await db.transaction(async (tx) => {
+            await tx.execute(sql.raw(`SET search_path TO "${stagingSchema}"`));
+            await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
         });
     }
 
