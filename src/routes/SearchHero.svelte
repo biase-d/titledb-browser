@@ -21,10 +21,7 @@
 		{ label: 'Mario', type: 'q', value: 'Mario', icon: 'mdi:mushroom' },
 		{ label: 'Pokémon', type: 'q', value: 'Pokemon', icon: 'mdi:pokeball' },
 		{ label: 'Xenoblade', type: 'q', value: 'Xenoblade', icon: 'mdi:sword' },
-		//{ label: 'Square Enix', type: 'q', value: 'Square Enix', icon: 'mdi:gamepad-square' },
-		//{ label: 'Capcom', type: 'q', value: 'Capcom', icon: 'mdi:alpha-c-box' },
 		{ label: 'Metroid', type: 'q', value: 'Metroid', icon: 'mdi:alien' },
-		{ label: 'Roguelike', type: 'q', value: 'Roguelike', icon: 'mdi:skull' }
 	];
 
 	let activePills = $state([...fixedPills]);
