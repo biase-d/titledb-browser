@@ -58,13 +58,13 @@ async function setupExtensions(sqlClient) {
 
   try {
     const useCache = !process.argv.includes('--no-cache');
-    console.log('--- Starting Zero-Downtime Build Process (Blue/Green) ---');
+    console.log('--- Starting Zero-Downtime Build Process (Blue/Green + Connection Reset) ---');
     
     await setupExtensions(sqlClient);
 
     const runId = Date.now();
     const stagingSchema = `staging_${runId}`;
-    // using a unique backup name to prevent issues with cancelled builds
+    // Unique backup name prevents race conditions if a build is cancelled
     const backupSchema = `backup_${runId}`;
 
     console.log(`Creating staging schema: ${stagingSchema}`);
@@ -122,13 +122,26 @@ async function setupExtensions(sqlClient) {
     
     await sqlClient.begin(async (tx) => {
         await tx.unsafe(`CREATE SCHEMA IF NOT EXISTS public`);
-        await tx.unsafe(`ALTER SCHEMA public RENAME TO "${backupSchema}"`);
+        await tx.unsafe(`ALTER SCHEMA public RENAME TO "${backupSchema}"`);c
         await tx.unsafe(`ALTER SCHEMA "${stagingSchema}" RENAME TO public`);
         await tx.unsafe(`GRANT USAGE ON SCHEMA public TO public`);
         await tx.unsafe(`GRANT CREATE ON SCHEMA public TO public`);
     });
     
     console.log('Swap complete.');
+
+    console.log('🔫 Terminating all other database connections to flush OID cache...');
+    try {
+        await sqlClient`
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE pid <> pg_backend_pid()
+            AND datname = current_database()
+        `;
+        console.log('   Connections terminated.');
+    } catch (e) {
+        console.warn('   Warning: Could not terminate connections (might lack permissions), but proceeding.', e.message);
+    }
     
     try {
         const check = await sqlClient`SELECT count(*) FROM public.performance_profiles`;
