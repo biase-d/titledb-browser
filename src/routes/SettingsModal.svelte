@@ -2,6 +2,7 @@
     import { fade, scale } from 'svelte/transition';
     import Icon from '@iconify/svelte';
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences';
+    import { getFlagIcon } from '$lib/flags';
 
     let { show = $bindable() } = $props();
 
@@ -37,22 +38,28 @@
                         <h3>Preferred Country</h3>
                     </div>
                     <p class="description">
-                        Select your eShop country. We will prioritize showing the specific version of a game (Title ID, Name, and Icon) released in this country.
+                        Select your eShop country. We will prioritize showing the specific version of a game (Title ID, Name, and Icon) released in this country
                     </p>
                     
                     <div class="select-wrapper">
-                        <select value={currentRegion} onchange={handleChange}>
+                        <div class="country-grid">
                             {#each COUNTRY_GROUPS as group}
-                                <optgroup label={group.label}>
+                                <div class="group-label">{group.label}</div>
+                                <div class="options-row">
                                     {#each group.options as country}
-                                        <option value={country.id}>
-                                            {country.flag} {country.label}
-                                        </option>
+                                        <button 
+                                            class="country-btn" 
+                                            class:selected={currentRegion === country.id}
+                                            onclick={() => { preferences.setRegion(country.id); setTimeout(() => show = false, 200); }}
+                                            title={country.label}
+                                        >
+                                            <Icon icon={getFlagIcon(country.id)} width="24" height="24" />
+                                            <span class="code">{country.id}</span>
+                                        </button>
                                     {/each}
-                                </optgroup>
+                                </div>
                             {/each}
-                        </select>
-                        <Icon icon="mdi:chevron-down" class="select-arrow" />
+                        </div>
                     </div>
                 </section>
             </div>
@@ -72,7 +79,7 @@
     .modal-content {
         background-color: var(--surface-color);
         width: 90%;
-        max-width: 450px;
+        max-width: 500px;
         border-radius: var(--radius-lg);
         box-shadow: var(--shadow-lg);
         display: flex;
@@ -106,36 +113,56 @@
     h3 { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
     .description { margin: 0 0 1.5rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.5; }
 
-    .select-wrapper {
-        position: relative;
-        width: 100%;
+    .country-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
     }
 
-    select {
-        width: 100%;
-        appearance: none;
+    .group-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.25rem;
+    }
+
+    .options-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .country-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        padding: 0.5rem;
         background-color: var(--input-bg);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
-        padding: 12px 16px;
-        font-size: 1rem;
-        color: var(--text-primary);
         cursor: pointer;
-        transition: border-color 0.2s, box-shadow 0.2s;
+        transition: all 0.2s;
     }
 
-    select:focus {
-        outline: none;
+    .country-btn:hover {
         border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
+        background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
     }
 
-    .select-arrow {
-        position: absolute;
-        right: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        pointer-events: none;
-        color: var(--text-secondary);
+    .country-btn.selected {
+        border-color: var(--primary-color);
+        background-color: color-mix(in srgb, var(--primary-color) 15%, transparent);
+        box-shadow: 0 0 0 1px var(--primary-color);
+    }
+
+    .code {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-primary);
     }
 </style>

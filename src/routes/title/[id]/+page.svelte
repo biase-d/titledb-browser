@@ -226,7 +226,11 @@
 						<h1 lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>{name}</h1>
 						<div class="subtitle-row">
 							{#if game.publisher}
-								<a href="/publisher/{encodeURIComponent(game.publisher)}" class="publisher-link">
+								<a 
+                                    href="/publisher/{encodeURIComponent(game.publisher)}" 
+                                    class="publisher-link"
+                                    title={game.publisher}
+                                >
 									{game.publisher}
 								</a>
 							{/if}
@@ -823,13 +827,19 @@
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
+		gap: 0.5rem;
 	}
 	.alt-names-list li {
 		font-size: 0.9rem;
 		color: var(--text-primary);
 		line-height: 1.4;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px dashed var(--border-color);
 	}
+    .alt-names-list li:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
 
 	.other-versions-list, .contributor-list {
 		list-style: none; padding: 0; margin: 0;

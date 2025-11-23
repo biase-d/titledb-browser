@@ -1,15 +1,17 @@
 /**
- * Converts a 2-letter country code to a flag emoji
+ * Converts a 2-letter country code to an Iconify icon name
+ * We use the 'circle-flags' set for consistent, round flag icons
  * @param {string} countryCode 
  * @returns {string}
  */
-export function getFlagEmoji(countryCode) {
-    if (!countryCode || countryCode.length !== 2) return '🌐';
-    const codePoints = countryCode
-      .toUpperCase()
-      .split('')
-      .map(char =>  127397 + char.charCodeAt(0));
-    return String.fromCodePoint(...codePoints);
+export function getFlagIcon(countryCode) {
+    if (!countryCode) {
+        return 'mdi:earth';
+    }
+
+    const code = countryCode.toLowerCase();
+
+    return `circle-flags:${code}`;
 }
 
 /**

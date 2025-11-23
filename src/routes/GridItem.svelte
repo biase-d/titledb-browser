@@ -84,7 +84,7 @@
 		<p class="card-title" title={titleName} lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>{titleName}</p>
         
         <div class="card-meta">
-            <p class="card-publisher">{publisher}</p>
+            <p class="card-publisher" title={publisher}>{publisher}</p>
             {#if showRegionBadge}
                 <span class="region-badge" title={regionLabel}>{regionLabel}</span>
             {/if}

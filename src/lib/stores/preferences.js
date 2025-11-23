@@ -2,61 +2,64 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { invalidateAll } from '$app/navigation';
 
-// Comprehensive list of eShop regions for the settings dropdown
 export const COUNTRY_GROUPS = [
     {
         label: 'The Americas',
         options: [
-            { id: 'US', label: 'United States', flag: '🇺🇸' },
-            { id: 'CA', label: 'Canada', flag: '🇨🇦' },
-            { id: 'MX', label: 'Mexico', flag: '🇲🇽' },
-            { id: 'BR', label: 'Brazil', flag: '🇧🇷' },
-            { id: 'AR', label: 'Argentina', flag: '🇦🇷' },
-            { id: 'CL', label: 'Chile', flag: '🇨🇱' },
-            { id: 'CO', label: 'Colombia', flag: '🇨🇴' },
-            { id: 'PE', label: 'Peru', flag: '🇵🇪' }
+            { id: 'US', label: 'United States' },
+            { id: 'CA', label: 'Canada' },
+            { id: 'MX', label: 'Mexico' },
+            { id: 'BR', label: 'Brazil' },
+            { id: 'AR', label: 'Argentina' },
+            { id: 'CL', label: 'Chile' },
+            { id: 'CO', label: 'Colombia' },
+            { id: 'PE', label: 'Peru' }
         ]
     },
     {
-        label: 'Asia Pacific',
+        label: 'Asia',
         options: [
-            { id: 'JP', label: 'Japan', flag: '🇯🇵' },
-            { id: 'KR', label: 'Korea', flag: '🇰🇷' },
-            { id: 'HK', label: 'Hong Kong', flag: '🇭🇰' },
-            { id: 'TW', label: 'Taiwan', flag: '🇹🇼' },
-            { id: 'CN', label: 'China', flag: '🇨🇳' },
-            { id: 'AU', label: 'Australia', flag: '🇦🇺' },
-            { id: 'NZ', label: 'New Zealand', flag: '🇳🇿' }
+            { id: 'JP', label: 'Japan' },
+            { id: 'KR', label: 'Korea' },
+            { id: 'HK', label: 'Hong Kong' },
+            { id: 'TW', label: 'Taiwan' },
+            { id: 'CN', label: 'China' }
+        ]
+    },
+    {
+        label: 'Oceania',
+        options: [
+            { id: 'AU', label: 'Australia' },
+            { id: 'NZ', label: 'New Zealand' }
         ]
     },
     {
         label: 'Europe',
         options: [
-            { id: 'GB', label: 'United Kingdom', flag: '🇬🇧' },
-            { id: 'FR', label: 'France', flag: '🇫🇷' },
-            { id: 'DE', label: 'Germany', flag: '🇩🇪' },
-            { id: 'IT', label: 'Italy', flag: '🇮🇹' },
-            { id: 'ES', label: 'Spain', flag: '🇪🇸' },
-            { id: 'NL', label: 'Netherlands', flag: '🇳🇱' },
-            { id: 'PT', label: 'Portugal', flag: '🇵🇹' },
-            { id: 'RU', label: 'Russia', flag: '🇷🇺' },
-            { id: 'SE', label: 'Sweden', flag: '🇸🇪' },
-            { id: 'NO', label: 'Norway', flag: '🇳🇴' },
-            { id: 'DK', label: 'Denmark', flag: '🇩🇰' },
-            { id: 'FI', label: 'Finland', flag: '🇫🇮' },
-            { id: 'PL', label: 'Poland', flag: '🇵🇱' }
+            { id: 'GB', label: 'United Kingdom' },
+            { id: 'FR', label: 'France' },
+            { id: 'DE', label: 'Germany' },
+            { id: 'IT', label: 'Italy' },
+            { id: 'ES', label: 'Spain' },
+            { id: 'NL', label: 'Netherlands' },
+            { id: 'PT', label: 'Portugal' },
+            { id: 'RU', label: 'Russia' },
+            { id: 'SE', label: 'Sweden' },
+            { id: 'NO', label: 'Norway' },
+            { id: 'DK', label: 'Denmark' },
+            { id: 'FI', label: 'Finland' },
+            { id: 'PL', label: 'Poland' }
         ]
     },
     {
         label: 'Africa',
         options: [
-            { id: 'ZA', label: 'South Africa', flag: '🇿🇦' }
+            { id: 'ZA', label: 'South Africa' }
         ]
     }
 ];
 
 function createPreferencesStore() {
-    // Default to US if nothing is set
     const initialRegion = browser 
         ? (localStorage.getItem('preferred_region') || 'US') 
         : 'US';
@@ -76,14 +79,10 @@ function createPreferencesStore() {
 
             update(state => {
                 const newState = { ...state, region: regionCode };
-                
                 localStorage.setItem('preferred_region', regionCode);
-                
                 document.cookie = `preferred_region=${regionCode}; path=/; max-age=31536000; SameSite=Lax`;
-                
                 return newState;
             });
-
             invalidateAll();
         }
     };

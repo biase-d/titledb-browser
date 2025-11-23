@@ -2,6 +2,7 @@
     import { fade, scale } from 'svelte/transition';
     import Icon from '@iconify/svelte';
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences';
+    import { getFlagIcon } from '$lib/flags';
     import { onMount } from 'svelte';
 
     let show = $state(false);
@@ -10,13 +11,9 @@
 
     onMount(() => {
         const hasOnboarded = localStorage.getItem('has_onboarded');
-
         if (!hasOnboarded) {
-            // Pre-select current preference if it exists
             const current = localStorage.getItem('preferred_region');
             if (current) selectedRegion = current;
-            
-            // Delay slightly for smooth entrance
             setTimeout(() => { show = true; }, 500);
         }
     });
@@ -35,7 +32,6 @@
         
         // Mark onboarding as complete
         localStorage.setItem('has_onboarded', 'true');
-        
         show = false;
     }
 </script>
@@ -55,19 +51,25 @@
                         We will prioritize game versions, names, and icons from this region
                     </p>
 
-                    <div class="select-wrapper">
-                        <select bind:value={selectedRegion}>
+                    <div class="grid-wrapper">
+                        <div class="country-grid">
                             {#each COUNTRY_GROUPS as group}
-                                <optgroup label={group.label}>
+                                <div class="group-label">{group.label}</div>
+                                <div class="options-row">
                                     {#each group.options as country}
-                                        <option value={country.id}>
-                                            {country.flag} {country.label}
-                                        </option>
+                                        <button 
+                                            class="country-btn" 
+                                            class:selected={selectedRegion === country.id}
+                                            onclick={() => selectedRegion = country.id}
+                                            title={country.label}
+                                        >
+                                            <Icon icon={getFlagIcon(country.id)} width="24" height="24" />
+                                            <span class="code">{country.id}</span>
+                                        </button>
                                     {/each}
-                                </optgroup>
+                                </div>
                             {/each}
-                        </select>
-                        <Icon icon="mdi:chevron-down" class="select-arrow" />
+                        </div>
                     </div>
 
                     <button class="primary-btn" onclick={nextStep}>
@@ -138,69 +140,103 @@
         flex-direction: column;
         border: 1px solid var(--border-color);
         overflow: hidden;
+        max-height: 90vh;
     }
 
     .step-container {
-        padding: 2.5rem 2rem;
+        padding: 2rem;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
+        overflow-y: auto;
     }
 
     .icon-header {
         color: var(--primary-color);
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
         background: color-mix(in srgb, var(--primary-color) 10%, transparent);
         padding: 1rem;
         border-radius: 50%;
     }
 
     h2 {
-        margin: 0 0 1rem;
+        margin: 0 0 0.5rem;
         font-size: 1.5rem;
         font-weight: 700;
         color: var(--text-primary);
     }
 
     .subtitle {
-        margin: 0 0 2rem;
+        margin: 0 0 1.5rem;
         color: var(--text-secondary);
-        line-height: 1.6;
+        line-height: 1.5;
+        font-size: 0.95rem;
     }
 
-    .select-wrapper {
-        position: relative;
+    .grid-wrapper {
         width: 100%;
         margin-bottom: 2rem;
-    }
-
-    select {
-        width: 100%;
-        appearance: none;
-        background-color: var(--input-bg);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
-        padding: 14px 16px;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-        cursor: pointer;
-        transition: border-color 0.2s, box-shadow 0.2s;
+        padding: 1rem;
+        background-color: var(--input-bg);
+        max-height: 300px;
+        overflow-y: auto;
     }
 
-    select:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent);
+    .country-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
     }
 
-    .select-arrow {
-        position: absolute;
-        right: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        pointer-events: none;
+    .group-label {
+        font-size: 0.75rem;
+        font-weight: 600;
         color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.25rem;
+        text-align: left;
+    }
+
+    .options-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .country-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        background-color: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .country-btn:hover {
+        border-color: var(--primary-color);
+        background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
+    }
+
+    .country-btn.selected {
+        border-color: var(--primary-color);
+        background-color: color-mix(in srgb, var(--primary-color) 15%, transparent);
+        box-shadow: 0 0 0 1px var(--primary-color);
+    }
+
+    .code {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-primary);
     }
 
     .primary-btn {
