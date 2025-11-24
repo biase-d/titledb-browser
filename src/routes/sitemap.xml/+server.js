@@ -9,18 +9,13 @@ export const GET = async ({ url }) => {
 			lastUpdated: games.lastUpdated
 		})
 		.from(games)
-		.orderBy(desc(games.lastUpdated));
+		.orderBy(desc(games.lastUpdated))
+        .limit(45000);
 
 	const origin = url.origin;
 
 	const xml = `<?xml version="1.0" encoding="UTF-8" ?>
-<urlset
-    xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-    xmlns:xhtml="http://www.w3.org/1999/xhtml"
-    xmlns:mobile="http://www.google.com/schemas/sitemap-mobile/1.0"
-    xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
-    xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"
->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>${origin}/</loc>
         <priority>1.0</priority>
@@ -41,8 +36,7 @@ export const GET = async ({ url }) => {
 			const lastMod = game.lastUpdated 
                 ? new Date(game.lastUpdated).toISOString() 
                 : new Date().toISOString();
-			return `
-    <url>
+			return `<url>
         <loc>${origin}/title/${game.id}</loc>
         <lastmod>${lastMod}</lastmod>
         <changefreq>weekly</changefreq>
@@ -52,10 +46,11 @@ export const GET = async ({ url }) => {
 		.join('')}
 </urlset>`;
 
-	return new Response(xml, {
+	return new Response(xml.trim(), {
 		headers: {
 			'Content-Type': 'application/xml',
-			'Cache-Control': 'max-age=3600' // Cache for 1 hour
+			'Cache-Control': 'max-age=3600',
+            'X-Robots-Tag': 'noindex'
 		}
 	});
 };

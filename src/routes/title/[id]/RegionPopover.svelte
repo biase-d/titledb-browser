@@ -1,7 +1,7 @@
 <script>
     import Icon from '@iconify/svelte';
     import { fade, scale } from 'svelte/transition';
-    import { getFlagEmoji, getCountryName } from '$lib/flags';
+    import { getFlagIcon, getCountryName } from '$lib/flags';
     import { getRegionLabel } from '$lib/regions';
 
     let { regions = [] } = $props();
@@ -54,7 +54,7 @@
             <div class="flags-grid">
                 {#each sortedRegions as code}
                     <div class="flag-item" title="{getCountryName(code)}">
-                        <span class="emoji">{getFlagEmoji(code)}</span>
+                        <Icon icon={getFlagIcon(code)} width="24" height="24" />
                         <span class="code">{code}</span>
                     </div>
                 {/each}
@@ -67,7 +67,6 @@
     .region-container {
         position: relative;
         display: inline-block;
-        z-index: 50;
     }
 
     .region-trigger {
@@ -138,16 +137,11 @@
         border-radius: var(--radius-sm);
         border: 1px solid transparent;
         transition: border-color 0.2s;
+        gap: 0.25rem;
     }
 
     .flag-item:hover {
         border-color: var(--primary-color);
-    }
-
-    .emoji {
-        font-size: 1.5rem;
-        line-height: 1;
-        margin-bottom: 0.25rem;
     }
 
     .code {
