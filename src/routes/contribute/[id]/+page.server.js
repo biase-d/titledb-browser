@@ -60,6 +60,7 @@ export const actions = {
 			const formData = await request.formData();
 			const titleId = formData.get('titleId');
 			const gameName = formData.get('gameName');
+            const currentGroupId = formData.get('currentGroupId'); 
 			const performanceData = JSON.parse(formData.get('performanceData'));
 			const graphicsData = JSON.parse(formData.get('graphicsData'));
 			const youtubeLinks = JSON.parse(formData.get('youtubeLinks'));
@@ -76,7 +77,7 @@ export const actions = {
 			);
 
 			const newGroupId = updatedGroupData[0]?.id || titleId.substring(0, 13) + '000';
-            const oldGroupId = originalGroupData[0]?.id || titleId.substring(0, 13) + '000';
+            const oldGroupId = currentGroupId || titleId.substring(0, 13) + '000';
             const isGroupMove = newGroupId !== oldGroupId;
 
 			/** @type {{path: string, content: string | null, sha?: string}[]} */

@@ -14,7 +14,7 @@
 
 	let { data, form } = $props();
 
-	const { id, name, allTitlesInGroup, existingPerformance, existingGraphics, existingYoutubeLinks, shas } = $derived(data);
+	const { id, name, groupId, allTitlesInGroup, existingPerformance, existingGraphics, existingYoutubeLinks, shas } = $derived(data);
 
 	let performanceProfiles = $state([]);
 	let graphicsData = $state(/** @type {any} */ ({}));
@@ -285,6 +285,7 @@
 			<!-- Hidden form data -->
 			<input type="hidden" name="titleId" value={id} />
 			<input type="hidden" name="gameName" value={name} />
+            <input type="hidden" name="currentGroupId" value={groupId} />
 			<input type="hidden" name="performanceData" value={JSON.stringify(performanceProfiles.map(({ tempId, ...p }) => p))} />
 			<input type="hidden" name="graphicsData" value={JSON.stringify(pruneEmptyValues(graphicsData) || {})} />
 			<input type="hidden" name="youtubeLinks" value={JSON.stringify(youtubeLinks)} />
