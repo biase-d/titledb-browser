@@ -68,13 +68,17 @@ export const actions = {
 			const originalPerformanceData = JSON.parse(formData.get('originalPerformanceData'));
 			const originalGraphicsData = JSON.parse(formData.get('originalGraphicsData') || '{}');
 			const originalYoutubeLinks = JSON.parse(formData.get('originalYoutubeLinks') || '[]');
+            const shas = JSON.parse(formData.get('shas') || '{}');
+
 			const changeSummary = generateChangeSummary(
 				{ originalPerformance: originalPerformanceData, originalGraphics: originalGraphicsData, originalYoutubeLinks, originalGroup: originalGroupData },
 				{ performanceProfiles: performanceData, graphicsData, youtubeLinks, updatedGroup: updatedGroupData }
 			);
 
-			const groupId = updatedGroupData[0]?.id || titleId.substring(0, 13) + '000';
-			
+			const newGroupId = updatedGroupData[0]?.id || titleId.substring(0, 13) + '000';
+            const oldGroupId = originalGroupData[0]?.id || titleId.substring(0, 13) + '000';
+            const isGroupMove = newGroupId !== oldGroupId;
+
 			/** @type {{path: string, content: string | null, sha?: string}[]} */
 			const filesToCommit = [];
 			const allContributors = new Set([user.login]);
@@ -87,8 +91,9 @@ export const actions = {
 				
 				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles));
 				const isNewEmptyPlaceholder = !originalProfile && isProfileEmpty(submittedProfile);
+                const needsWrite = contentChanged || isNewEmptyPlaceholder || isGroupMove;
 
-				if (contentChanged || isNewEmptyPlaceholder) {
+				if (needsWrite) {
 					const existingContributors = originalProfile?.contributor || [];
 					const newContributors = [...new Set([...existingContributors, user.login])];
 					newContributors.forEach(c => allContributors.add(c));
@@ -99,31 +104,56 @@ export const actions = {
 						: { contributor: newContributors, ...profiles };
 					
 					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
-                    const filePath = `profiles/${groupId}/${fileName}`;
-                    const freshSha = await getFileSha(filePath);
+                    const filePath = `profiles/${newGroupId}/${fileName}`;
+                    
+                    let shaToUse;
+                    if (isGroupMove) {
+                        shaToUse = await getFileSha(filePath);
+                    } else {
+                        shaToUse = shas.performance?.[key];
+                    }
 
 					if (!isProfileEmpty(submittedProfile) || isNewEmptyPlaceholder) {
-						filesToCommit.push({ path: filePath, content: stringify(fileContent, { space: 2 }), sha: freshSha });
-					} else if (originalProfile && !isProfileEmpty(originalProfile)) {
-						filesToCommit.push({ path: filePath, content: null, sha: freshSha });
+						filesToCommit.push({ path: filePath, content: stringify(fileContent, { space: 2 }), sha: shaToUse });
+					} else if (originalProfile && !isProfileEmpty(originalProfile) && !isGroupMove) {
+						filesToCommit.push({ path: filePath, content: null, sha: shaToUse });
 					}
 				}
 			}
             
 			for (const [key, originalProfile] of originalProfilesMap.entries()) {
-				if (!submittedProfilesMap.has(key)) { 
-					const fileName = originalProfile.suffix ? `${originalProfile.gameVersion}$${originalProfile.suffix}.json` : `${originalProfile.gameVersion}.json`;
-                    const filePath = `profiles/${groupId}/${fileName}`;
-                    const freshSha = await getFileSha(filePath);
+                const fileName = originalProfile.suffix ? `${originalProfile.gameVersion}$${originalProfile.suffix}.json` : `${originalProfile.gameVersion}.json`;
+
+                if (isGroupMove) {
+                    const oldFilePath = `profiles/${oldGroupId}/${fileName}`;
+                    const oldSha = await getFileSha(oldFilePath);
                     
-					filesToCommit.push({ path: filePath, content: null, sha: freshSha });
+                    if (oldSha) {
+                        filesToCommit.push({ path: oldFilePath, content: null, sha: oldSha });
+                    }
+                } else if (!submittedProfilesMap.has(key)) { 
+					const filePath = `profiles/${newGroupId}/${fileName}`;
+                    const shaToUse = shas.performance?.[key];
+					filesToCommit.push({ path: filePath, content: null, sha: shaToUse });
 				}
 			}
 
-			if (changeSummary.some(s => s.includes('graphics'))) {
+			if (changeSummary.some(s => s.includes('graphics')) || isGroupMove) {
 				const prunedGraphicsData = pruneEmptyValues(graphicsData);
-                const graphicsPath = `graphics/${groupId}.json`;
-                const graphicsSha = await getFileSha(graphicsPath);
+                
+                if (isGroupMove) {
+                    const oldPath = `graphics/${oldGroupId}.json`;
+                    const oldSha = await getFileSha(oldPath);
+                    if (oldSha) filesToCommit.push({ path: oldPath, content: null, sha: oldSha });
+                }
+
+                const newPath = `graphics/${newGroupId}.json`;
+                let newSha;
+                if (isGroupMove) {
+                    newSha = await getFileSha(newPath);
+                } else {
+                    newSha = shas.graphics;
+                }
 
 				if (prunedGraphicsData) {
 					const originalTopLevelContributors = Array.isArray(originalGraphicsData?.contributor) ? originalGraphicsData.contributor : (typeof originalGraphicsData?.contributor === 'string' ? [originalGraphicsData.contributor] : []);
@@ -135,16 +165,28 @@ export const actions = {
 					const newContributors = [...new Set(combinedOriginal)];
 					newContributors.forEach(c => allContributors.add(c));
 					const fileContent = { contributor: newContributors, ...prunedGraphicsData };
-					filesToCommit.push({ path: graphicsPath, content: stringify(fileContent, { space: 2 }), sha: graphicsSha });
-				} else {
-					filesToCommit.push({ path: graphicsPath, content: null, sha: graphicsSha });
+					filesToCommit.push({ path: newPath, content: stringify(fileContent, { space: 2 }), sha: newSha });
+				} else if (!isGroupMove) {
+					filesToCommit.push({ path: newPath, content: null, sha: newSha });
 				}
 			}
 
-			if (changeSummary.some(s => s.includes('YouTube'))) {
+			if (changeSummary.some(s => s.includes('YouTube')) || isGroupMove) {
 				const validYoutubeLinks = youtubeLinks.filter(link => link.url && link.url.trim() !== '');
-                const videoPath = `videos/${groupId}.json`;
-                const videoSha = await getFileSha(videoPath);
+                
+                if (isGroupMove) {
+                    const oldPath = `videos/${oldGroupId}.json`;
+                    const oldSha = await getFileSha(oldPath);
+                    if (oldSha) filesToCommit.push({ path: oldPath, content: null, sha: oldSha });
+                }
+
+                const newPath = `videos/${newGroupId}.json`;
+                let newSha;
+                if (isGroupMove) {
+                    newSha = await getFileSha(newPath);
+                } else {
+                    newSha = shas.youtube;
+                }
 
 				if (validYoutubeLinks.length > 0) {
 					const originalLinksMap = new Map(originalYoutubeLinks.map(link => [link.url, link.submittedBy]));
@@ -153,14 +195,14 @@ export const actions = {
 						if (contributor) allContributors.add(contributor);
 						return { url: link.url, notes: link.notes, submittedBy: contributor };
 					});
-					filesToCommit.push({ path: videoPath, content: stringify(youtubeFileContent, { space: 2 }), sha: videoSha });
-				} else {
-					filesToCommit.push({ path: videoPath, content: null, sha: videoSha });
+					filesToCommit.push({ path: newPath, content: stringify(youtubeFileContent, { space: 2 }), sha: newSha });
+				} else if (!isGroupMove) {
+					filesToCommit.push({ path: newPath, content: null, sha: newSha });
 				}
 			}
 			
 			if (changeSummary.some(s => s.includes('grouping'))) {
-				const targetGroupPath = `groups/${groupId}.json`;
+				const targetGroupPath = `groups/${newGroupId}.json`;
 				const freshSha = await getFileSha(targetGroupPath);
 
 				filesToCommit.push({ path: targetGroupPath, content: stringify(updatedGroupData.map(g => g.id), { space: 2 }), sha: freshSha });
@@ -179,10 +221,10 @@ export const actions = {
 				return fail(400, { error: 'No changes were detected that would result in a file modification.' });
 			}
 
-			const branchName = `contrib/${user.login}/${groupId}-${Date.now()}`;
-			const prTitle = `[Contribution] ${gameName} (${groupId})`;
-			const prBody = [ `Contribution submitted by @${user.login} for **${gameName}**.`, '', `*   **Title ID:** \`${titleId}\``, `*   **Group ID:** \`${groupId}\``, '', '### Summary of Changes', ...changeSummary.map(c => `*   ${c}`) ].join('\n');
-			const commitMessage = [`feat(${groupId}): Update data for ${gameName}`, '', ...[...allContributors].map(c => `Co-authored-by: ${c} <${c}@users.noreply.github.com>`)].join('\n');
+			const branchName = `contrib/${user.login}/${newGroupId}-${Date.now()}`;
+			const prTitle = `[Contribution] ${gameName} (${newGroupId})`;
+			const prBody = [ `Contribution submitted by @${user.login} for **${gameName}**.`, '', `*   **Title ID:** \`${titleId}\``, `*   **Group ID:** \`${newGroupId}\``, '', '### Summary of Changes', ...changeSummary.map(c => `*   ${c}`) ].join('\n');
+			const commitMessage = [`feat(${newGroupId}): Update data for ${gameName}`, '', ...[...allContributors].map(c => `Co-authored-by: ${c} <${c}@users.noreply.github.com>`)].join('\n');
 
 			const prUrl = await createOrUpdateFilesAndDraftPR(branchName, commitMessage, filesToCommit, prTitle, prBody);
 
