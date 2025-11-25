@@ -1,8 +1,31 @@
 import { getGameDetails } from '$lib/games/getGameDetails';
 import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/github.js';
+import { Octokit } from '@octokit/rest';
+import { GITHUB_BOT_TOKEN } from '$env/static/private';
 import { error, redirect, fail } from '@sveltejs/kit';
 import stringify from 'json-stable-stringify';
 import { pruneEmptyValues, generateChangeSummary, isProfileEmpty } from '$lib/utils.js';
+
+const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN });
+const REPO_OWNER = 'biase-d';
+const REPO_NAME = 'nx-performance';
+
+async function getRemoteFileContent(path) {
+    try {
+        const { data } = await octokit.repos.getContent({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            path
+        });
+        
+        if (Array.isArray(data) || !data.content) return null;
+        
+        const content = Buffer.from(data.content, 'base64').toString('utf-8');
+        return JSON.parse(content);
+    } catch (e) {
+        return null;
+    }
+}
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
@@ -95,7 +118,19 @@ export const actions = {
                 const needsWrite = contentChanged || isNewEmptyPlaceholder || isGroupMove;
 
 				if (needsWrite) {
-					const existingContributors = originalProfile?.contributor || [];
+					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
+                    const filePath = `profiles/${newGroupId}/${fileName}`;
+                    const remoteContent = await getRemoteFileContent(filePath);
+                    
+                    let existingContributors = [];
+                    if (remoteContent && remoteContent.contributor) {
+                        existingContributors = Array.isArray(remoteContent.contributor) 
+                            ? remoteContent.contributor 
+                            : [remoteContent.contributor];
+                    } else {
+                        existingContributors = originalProfile?.contributor || [];
+                    }
+
 					const newContributors = [...new Set([...existingContributors, user.login])];
 					newContributors.forEach(c => allContributors.add(c));
 					
@@ -103,9 +138,6 @@ export const actions = {
 					const fileContent = isProfileEmpty(submittedProfile) 
 						? { contributor: newContributors } 
 						: { contributor: newContributors, ...profiles };
-					
-					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
-                    const filePath = `profiles/${newGroupId}/${fileName}`;
                     
                     let shaToUse;
                     if (isGroupMove) {
@@ -128,7 +160,6 @@ export const actions = {
                 if (isGroupMove) {
                     const oldFilePath = `profiles/${oldGroupId}/${fileName}`;
                     const oldSha = await getFileSha(oldFilePath);
-                    
                     if (oldSha) {
                         filesToCommit.push({ path: oldFilePath, content: null, sha: oldSha });
                     }
@@ -157,13 +188,17 @@ export const actions = {
                 }
 
 				if (prunedGraphicsData) {
-					const originalTopLevelContributors = Array.isArray(originalGraphicsData?.contributor) ? originalGraphicsData.contributor : (typeof originalGraphicsData?.contributor === 'string' ? [originalGraphicsData.contributor] : []);
-					const legacyInFileContributors = Array.isArray(originalGraphicsData?.settings?.contributor) ? originalGraphicsData.settings.contributor : (typeof originalGraphicsData?.settings?.contributor === 'string' ? [originalGraphicsData.settings.contributor] : []);
-					let combinedOriginal = [...originalTopLevelContributors, ...legacyInFileContributors];
-					if (stringify(pruneEmptyValues({ ...prunedGraphicsData, contributor: undefined })) !== stringify(pruneEmptyValues({ ...originalGraphicsData?.settings, contributor: undefined }))) {
-						combinedOriginal.push(user.login);
-					}
-					const newContributors = [...new Set(combinedOriginal)];
+                    const remoteContent = await getRemoteFileContent(newPath);
+                    let existingContributors = [];
+                    if (remoteContent && remoteContent.contributor) {
+                        existingContributors = Array.isArray(remoteContent.contributor) ? remoteContent.contributor : [remoteContent.contributor];
+                    } else {
+                        const topLevel = Array.isArray(originalGraphicsData?.contributor) ? originalGraphicsData.contributor : (typeof originalGraphicsData?.contributor === 'string' ? [originalGraphicsData.contributor] : []);
+                        const inFile = Array.isArray(originalGraphicsData?.settings?.contributor) ? originalGraphicsData.settings.contributor : (typeof originalGraphicsData?.settings?.contributor === 'string' ? [originalGraphicsData.settings.contributor] : []);
+                        existingContributors = [...topLevel, ...inFile];
+                    }
+
+					const newContributors = [...new Set([...existingContributors, user.login])];
 					newContributors.forEach(c => allContributors.add(c));
 					const fileContent = { contributor: newContributors, ...prunedGraphicsData };
 					filesToCommit.push({ path: newPath, content: stringify(fileContent, { space: 2 }), sha: newSha });
@@ -192,7 +227,7 @@ export const actions = {
 				if (validYoutubeLinks.length > 0) {
 					const originalLinksMap = new Map(originalYoutubeLinks.map(link => [link.url, link.submittedBy]));
 					const youtubeFileContent = validYoutubeLinks.map(link => {
-						const contributor = originalLinksMap.get(link.url) || user.login;
+						const contributor = link.submittedBy || originalLinksMap.get(link.url) || user.login;
 						if (contributor) allContributors.add(contributor);
 						return { url: link.url, notes: link.notes, submittedBy: contributor };
 					});
