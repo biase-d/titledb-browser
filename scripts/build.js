@@ -15,6 +15,23 @@ const REPOS = {
   titledb_filtered: { url: 'https://github.com/masagrator/titledb_filtered.git', path: path.join(DATA_DIR, 'titledb_filtered') }
 };
 
+async function setupExtensions(sqlClient) {
+    console.log('Setting up extensions...');
+    await sqlClient`CREATE SCHEMA IF NOT EXISTS extensions`;
+    
+    const extensions = ['pg_trgm', 'unaccent'];
+    for (const ext of extensions) {
+        try {
+            await sqlClient.unsafe(`CREATE EXTENSION IF NOT EXISTS "${ext}" SCHEMA extensions`);
+        } catch (e) {
+            try {
+                await sqlClient.unsafe(`ALTER EXTENSION "${ext}" SET SCHEMA extensions`);
+            } catch (moveError) {
+            }
+        }
+    }
+}
+
 (async () => {
   const connectionString = process.env.POSTGRES_URL;
   if (!connectionString) process.exit(1);
@@ -23,15 +40,22 @@ const REPOS = {
   const db = drizzle(sqlClient);
 
   try {
-    const useCache = !process.argv.includes('--no-cache');
+    const isFullRebuild = process.argv.includes('--full-rebuild');
+    const useCache = !process.argv.includes('--no-cache') && !isFullRebuild; 
     
-    console.log('--- Starting Data Sync Process ---');
+    console.log(`--- Starting Data Sync Process (${isFullRebuild ? 'FULL REBUILD' : 'Incremental'}) ---`);
 
+    await setupExtensions(sqlClient);
     await fs.mkdir(DATA_DIR, { recursive: true });
     await Promise.all(Object.values(REPOS).map(repo => cloneOrPull(repo.path, repo.url)));
 
     const { cachedMap, cachedMetadata } = await loadCache(useCache);
-    const { contributorMap, latestMergedAt, groupsChanged } = await buildFullContributorMap(cachedMap, cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null);
+    
+    const { contributorMap, latestMergedAt, groupsChanged } = await buildFullContributorMap(
+        cachedMap, 
+        cachedMetadata ? new Date(cachedMetadata.lastProcessedDate) : null
+    );
+    
     const dateMap = await buildDateMapOptimized(REPOS.nx_performance.path);
 
     let forceTitleRefresh = false;
@@ -52,6 +76,22 @@ const REPOS = {
         
         await db.transaction(async (tx) => {
             await tx.execute(sql.raw(`SET search_path TO "public"`));
+
+            if (isFullRebuild) {
+                console.log('Full Rebuild: Truncating all data tables...');
+                await tx.execute(sql.raw(`
+                    TRUNCATE TABLE 
+                        "game_groups", 
+                        "games", 
+                        "performance_profiles", 
+                        "graphics_settings", 
+                        "youtube_links", 
+                        "data_requests" 
+                    RESTART IDENTITY CASCADE
+                `));
+                console.log('   Tables truncated. Starting fresh insert...');
+            }
+
             await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
         });
     }
