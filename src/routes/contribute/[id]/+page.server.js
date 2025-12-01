@@ -1,5 +1,5 @@
 import { getGameDetails } from '$lib/games/getGameDetails';
-import { GitHubService, GitConflictError } from '$lib/services/GitHubService'
+import { GitHubService, GitConflictError } from '$lib/services/GitHubService';
 import { ContributionService } from '$lib/services/ContributionService';
 import { error, redirect, fail } from '@sveltejs/kit';
 import stringify from 'json-stable-stringify';
@@ -85,6 +85,7 @@ export const actions = {
             if (currentGroupId && submittedIds.includes(currentGroupId)) {
                 newGroupId = currentGroupId;
             }
+
             if (!newGroupId) {
                 for (const id of submittedIds) {
                     if (id === currentGroupId) continue; 
@@ -95,6 +96,7 @@ export const actions = {
                     }
                 }
             }
+
             if (!newGroupId) {
                 newGroupId = submittedIds[0] || titleId.substring(0, 13) + '000';
             }
@@ -112,7 +114,6 @@ export const actions = {
 				const originalProfile = originalProfilesMap.get(key);
 				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles));
 				const isNewEmptyPlaceholder = !originalProfile && isProfileEmpty(submittedProfile);
-                
                 const needsWrite = contentChanged || isNewEmptyPlaceholder || isGroupMove;
 
 				if (needsWrite) {
@@ -142,7 +143,9 @@ export const actions = {
                 if (isGroupMove) {
                     const oldFilePath = `profiles/${oldGroupId}/${fileName}`;
                     const oldSha = await GitHubService.getFileSha(oldFilePath);
-                    if (oldSha) filesToCommit.push({ path: oldFilePath, content: null, sha: oldSha });
+                    if (oldSha) {
+                        filesToCommit.push({ path: oldFilePath, content: null, sha: oldSha });
+                    }
                 } else if (!submittedProfilesMap.has(key)) { 
 					const filePath = `profiles/${newGroupId}/${fileName}`;
                     const shaToUse = shas.performance?.[key];
@@ -229,7 +232,7 @@ export const actions = {
 			}
 
 			if (filesToCommit.length === 0 && !isSchemaUpdateOnly) {
-				return fail(400, { error: 'No changes detected.' });
+				return fail(400, { error: 'No changes were detected that would result in a file modification.' });
 			}
 
 			const branchName = `contrib/${user.login}/${newGroupId}-${Date.now()}`;

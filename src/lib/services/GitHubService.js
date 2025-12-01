@@ -9,6 +9,7 @@ const DEFAULT_BRANCH = 'v3';
 
 /**
  * Custom error to identify submission conflicts
+ * Thrown when the file SHA sent does not match the current SHA on GitHub
  */
 export class GitConflictError extends Error {
 	constructor(message) {
@@ -40,14 +41,14 @@ export class GitHubService {
 			return data.sha;
 		} catch (error) {
 			if (error.status === 404) return null;
-			console.error(`Error fetching SHA for path "${path}":`, error.message);
+			console.error(`[GitHubService] Error fetching SHA for path "${path}":`, error.message);
 			return null;
 		}
 	}
 
 	/**
 	 * Retrieves and parses the JSON content of a file
-	 * Needed for merging existing data with new contributions
+	 * Used to fetch the *live* data from GitHub to merge with user input
 	 * @param {string} path - The file path
 	 * @returns {Promise<any|null>} The parsed JSON or null
 	 */
@@ -65,7 +66,7 @@ export class GitHubService {
 			return JSON.parse(content);
 		} catch (error) {
 			if (error.status === 404) return null;
-			console.error(`Error fetching content for "${path}":`, error.message);
+			console.error(`[GitHubService] Error fetching content for "${path}":`, error.message);
 			return null;
 		}
 	}
@@ -103,7 +104,7 @@ export class GitHubService {
 							path: file.path,
 							mode: '100644',
 							type: 'blob',
-							sha: null
+							sha: null // Null SHA deletes the file in git tree operations
 						};
 					}
 
@@ -159,24 +160,24 @@ export class GitHubService {
 
 		} catch (error) {
 			if (error.status === 409 || error.status === 422) {
-				console.warn(`Caught a git conflict error (${error.status}) for branch ${branchName}.`);
-				throw new GitConflictError('A conflict occurred while creating the pull request. The base data may have changed');
+				console.warn(`[GitHubService] Git conflict (${error.status}) for branch ${branchName}.`);
+				
+				try {
+					await octokit.git.deleteRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${branchName}` });
+				} catch (e) { /* ignore cleanup error */ }
+
+				throw new GitConflictError('The contribution data has changed since you loaded the page. Please refresh and try again.');
 			}
 
-			console.error('An unexpected error occurred during pull request creation:', error.message);
+			console.error('[GitHubService] Unexpected error:', error.message);
 
 			try {
-				await octokit.git.deleteRef({
-					owner: REPO_OWNER,
-					repo: REPO_NAME,
-					ref: `heads/${branchName}`
-				});
-				console.log(`Cleaned up branch: ${branchName}`);
+				await octokit.git.deleteRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${branchName}` });
 			} catch (cleanupError) {
-				console.error(`Failed to clean up branch ${branchName}:`, cleanupError.message);
+				console.error(`[GitHubService] Failed to cleanup branch ${branchName}:`, cleanupError.message);
 			}
 
 			return null;
 		}
 	}
-}h
+}
