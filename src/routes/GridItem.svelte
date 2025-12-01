@@ -35,7 +35,7 @@
 			handheld.target_fps && `Handheld mode runs at ${handheld.target_fps} FPS`
 		]
 			.filter(Boolean)
-			.join(', ')
+			.join('. ')
 	);
 
 	const ariaLabel = $derived(
@@ -84,7 +84,7 @@
 		<p class="card-title" title={titleName} lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>{titleName}</p>
         
         <div class="card-meta">
-            <p class="card-publisher" title={publisher}>{publisher}</p>
+            <p class="card-publisher">{publisher}</p>
             {#if showRegionBadge}
                 <span class="region-badge" title={regionLabel}>{regionLabel}</span>
             {/if}
@@ -102,7 +102,7 @@
 		border: 1px solid var(--border-color);
 		overflow: hidden;
 		box-shadow: var(--shadow-sm);
-		will-change: transform, box-shadow;
+        transform: translateZ(0); 
 		transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 		text-decoration: none;
 		color: inherit;
@@ -128,17 +128,25 @@
         overflow: hidden;
         border-bottom: 1px solid var(--border-color);
         background-color: var(--input-bg);
+        -webkit-mask-image: -webkit-radial-gradient(white, black);
     }
 
 	.card-icon {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-        transition: transform 0.3s ease;
+        
+        /* SMOOTHING FIXES */
+        transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        will-change: transform;
+        /* Forces GPU layer to prevent repainting/shimmering */
+        transform: translateZ(0);
+        backface-visibility: hidden;
+        -webkit-font-smoothing: subpixel-antialiased;
 	}
     
     .game-card:hover .card-icon {
-        transform: scale(1.05);
+        transform: scale(1.05) translateZ(0);
     }
 
 	.card-info {
@@ -147,6 +155,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
+        z-index: 1;
+        background-color: var(--surface-color);
 	}
 
 	.card-title {
@@ -209,6 +219,7 @@
 		backdrop-filter: blur(4px);
 		border: 1px solid rgba(255, 255, 255, 0.15);
 		box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        z-index: 2;
 	}
 
 	.card-perf-badge span {
