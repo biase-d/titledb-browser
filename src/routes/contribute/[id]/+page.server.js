@@ -1,31 +1,9 @@
 import { getGameDetails } from '$lib/games/getGameDetails';
-import { getFileSha, createOrUpdateFilesAndDraftPR, GitConflictError } from '$lib/github.js';
-import { Octokit } from '@octokit/rest';
-import { GITHUB_BOT_TOKEN } from '$env/static/private';
+import { GitHubService, GitConflictError } from '$lib/services/GitHubService'
+import { ContributionService } from '$lib/services/ContributionService';
 import { error, redirect, fail } from '@sveltejs/kit';
 import stringify from 'json-stable-stringify';
 import { pruneEmptyValues, generateChangeSummary, isProfileEmpty } from '$lib/utils.js';
-
-const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN });
-const REPO_OWNER = 'biase-d';
-const REPO_NAME = 'nx-performance';
-
-async function getRemoteFileContent(path) {
-    try {
-        const { data } = await octokit.repos.getContent({
-            owner: REPO_OWNER,
-            repo: REPO_NAME,
-            path
-        });
-        
-        if (Array.isArray(data) || !data.content) return null;
-        
-        const content = Buffer.from(data.content, 'base64').toString('utf-8');
-        return JSON.parse(content);
-    } catch (e) {
-        return null;
-    }
-}
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
@@ -51,12 +29,12 @@ export const load = async ({ params, parent }) => {
 		const suffix = profile.suffix ? `$${profile.suffix}` : '';
 		const path = `profiles/${groupId}/${profile.gameVersion}${suffix}.json`;
 		const key = profile.suffix ? `${profile.gameVersion}-${profile.suffix}` : profile.gameVersion;
-		shas.performance[key] = await getFileSha(path);
+		shas.performance[key] = await GitHubService.getFileSha(path);
 	}
 
-	shas.graphics = await getFileSha(`graphics/${groupId}.json`);
-	shas.youtube = await getFileSha(`videos/${groupId}.json`);
-	shas.group = await getFileSha(`groups/${groupId}.json`);
+	shas.graphics = await GitHubService.getFileSha(`graphics/${groupId}.json`);
+	shas.youtube = await GitHubService.getFileSha(`videos/${groupId}.json`);
+	shas.group = await GitHubService.getFileSha(`groups/${groupId}.json`);
 
 	return {
 		id: titleId,
@@ -84,6 +62,7 @@ export const actions = {
 			const titleId = formData.get('titleId');
 			const gameName = formData.get('gameName');
             const currentGroupId = formData.get('currentGroupId'); 
+            
 			const performanceData = JSON.parse(formData.get('performanceData'));
 			const graphicsData = JSON.parse(formData.get('graphicsData'));
 			const youtubeLinks = JSON.parse(formData.get('youtubeLinks'));
@@ -92,6 +71,7 @@ export const actions = {
 			const originalPerformanceData = JSON.parse(formData.get('originalPerformanceData'));
 			const originalGraphicsData = JSON.parse(formData.get('originalGraphicsData') || '{}');
 			const originalYoutubeLinks = JSON.parse(formData.get('originalYoutubeLinks') || '[]');
+			
             const shas = JSON.parse(formData.get('shas') || '{}');
 
 			const changeSummary = generateChangeSummary(
@@ -99,11 +79,29 @@ export const actions = {
 				{ performanceProfiles: performanceData, graphicsData, youtubeLinks, updatedGroup: updatedGroupData }
 			);
 
-			const newGroupId = updatedGroupData[0]?.id || titleId.substring(0, 13) + '000';
+            const submittedIds = updatedGroupData.map(g => g.id);
+            let newGroupId = null;
+
+            if (currentGroupId && submittedIds.includes(currentGroupId)) {
+                newGroupId = currentGroupId;
+            }
+            if (!newGroupId) {
+                for (const id of submittedIds) {
+                    if (id === currentGroupId) continue; 
+                    const sha = await GitHubService.getFileSha(`groups/${id}.json`);
+                    if (sha) {
+                        newGroupId = id;
+                        break;
+                    }
+                }
+            }
+            if (!newGroupId) {
+                newGroupId = submittedIds[0] || titleId.substring(0, 13) + '000';
+            }
+
             const oldGroupId = currentGroupId || titleId.substring(0, 13) + '000';
             const isGroupMove = newGroupId !== oldGroupId;
 
-			/** @type {{path: string, content: string | null, sha?: string}[]} */
 			const filesToCommit = [];
 			const allContributors = new Set([user.login]);
 
@@ -112,44 +110,28 @@ export const actions = {
 
 			for (const [key, submittedProfile] of submittedProfilesMap.entries()) {
 				const originalProfile = originalProfilesMap.get(key);
-				
 				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles));
 				const isNewEmptyPlaceholder = !originalProfile && isProfileEmpty(submittedProfile);
+                
                 const needsWrite = contentChanged || isNewEmptyPlaceholder || isGroupMove;
 
 				if (needsWrite) {
+					const profiles = pruneEmptyValues(submittedProfile.profiles);
+					const fileData = isProfileEmpty(submittedProfile) ? {} : profiles;
+					
 					const fileName = submittedProfile.suffix ? `${submittedProfile.gameVersion}$${submittedProfile.suffix}.json` : `${submittedProfile.gameVersion}.json`;
                     const filePath = `profiles/${newGroupId}/${fileName}`;
-                    const remoteContent = await getRemoteFileContent(filePath);
+                    const update = await ContributionService.prepareFileUpdate(filePath, fileData, user.login, false);
                     
-                    let existingContributors = [];
-                    if (remoteContent && remoteContent.contributor) {
-                        existingContributors = Array.isArray(remoteContent.contributor) 
-                            ? remoteContent.contributor 
-                            : [remoteContent.contributor];
-                    } else {
-                        existingContributors = originalProfile?.contributor || [];
-                    }
-
-					const newContributors = [...new Set([...existingContributors, user.login])];
-					newContributors.forEach(c => allContributors.add(c));
-					
-					const profiles = pruneEmptyValues(submittedProfile.profiles);
-					const fileContent = isProfileEmpty(submittedProfile) 
-						? { contributor: newContributors } 
-						: { contributor: newContributors, ...profiles };
-                    
-                    let shaToUse;
-                    if (isGroupMove) {
-                        shaToUse = await getFileSha(filePath);
-                    } else {
-                        shaToUse = shas.performance?.[key];
+                    let finalSha = update.sha;
+                    if (!isGroupMove && shas.performance?.[key]) {
+                        finalSha = shas.performance[key];
                     }
 
 					if (!isProfileEmpty(submittedProfile) || isNewEmptyPlaceholder) {
-						filesToCommit.push({ path: filePath, content: stringify(fileContent, { space: 2 }), sha: shaToUse });
+						filesToCommit.push({ path: filePath, content: update.content, sha: finalSha });
 					} else if (originalProfile && !isProfileEmpty(originalProfile) && !isGroupMove) {
-						filesToCommit.push({ path: filePath, content: null, sha: shaToUse });
+						filesToCommit.push({ path: filePath, content: null, sha: finalSha });
 					}
 				}
 			}
@@ -159,10 +141,8 @@ export const actions = {
 
                 if (isGroupMove) {
                     const oldFilePath = `profiles/${oldGroupId}/${fileName}`;
-                    const oldSha = await getFileSha(oldFilePath);
-                    if (oldSha) {
-                        filesToCommit.push({ path: oldFilePath, content: null, sha: oldSha });
-                    }
+                    const oldSha = await GitHubService.getFileSha(oldFilePath);
+                    if (oldSha) filesToCommit.push({ path: oldFilePath, content: null, sha: oldSha });
                 } else if (!submittedProfilesMap.has(key)) { 
 					const filePath = `profiles/${newGroupId}/${fileName}`;
                     const shaToUse = shas.performance?.[key];
@@ -175,35 +155,21 @@ export const actions = {
                 
                 if (isGroupMove) {
                     const oldPath = `graphics/${oldGroupId}.json`;
-                    const oldSha = await getFileSha(oldPath);
+                    const oldSha = await GitHubService.getFileSha(oldPath);
                     if (oldSha) filesToCommit.push({ path: oldPath, content: null, sha: oldSha });
                 }
 
                 const newPath = `graphics/${newGroupId}.json`;
-                let newSha;
-                if (isGroupMove) {
-                    newSha = await getFileSha(newPath);
-                } else {
-                    newSha = shas.graphics;
-                }
 
 				if (prunedGraphicsData) {
-                    const remoteContent = await getRemoteFileContent(newPath);
-                    let existingContributors = [];
-                    if (remoteContent && remoteContent.contributor) {
-                        existingContributors = Array.isArray(remoteContent.contributor) ? remoteContent.contributor : [remoteContent.contributor];
-                    } else {
-                        const topLevel = Array.isArray(originalGraphicsData?.contributor) ? originalGraphicsData.contributor : (typeof originalGraphicsData?.contributor === 'string' ? [originalGraphicsData.contributor] : []);
-                        const inFile = Array.isArray(originalGraphicsData?.settings?.contributor) ? originalGraphicsData.settings.contributor : (typeof originalGraphicsData?.settings?.contributor === 'string' ? [originalGraphicsData.settings.contributor] : []);
-                        existingContributors = [...topLevel, ...inFile];
-                    }
+                    const update = await ContributionService.prepareFileUpdate(newPath, prunedGraphicsData, user.login, true);
+                    
+                    let finalSha = update.sha;
+                    if (!isGroupMove && shas.graphics) finalSha = shas.graphics;
 
-					const newContributors = [...new Set([...existingContributors, user.login])];
-					newContributors.forEach(c => allContributors.add(c));
-					const fileContent = { contributor: newContributors, ...prunedGraphicsData };
-					filesToCommit.push({ path: newPath, content: stringify(fileContent, { space: 2 }), sha: newSha });
+                    filesToCommit.push({ path: newPath, content: update.content, sha: finalSha });
 				} else if (!isGroupMove) {
-					filesToCommit.push({ path: newPath, content: null, sha: newSha });
+					filesToCommit.push({ path: newPath, content: null, sha: shas.graphics });
 				}
 			}
 
@@ -212,16 +178,16 @@ export const actions = {
                 
                 if (isGroupMove) {
                     const oldPath = `videos/${oldGroupId}.json`;
-                    const oldSha = await getFileSha(oldPath);
+                    const oldSha = await GitHubService.getFileSha(oldPath);
                     if (oldSha) filesToCommit.push({ path: oldPath, content: null, sha: oldSha });
                 }
 
                 const newPath = `videos/${newGroupId}.json`;
-                let newSha;
+                let shaToUse;
                 if (isGroupMove) {
-                    newSha = await getFileSha(newPath);
+                    shaToUse = await GitHubService.getFileSha(newPath);
                 } else {
-                    newSha = shas.youtube;
+                    shaToUse = shas.youtube;
                 }
 
 				if (validYoutubeLinks.length > 0) {
@@ -231,30 +197,39 @@ export const actions = {
 						if (contributor) allContributors.add(contributor);
 						return { url: link.url, notes: link.notes, submittedBy: contributor };
 					});
-					filesToCommit.push({ path: newPath, content: stringify(youtubeFileContent, { space: 2 }), sha: newSha });
+					filesToCommit.push({ path: newPath, content: stringify(youtubeFileContent, { space: 2 }), sha: shaToUse });
 				} else if (!isGroupMove) {
-					filesToCommit.push({ path: newPath, content: null, sha: newSha });
+					filesToCommit.push({ path: newPath, content: null, sha: shaToUse });
 				}
 			}
 			
 			if (changeSummary.some(s => s.includes('grouping'))) {
 				const targetGroupPath = `groups/${newGroupId}.json`;
-				const freshSha = await getFileSha(targetGroupPath);
-
-				filesToCommit.push({ path: targetGroupPath, content: stringify(updatedGroupData.map(g => g.id), { space: 2 }), sha: freshSha });
+                const update = await ContributionService.prepareGroupUpdate(targetGroupPath, submittedIds);
+				filesToCommit.push({ path: targetGroupPath, content: update.content, sha: update.sha });
+                
+                for (const id of submittedIds) {
+                    if (id !== newGroupId) {
+                        const staleGroupPath = `groups/${id}.json`;
+                        const staleSha = await GitHubService.getFileSha(staleGroupPath);
+                        if (staleSha) {
+                            filesToCommit.push({ path: staleGroupPath, content: null, sha: staleSha });
+                        }
+                    }
+                }
 			}
 
 			const isSchemaUpdateOnly = changeSummary.length > 0 && changeSummary.every(s => s.includes('schema'));
 			if (changeSummary.length === 0) {
-				return fail(400, { error: 'No changes were detected. Please add or modify some data before submitting.' });
+				return fail(400, { error: 'No changes were detected.' });
 			}
 			
 			if (changeSummary.every(s => s.includes('Added empty placeholder'))) {
-				return fail(400, { error: 'No new information was provided. Please add performance, graphics, or video data to submit.' });
+				return fail(400, { error: 'No new information was provided.' });
 			}
 
 			if (filesToCommit.length === 0 && !isSchemaUpdateOnly) {
-				return fail(400, { error: 'No changes were detected that would result in a file modification.' });
+				return fail(400, { error: 'No changes detected.' });
 			}
 
 			const branchName = `contrib/${user.login}/${newGroupId}-${Date.now()}`;
@@ -262,12 +237,18 @@ export const actions = {
 			const prBody = [ `Contribution submitted by @${user.login} for **${gameName}**.`, '', `*   **Title ID:** \`${titleId}\``, `*   **Group ID:** \`${newGroupId}\``, '', '### Summary of Changes', ...changeSummary.map(c => `*   ${c}`) ].join('\n');
 			const commitMessage = [`feat(${newGroupId}): Update data for ${gameName}`, '', ...[...allContributors].map(c => `Co-authored-by: ${c} <${c}@users.noreply.github.com>`)].join('\n');
 
-			const prUrl = await createOrUpdateFilesAndDraftPR(branchName, commitMessage, filesToCommit, prTitle, prBody);
+			const prUrl = await GitHubService.createPullRequest({
+                branchName,
+                commitMessage,
+                prTitle,
+                prBody,
+                files: filesToCommit
+            });
 
 			if (prUrl) {
 				return { success: true, prUrl };
 			}
-			return fail(500, { error: 'An unexpected error occurred while creating the pull request.' });
+			return fail(500, { error: 'An unexpected error occurred.' });
 
 		} catch (err) {
 			if (err instanceof GitConflictError) {
