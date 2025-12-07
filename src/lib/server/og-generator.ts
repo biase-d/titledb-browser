@@ -1,4 +1,4 @@
-import { ImageResponse } from 'workers-og';
+import { ImageResponse } from 'workers-og-custom';
 import { html as toVdom } from 'satori-html';
 
 async function fetchBuffer(url: string, timeout = 5000) {
