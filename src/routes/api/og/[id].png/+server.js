@@ -27,32 +27,32 @@ function formatGraphics(modeData) {
 }
 
 export async function GET({ params }) {
-    const gameId = params.id;
-    
-    const game = await db.query.games.findFirst({ where: eq(games.id, gameId) });
-    if (!game) return new Response('Game not found', { status: 404 });
-    
-    const groupId = game.groupId;
-    const perf = await db.query.performanceProfiles.findFirst({
-        where: eq(performanceProfiles.groupId, groupId),
-        orderBy: (profiles) => [desc(profiles.lastUpdated)]
-    });
-    const graphics = await db.query.graphicsSettings.findFirst({
-        where: eq(graphicsSettings.groupId, groupId)
-    });
-
-    let dockedText = 'No Data';
-    let handheldText = 'No Data';
-
-    if (perf?.profiles) {
-        dockedText = formatPerf(perf.profiles.docked);
-        handheldText = formatPerf(perf.profiles.handheld);
-    } else if (graphics?.settings) {
-        dockedText = formatGraphics(graphics.settings.docked);
-        handheldText = formatGraphics(graphics.settings.handheld);
-    }
-
     try {
+        const gameId = params.id;
+        
+        const game = await db.query.games.findFirst({ where: eq(games.id, gameId) });
+        if (!game) return new Response('Game not found', { status: 404 });
+        
+        const groupId = game.groupId;
+        const perf = await db.query.performanceProfiles.findFirst({
+            where: eq(performanceProfiles.groupId, groupId),
+            orderBy: (profiles) => [desc(profiles.lastUpdated)]
+        });
+        const graphics = await db.query.graphicsSettings.findFirst({
+            where: eq(graphicsSettings.groupId, groupId)
+        });
+
+        let dockedText = 'No Data';
+        let handheldText = 'No Data';
+
+        if (perf?.profiles) {
+            dockedText = formatPerf(perf.profiles.docked);
+            handheldText = formatPerf(perf.profiles.handheld);
+        } else if (graphics?.settings) {
+            dockedText = formatGraphics(graphics.settings.docked);
+            handheldText = formatGraphics(graphics.settings.handheld);
+        }
+
         const pngBuffer = await generateOgImage({
             title: game.names[0],
             publisher: game.publisher,
@@ -68,7 +68,7 @@ export async function GET({ params }) {
             }
         });
     } catch (e) {
-        console.error(e);
+        console.error(`[OG Error] Failed for ${params.id}:`, e);
         return new Response('Image Generation Failed', { status: 500 });
     }
 }

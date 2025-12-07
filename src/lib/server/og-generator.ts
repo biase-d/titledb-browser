@@ -2,15 +2,20 @@ import { html } from 'satori-html';
 import satori from 'satori';
 import { Resvg, initWasm } from '@resvg/resvg-wasm';
 
+// Initialize WASM via CDN (Bypasses Vite/Cloudflare bundling issues)
+// We use 2.6.2 to match standard installs
 let initialized = false;
 const init = async () => {
     if (initialized) return;
     try {
+        console.log("Initializing WASM from CDN...");
         const res = await fetch('https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm');
-        if (!res.ok) throw new Error('Failed to load WASM');
+        if (!res.ok) throw new Error(`Failed to load WASM: ${res.status}`);
         await initWasm(res);
         initialized = true;
+        console.log("WASM Initialized.");
     } catch (e: any) {
+        // Ignore "Already initialized" race conditions
         if (e.message && e.message.includes('Already initialized')) {
             initialized = true;
             return;
@@ -20,12 +25,19 @@ const init = async () => {
     }
 };
 
+// --- Font Logic ---
 async function fetchBuffer(url: string) {
     try {
         const res = await fetch(url);
-        if (!res.ok) return null;
+        if (!res.ok) {
+            console.warn(`Failed to fetch font: ${url} (${res.status})`);
+            return null;
+        }
         return await res.arrayBuffer();
-    } catch { return null; }
+    } catch (e) { 
+        console.error(`Fetch error for ${url}:`, e);
+        return null; 
+    }
 }
 
 async function fetchDynamicFont(family: string, text: string) {
@@ -42,8 +54,6 @@ async function fetchDynamicFont(family: string, text: string) {
                 return await fetchBuffer(resource[2]);
             }
         }
-
-        console.warn(`Subsetting failed for ${family}, trying fallback...`);
         return null;
     } catch (e) {
         return null;
@@ -55,18 +65,25 @@ async function getTitleFont(text: string, fallbackBuffer: ArrayBuffer) {
     const isJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text);
     const isChinese = /[\u4E00-\u9FFF]/.test(text);
 
-    let fontName = 'Inter';
     let fontBuffer = null;
+    let fontName = 'Inter';
 
-    if (isJapanese) fontBuffer = await fetchDynamicFont('Noto+Sans+JP', text);
-    else if (isKorean) fontBuffer = await fetchDynamicFont('Noto+Sans+KR', text);
-    else if (isChinese) fontBuffer = await fetchDynamicFont('Noto+Sans+SC', text);
+    if (isJapanese) {
+        fontName = 'Noto Sans JP';
+        fontBuffer = await fetchDynamicFont('Noto+Sans+JP', text);
+    } else if (isKorean) {
+        fontName = 'Noto Sans KR';
+        fontBuffer = await fetchDynamicFont('Noto+Sans+KR', text);
+    } else if (isChinese) {
+        fontName = 'Noto Sans SC';
+        fontBuffer = await fetchDynamicFont('Noto+Sans+SC', text);
+    }
 
     if (!fontBuffer) {
         return { name: 'Inter', data: fallbackBuffer, weight: 700 };
     }
 
-    return { name: isJapanese ? 'Noto Sans JP' : isKorean ? 'Noto Sans KR' : 'Noto Sans SC', data: fontBuffer, weight: 700 };
+    return { name: fontName, data: fontBuffer, weight: 700 };
 }
 
 export interface OgData {
@@ -80,15 +97,17 @@ export interface OgData {
 export async function generateOgImage(data: OgData): Promise<Buffer> {
     await init();
 
+    // Load Static UI Fonts (Inter) from JSDelivr
     const [interRegular, interBold] = await Promise.all([
         fetchBuffer('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-400-normal.woff'),
         fetchBuffer('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-700-normal.woff')
     ]);
 
-    if (!interRegular || !interBold) throw new Error("Failed to load base fonts");
+    if (!interRegular || !interBold) throw new Error("Failed to load base fonts from CDN");
 
     const titleFont = await getTitleFont(data.title, interBold);
 
+    // Satori Template
     const template = html(`
     <div style="display: flex; width: 1200px; height: 630px; background-color: #0d1117; position: relative; overflow: hidden;">
         <img src="${data.bannerUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(8px); opacity: 0.6; transform: scale(1.05);" />
