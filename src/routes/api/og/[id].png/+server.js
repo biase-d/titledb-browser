@@ -4,7 +4,10 @@ import { eq, desc } from 'drizzle-orm';
 import { generateOgImage } from '$lib/server/og-generator';
 
 function formatPerf(modeData) {
-	if (!modeData) return 'No Data';
+    if (!modeData) return null;
+    
+    if (!modeData.resolution_type && !modeData.target_fps && !modeData.fps_behavior) return null;
+
     let res = 'Unknown';
     if (modeData.resolution_type === 'Fixed') res = modeData.resolution || 'Fixed';
     else if (modeData.resolution_type === 'Dynamic') res = 'Dynamic';
@@ -15,7 +18,10 @@ function formatPerf(modeData) {
 }
 
 function formatGraphics(modeData) {
-	if (!modeData) return 'No Data';
+    if (!modeData) return null;
+
+    if (!modeData.resolution && !modeData.framerate) return null;
+
     let res = modeData.resolution?.resolutionType || 'Unknown';
     if (res === 'Fixed' && modeData.resolution?.fixedResolution) res = modeData.resolution.fixedResolution;
     
@@ -34,26 +40,36 @@ export async function GET({ params }) {
         if (!game) return new Response('Game not found', { status: 404 });
         
         const groupId = game.groupId;
-        const perf = await db.query.performanceProfiles.findFirst({
-            where: eq(performanceProfiles.groupId, groupId),
-            orderBy: (profiles) => [desc(profiles.lastUpdated)]
-        });
-        const graphics = await db.query.graphicsSettings.findFirst({
-            where: eq(graphicsSettings.groupId, groupId)
-        });
+        const [perf, graphics] = await Promise.all([
+            db.query.performanceProfiles.findFirst({
+                where: eq(performanceProfiles.groupId, groupId),
+                orderBy: (profiles) => [desc(profiles.lastUpdated)]
+            }),
+            db.query.graphicsSettings.findFirst({
+                where: eq(graphicsSettings.groupId, groupId)
+            })
+        ]);
 
         let dockedText = 'No Data';
         let handheldText = 'No Data';
 
         if (perf?.profiles) {
-            dockedText = formatPerf(perf.profiles.docked);
-            handheldText = formatPerf(perf.profiles.handheld);
-        } else if (graphics?.settings) {
-            dockedText = formatGraphics(graphics.settings.docked);
-            handheldText = formatGraphics(graphics.settings.handheld);
+            const d = formatPerf(perf.profiles.docked);
+            const h = formatPerf(perf.profiles.handheld);
+            if (d) dockedText = d;
+            if (h) handheldText = h;
         }
 
-        const pngBuffer = await generateOgImage({
+        if (dockedText === 'No Data' && graphics?.settings?.docked) {
+            const d = formatGraphics(graphics.settings.docked);
+            if (d) dockedText = d;
+        }
+        if (handheldText === 'No Data' && graphics?.settings?.handheld) {
+            const h = formatGraphics(graphics.settings.handheld);
+            if (h) handheldText = h;
+        }
+
+        const ogResponse = await generateOgImage({
             title: game.names[0],
             publisher: game.publisher,
             bannerUrl: game.bannerUrl,
@@ -61,12 +77,15 @@ export async function GET({ params }) {
             handheldText
         });
 
-        return new Response(pngBuffer, {
+        const buffer = await ogResponse.arrayBuffer();
+
+        return new Response(buffer, {
             headers: {
                 'Content-Type': 'image/png',
                 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
             }
         });
+
     } catch (e) {
         console.error(`[OG Error] Failed for ${params.id}:`, e);
         return new Response('Image Generation Failed', { status: 500 });

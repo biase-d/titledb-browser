@@ -1,43 +1,25 @@
-import { html } from 'satori-html';
-import satori from 'satori';
-import { Resvg, initWasm } from '@resvg/resvg-wasm';
+import { ImageResponse } from 'workers-og';
+import { html as toVdom } from 'satori-html';
 
-// @ts-ignore
-import resvgWasmBase64 from './resvg.wasm?base64';
+async function fetchBuffer(url: string, timeout = 5000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
 
-let initialized = false;
-const init = async () => {
-    if (initialized) return;
     try {
-        console.log("Initializing WASM from Base64...");
+        console.log(`[OG] Fetching font: ${url}`);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
         
-        const binaryString = atob(resvgWasmBase64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+        if (!res.ok) {
+            console.warn(`[OG] Failed to fetch font: ${url} (${res.status})`);
+            return null;
         }
-        
-        await initWasm(bytes);
-        
-        initialized = true;
-        console.log("WASM Initialized.");
-    } catch (e: any) {
-        if (e.message && e.message.includes('Already initialized')) {
-            initialized = true;
-            return;
-        }
-        console.error('OG Image WASM Init Failed:', e);
-        throw e;
-    }
-};
-
-async function fetchBuffer(url: string) {
-    try {
-        const res = await fetch(url);
-        if (!res.ok) return null;
         return await res.arrayBuffer();
-    } catch { return null; }
+    } catch (e) { 
+        clearTimeout(id);
+        console.error(`[OG] Fetch error for ${url}:`, e);
+        return null; 
+    }
 }
 
 async function fetchDynamicFont(family: string, text: string) {
@@ -94,21 +76,24 @@ export interface OgData {
     handheldText: string;
 }
 
-export async function generateOgImage(data: OgData): Promise<Buffer> {
-    await init();
+export async function generateOgImage(data: OgData): Promise<Response> {
+    console.log("[OG] Starting generation...");
 
     const [interRegular, interBold] = await Promise.all([
         fetchBuffer('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-400-normal.woff'),
         fetchBuffer('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-700-normal.woff')
     ]);
 
-    if (!interRegular || !interBold) throw new Error("Failed to load base fonts");
+    if (!interRegular || !interBold) {
+        throw new Error("Failed to load base fonts");
+    }
 
     const titleFont = await getTitleFont(data.title, interBold);
+    console.log(`[OG] Fonts loaded. Title font: ${titleFont.name}`);
 
-    const template = html(`
+    const htmlString = `
     <div style="display: flex; width: 1200px; height: 630px; background-color: #0d1117; position: relative; overflow: hidden;">
-        <img src="${data.bannerUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(8px); opacity: 0.6; transform: scale(1.05);" />
+        <img src="${data.bannerUrl}" width="1200" height="630" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 1; transform: scale(1.05);" />
         <div style="display: flex; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);"></div>
         <div style="display: flex; flex-direction: column; justify-content: flex-end; width: 100%; height: 100%; padding: 60px; position: relative;">
             <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 24px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
@@ -146,20 +131,34 @@ export async function generateOgImage(data: OgData): Promise<Buffer> {
             </div>
         </div>
     </div>
-    `);
+    `;
 
-    const svg = await satori(template, {
+    const element = toVdom(htmlString);
+
+    console.log("[OG] Generating ImageResponse...");
+    
+    return new ImageResponse(element, {
         width: 1200,
         height: 630,
         fonts: [
-            { name: titleFont.name, data: titleFont.data as ArrayBuffer, weight: 700, style: 'normal' },
-            { name: 'Inter', data: interRegular, weight: 400, style: 'normal' },
-            { name: 'Inter', data: interBold, weight: 700, style: 'normal' }
+            {
+                name: titleFont.name,
+                data: titleFont.data as ArrayBuffer,
+                weight: 700,
+                style: 'normal',
+            },
+            {
+                name: 'Inter',
+                data: interRegular,
+                weight: 400,
+                style: 'normal'
+            },
+            {
+                name: 'Inter',
+                data: interBold,
+                weight: 700,
+                style: 'normal'
+            }
         ]
     });
-
-    const resvg = new Resvg(svg);
-    const pngData = resvg.render();
-
-    return Buffer.from(pngData.asPng());
 }
