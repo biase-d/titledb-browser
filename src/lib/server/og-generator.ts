@@ -11,9 +11,14 @@ const init = async () => {
     try {
         console.log("Initializing WASM from Base64...");
         
-        const buffer = Buffer.from(resvgWasmBase64, 'base64');
+        const binaryString = atob(resvgWasmBase64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
         
-        await initWasm(buffer);
+        await initWasm(bytes);
         
         initialized = true;
         console.log("WASM Initialized.");
@@ -155,5 +160,6 @@ export async function generateOgImage(data: OgData): Promise<Buffer> {
 
     const resvg = new Resvg(svg);
     const pngData = resvg.render();
+
     return Buffer.from(pngData.asPng());
 }
