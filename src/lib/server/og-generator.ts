@@ -1,21 +1,20 @@
 import { html } from 'satori-html';
 import satori from 'satori';
 import { Resvg, initWasm } from '@resvg/resvg-wasm';
+import initResvgWasm from '@resvg/resvg-wasm/index_bg.wasm?init';
 
-// Initialize WASM via CDN (Bypasses Vite/Cloudflare bundling issues)
-// We use 2.6.2 to match standard installs
 let initialized = false;
 const init = async () => {
     if (initialized) return;
     try {
-        console.log("Initializing WASM from CDN...");
-        const res = await fetch('https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm');
-        if (!res.ok) throw new Error(`Failed to load WASM: ${res.status}`);
-        await initWasm(res);
+        console.log("Initializing WASM from local bundle...");
+        
+        const instance = await initResvgWasm({});
+        await initWasm(instance);
+        
         initialized = true;
         console.log("WASM Initialized.");
     } catch (e: any) {
-        // Ignore "Already initialized" race conditions
         if (e.message && e.message.includes('Already initialized')) {
             initialized = true;
             return;
@@ -25,19 +24,12 @@ const init = async () => {
     }
 };
 
-// --- Font Logic ---
 async function fetchBuffer(url: string) {
     try {
         const res = await fetch(url);
-        if (!res.ok) {
-            console.warn(`Failed to fetch font: ${url} (${res.status})`);
-            return null;
-        }
+        if (!res.ok) return null;
         return await res.arrayBuffer();
-    } catch (e) { 
-        console.error(`Fetch error for ${url}:`, e);
-        return null; 
-    }
+    } catch { return null; }
 }
 
 async function fetchDynamicFont(family: string, text: string) {
@@ -97,17 +89,15 @@ export interface OgData {
 export async function generateOgImage(data: OgData): Promise<Buffer> {
     await init();
 
-    // Load Static UI Fonts (Inter) from JSDelivr
     const [interRegular, interBold] = await Promise.all([
         fetchBuffer('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-400-normal.woff'),
         fetchBuffer('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/files/inter-latin-700-normal.woff')
     ]);
 
-    if (!interRegular || !interBold) throw new Error("Failed to load base fonts from CDN");
+    if (!interRegular || !interBold) throw new Error("Failed to load base fonts");
 
     const titleFont = await getTitleFont(data.title, interBold);
 
-    // Satori Template
     const template = html(`
     <div style="display: flex; width: 1200px; height: 630px; background-color: #0d1117; position: relative; overflow: hidden;">
         <img src="${data.bannerUrl}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(8px); opacity: 0.6; transform: scale(1.05);" />
