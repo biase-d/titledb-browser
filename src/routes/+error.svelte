@@ -6,9 +6,6 @@
 	<div class="error-card">
 		<h1>{page.status}</h1>
 		<p class="message">{page.error?.message || 'Something went wrong'}</p>
-	<!--
-	<p class="description">We couldn't find the page you were looking for. Let's get you back on track.</p>
-	-->
 		<a href="/" class="back-button">Go Home</a>
 	</div>
 </div>
@@ -44,11 +41,6 @@
 		font-weight: 500;
 		color: var(--text-primary);
 		margin: 0 0 1rem;
-	}
-
-	.description {
-		color: var(--text-secondary);
-		margin: 0 0 2rem;
 	}
 	
 	.back-button {

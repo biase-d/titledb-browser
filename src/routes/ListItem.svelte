@@ -2,26 +2,32 @@
 	import Icon from '@iconify/svelte';
 	import { slide } from 'svelte/transition';
 	import { getRegionLabel } from '$lib/regions';
-    import { createImageSet } from '$lib/image';
-    import { preferences } from '$lib/stores/preferences';
-    import { getLocalizedName } from '$lib/i18n';
+	import { createImageSet } from '$lib/image';
+	import { preferences } from '$lib/stores/preferences';
+	import { getLocalizedName } from '$lib/i18n';
 
 	let { titleData } = $props();
 
-	const { id, names = [], regions = [], performance = {}, iconUrl } = titleData;
-	const { docked = {}, handheld = {} } = performance;
+	let id = $derived(titleData.id);
+	let names = $derived(titleData.names || []);
+	let regions = $derived(titleData.regions || []);
+	let performance = $derived(titleData.performance || {});
+	let iconUrl = $derived(titleData.iconUrl);
 
-    const imageSet = $derived(createImageSet(iconUrl));
-    
-    let preferredRegion = $state('US');
-    preferences.subscribe(p => preferredRegion = p.region);
-    
-	const titleName = $derived(getLocalizedName(names, preferredRegion));
+	let docked = $derived(performance.docked || {});
+	let handheld = $derived(performance.handheld || {});
 
-	const regionLabel = $derived(getRegionLabel(regions));
-	const showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
+	let imageSet = $derived(createImageSet(iconUrl));
+	
+	let preferredRegion = $state('US');
+	preferences.subscribe(p => preferredRegion = p.region);
+	
+	let titleName = $derived(getLocalizedName(names, preferredRegion));
 
-	const performanceInfo = $derived(
+	let regionLabel = $derived(getRegionLabel(regions));
+	let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
+
+	let performanceInfo = $derived(
 		[
 			docked.target_fps && `docked at ${docked.target_fps} FPS`,
 			handheld.target_fps && `handheld at ${handheld.target_fps} FPS`
@@ -30,7 +36,7 @@
 			.join(', ')
 	);
 
-	const ariaLabel = $derived(
+	let ariaLabel = $derived(
 		`View details for ${titleName}.${performanceInfo ? ` Performance: ${performanceInfo}.` : ''}`
 	);
 </script>
@@ -42,27 +48,27 @@
 	data-sveltekit-preload-data="hover"
 	aria-label={ariaLabel}
 >
-    <div class="icon-wrapper">
-        <img 
-            src={imageSet?.src || iconUrl} 
-            srcset={imageSet?.srcset}
-            alt="" 
-            loading="lazy" 
-            width="48" 
-            height="48"
-        />
-    </div>
+	<div class="icon-wrapper">
+		<img 
+			src={imageSet?.src || iconUrl} 
+			srcset={imageSet?.srcset}
+			alt="" 
+			loading="lazy" 
+			width="48" 
+			height="48"
+		/>
+	</div>
 
 	<div class="list-item-info">
 		<span class="title-name" lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>
-            {titleName}
-        </span>
+			{titleName}
+		</span>
 		<div class="meta-row">
-            {#if showRegionBadge}
+			{#if showRegionBadge}
 				<span class="region-badge" title="Available in: {regionLabel}">
-                    <Icon icon="mdi:earth" width="12" height="12" />
-                    <span class="badge-text">{regionLabel}</span>
-                </span>
+					<Icon icon="mdi:earth" width="12" height="12" />
+					<span class="badge-text">{regionLabel}</span>
+				</span>
 			{/if}
 			<span class="title-id">{id}</span>
 		</div>
@@ -100,14 +106,14 @@
 		transition:
 			border-color 0.2s ease,
 			background-color 0.2s ease,
-            transform 0.2s ease;
+			transform 0.2s ease;
 	}
 
 	.list-item:hover,
 	.list-item:focus-visible {
 		border-color: var(--primary-color);
 		background-color: color-mix(in srgb, var(--primary-color) 2%, transparent);
-        transform: translateX(4px);
+		transform: translateX(4px);
 	}
 
 	.list-item:focus-visible {
@@ -115,21 +121,21 @@
 		outline-offset: 2px;
 	}
 
-    .icon-wrapper img {
-        width: 48px;
-        height: 48px;
-        border-radius: var(--radius-sm);
-        object-fit: cover;
-        background-color: var(--input-bg);
-        display: block;
-    }
+	.icon-wrapper img {
+		width: 48px;
+		height: 48px;
+		border-radius: var(--radius-sm);
+		object-fit: cover;
+		background-color: var(--input-bg);
+		display: block;
+	}
 
 	.list-item-info {
 		flex-grow: 1;
 		min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
 	}
 
 	.title-name {
@@ -140,48 +146,48 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-        line-height: 1.2;
+		line-height: 1.2;
 	}
 
 	.meta-row {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-        flex-wrap: wrap;
+		flex-wrap: wrap;
 	}
 
 	.title-id {
 		font-size: 0.75rem;
-        font-family: var(--font-mono);
+		font-family: var(--font-mono);
 		color: var(--text-secondary);
-        opacity: 0.8;
+		opacity: 0.8;
 	}
 
 	.region-badge {
 		display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
+		align-items: center;
+		gap: 0.25rem;
 		font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.02em;
 		color: var(--text-secondary);
 		background-color: var(--input-bg);
 		padding: 2px 6px;
 		border-radius: 4px;
 		border: 1px solid var(--border-color);
-        max-width: 140px;
+		max-width: 140px;
 	}
-	
-    .region-badge :global(svg) {
-        flex-shrink: 0;
-    }
 
-    .badge-text {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+	.region-badge :global(svg) {
+		flex-shrink: 0;
+	}
+
+	.badge-text {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 
 	.perf-tags {
 		display: none;
@@ -201,7 +207,7 @@
 		align-items: center;
 		gap: 0.35rem;
 		font-size: 0.85rem;
-        font-weight: 600;
+		font-weight: 600;
 		color: var(--text-primary);
 		background-color: var(--input-bg);
 		padding: 0.35rem 0.6rem;
@@ -209,8 +215,8 @@
 		white-space: nowrap;
 		border: 1px solid var(--border-color);
 	}
-    
-    .perf-tag :global(svg) {
-        color: var(--text-secondary);
-    }
+	
+	.perf-tag :global(svg) {
+		color: var(--text-secondary);
+	}
 </style>
