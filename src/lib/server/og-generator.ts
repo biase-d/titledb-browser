@@ -1,16 +1,19 @@
 import { html } from 'satori-html';
 import satori from 'satori';
 import { Resvg, initWasm } from '@resvg/resvg-wasm';
-import initResvgWasm from '@resvg/resvg-wasm/index_bg.wasm?init';
+
+// @ts-ignore
+import resvgWasmBase64 from './resvg.wasm?base64';
 
 let initialized = false;
 const init = async () => {
     if (initialized) return;
     try {
-        console.log("Initializing WASM from local bundle...");
+        console.log("Initializing WASM from Base64...");
         
-        const instance = await initResvgWasm({});
-        await initWasm(instance);
+        const buffer = Buffer.from(resvgWasmBase64, 'base64');
+        
+        await initWasm(buffer);
         
         initialized = true;
         console.log("WASM Initialized.");
