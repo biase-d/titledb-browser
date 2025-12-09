@@ -4,6 +4,52 @@ import { desc, eq, sql, inArray, or, and, count, countDistinct } from 'drizzle-o
 
 const PAGE_SIZE = 50;
 
+/**
+ * Maps graphics settings (from graphics_settings table) to the performance profile structure
+ * so the frontend can display them uniformly (e.g. in the Hero or List badges)
+ */
+function mapGraphicsToPerformance(graphics) {
+	if (!graphics) return null;
+
+	const mapMode = (gMode) => {
+		if (!gMode) return {};
+		const res = gMode.resolution || {};
+		const fps = gMode.framerate || {};
+
+		return {
+			resolution_type: res.resolutionType,
+			resolution: res.fixedResolution,
+			min_res: res.minResolution,
+			max_res: res.maxResolution,
+			resolutions: res.multipleResolutions?.join(', '),
+			target_fps: fps.targetFps || (fps.lockType === 'Unlocked' ? 'Unlocked' : null),
+			fps_behavior: fps.lockType === 'API' ? 'Locked' : 'Stable' // Approximate mapping
+		};
+	};
+
+	return {
+		docked: mapMode(graphics.docked),
+		handheld: mapMode(graphics.handheld)
+	};
+}
+
+/**
+ * Checks if a performance profile object has meaningful data
+ */
+function isPerformanceValid(perf) {
+	if (!perf) return false;
+	// Check if it's just an empty object or only has contributor data
+	const keys = Object.keys(perf);
+	if (keys.length === 0) return false;
+	if (keys.length === 1 && keys[0] === 'contributor') return false;
+	
+	// Check if specific modes have data
+	const hasDocked = perf.docked && (perf.docked.resolution_type || perf.docked.target_fps);
+	const hasHandheld = perf.handheld && (perf.handheld.resolution_type || perf.handheld.target_fps);
+	
+	return hasDocked || hasHandheld;
+}
+
 export async function searchGames(searchParams) {
 	const page = parseInt(searchParams.get('page') || '1', 10);
 	const q = searchParams.get('q') || '';
@@ -32,7 +78,6 @@ export async function searchGames(searchParams) {
 		} else {
 			const searchWords = q.split(' ').filter(word => word.length > 0);
 			const allWordsCondition = and(
-                    // Explicitly use extensions.unaccent
 					...searchWords.map(word => sql`extensions.unaccent(array_to_string(${games.names}, ' ')) ILIKE extensions.unaccent(${'%' + word + '%'})`)
 			);
 			whereClauses.push(allWordsCondition);
@@ -40,14 +85,13 @@ export async function searchGames(searchParams) {
 	}
 
 	if (publisher) {
-        // Explicitly use extensions.unaccent
 		whereClauses.push(sql`extensions.unaccent(${games.publisher}) ILIKE extensions.unaccent(${publisher})`);
 	}
-    
+
     if (regionFilter) {
         if (regionFilter.length === 2) {
             whereClauses.push(sql`${games.regions} @> ARRAY[${regionFilter}]::text[]`);
-        } 
+        }
         else if (regionFilter === 'Europe') {
             const euCodes = ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU', 'IE', 'IL', 'LT', 'LU', 'LV', 'MT', 'NO', 'PL', 'RO', 'SE', 'SI', 'SK'];
             whereClauses.push(sql`${games.regions} && ARRAY[${euCodes}]::text[]`);
@@ -92,6 +136,7 @@ export async function searchGames(searchParams) {
 			names: games.names,
 			regions: games.regions,
 			iconUrl: games.iconUrl,
+			bannerUrl: games.bannerUrl,
 			publisher: games.publisher,
 			lastUpdated: games.lastUpdated,
 			sizeInBytes: games.sizeInBytes,
@@ -104,7 +149,9 @@ export async function searchGames(searchParams) {
 				(${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), 
 				(${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
 				(${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
-			)`.as('handheldFps')
+			)`.as('handheldFps'),
+            fullProfiles: latestProfileSubquery.profiles,
+            graphicsSettings: graphicsSettings.settings
 		})
 		.from(games)
 		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
@@ -119,9 +166,12 @@ export async function searchGames(searchParams) {
 		names: innerQuery.names,
 		regions: innerQuery.regions,
 		iconUrl: innerQuery.iconUrl,
+		bannerUrl: innerQuery.bannerUrl,
 		publisher: innerQuery.publisher,
 		lastUpdated: innerQuery.lastUpdated,
-		performance: sql`jsonb_build_object(
+		performance: innerQuery.fullProfiles,
+		graphics: innerQuery.graphicsSettings,
+		performanceSummary: sql`jsonb_build_object(
 			'docked', jsonb_build_object('target_fps', ${innerQuery.dockedFps}),
 			'handheld', jsonb_build_object('target_fps', ${innerQuery.handheldFps})
 		)`
@@ -131,7 +181,6 @@ export async function searchGames(searchParams) {
 	if (isTitleIdSearch) {
 		finalQuery.orderBy(desc(innerQuery.id));
 	} else if (q) {
-        // Explicitly use extensions.word_similarity and extensions.unaccent
 		finalQuery.orderBy(sql`extensions.word_similarity(extensions.unaccent(array_to_string(${innerQuery.names}, ' ')), extensions.unaccent(${q})) DESC`);
 	} else {
 		switch (sort) {
@@ -143,6 +192,27 @@ export async function searchGames(searchParams) {
 	}
 
 	const results = await finalQuery.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE);
+
+	const mappedResults = results.map(r => {
+	    // Fallback Logic: If performance profile is missing or empty, try to use graphics settings
+	    let finalPerformance = r.performance;
+	    
+	    if (!isPerformanceValid(finalPerformance) && r.graphics) {
+		finalPerformance = mapGraphicsToPerformance(r.graphics);
+	    }
+
+	    // If still no valid performance object, fall back to the SQL summary (just FPS)
+	    if (!finalPerformance) {
+		finalPerformance = r.performanceSummary;
+	    }
+
+	    return {
+		...r,
+		performance: finalPerformance,
+		graphics: undefined, 
+		performanceSummary: undefined
+	    };
+	});
 
 	const countResult = await db.with(latestProfileSubquery)
 		.select({ count: countDistinct(games.groupId) })
@@ -166,47 +236,12 @@ export async function searchGames(searchParams) {
 	]);
 
 	let recentUpdates = [];
-	if (page === 1 && !isSearchingOrFiltering) {
-		const recentGroups = await db.with(latestProfileSubquery)
-			.selectDistinct({ groupId: gameGroups.id, lastUpdated: gameGroups.lastUpdated })
-			.from(gameGroups)
-			.leftJoin(latestProfileSubquery, eq(gameGroups.id, latestProfileSubquery.groupId))
-			.leftJoin(graphicsSettings, eq(gameGroups.id, graphicsSettings.groupId))
-			.where(or(
-				sql`${graphicsSettings.groupId} IS NOT NULL`,
-				sql`(${latestProfileSubquery.groupId} IS NOT NULL AND ${latestProfileSubquery.profiles}::text != '{}')`
-			))
-			.orderBy(desc(gameGroups.lastUpdated))
-			.limit(12);
-
-		const groupIds = recentGroups.map(row => row.groupId).filter(Boolean);
-
-		if (groupIds.length > 0) {
-			const candidates = await db.select({
-				id: games.id,
-				groupId: games.groupId,
-				names: games.names,
-				regions: games.regions,
-				publisher: games.publisher,
-				iconUrl: games.iconUrl
-			}).from(games).where(inArray(games.groupId, groupIds));
-
-			recentUpdates = groupIds.map(gid => {
-				const groupGames = candidates.filter(g => g.groupId === gid);
-				if (groupGames.length === 0) return null;
-				
-				groupGames.sort((a, b) => {
-					const aPref = a.regions?.includes(preferredRegion) ? 0 : (a.regions?.includes('US') ? 1 : 2);
-					const bPref = b.regions?.includes(preferredRegion) ? 0 : (b.regions?.includes('US') ? 1 : 2);
-					return aPref - bPref;
-				});
-				return groupGames[0];
-			}).filter(Boolean);
-		}
+	if (page === 1 && !isSearchingOrFiltering && sort === 'date-desc') {
+        recentUpdates = mappedResults.slice(0, 15);
 	}
 	
 	return {
-		results,
+		results: mappedResults,
 		recentUpdates,
 		pagination: { currentPage: page, totalPages: Math.ceil((countResult[0]?.count || 0) / PAGE_SIZE), totalItems: countResult[0]?.count || 0 },
 		stats: {
