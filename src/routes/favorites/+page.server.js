@@ -1,8 +1,7 @@
-import { db } from '$lib/db';
 import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
 import { inArray, eq, desc, sql } from 'drizzle-orm';
 
-export const load = async ({ cookies }) => {
+export const load = async ({ cookies, locals }) => {
   const favoriteIdsCookie = cookies.get('favorites');
   if (!favoriteIdsCookie) {
     return { favoritedGames: [] };
@@ -19,6 +18,7 @@ export const load = async ({ cookies }) => {
     return { favoritedGames: [] };
   }
 
+  const db = locals.db;
   const latestProfileSubquery = db.$with('latest_profile').as(
     db.selectDistinctOn([performanceProfiles.groupId], {
       groupId: performanceProfiles.groupId,

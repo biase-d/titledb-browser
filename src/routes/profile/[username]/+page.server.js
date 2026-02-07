@@ -1,4 +1,3 @@
-import { db } from '$lib/db';
 import { games, performanceProfiles, graphicsSettings, youtubeLinks } from '$lib/db/schema';
 import { eq, inArray, sql, count, desc } from 'drizzle-orm';
 import { error } from '@sveltejs/kit';
@@ -17,9 +16,10 @@ const BADGES = [
 ].sort((a, b) => b.threshold - a.threshold); // Sort descending to find the highest tier easily
 
 /** @type {import('./$types').PageServerLoad} */
-export const load = async ({ params, parent, url }) => {
+export const load = async ({ params, parent, url, locals }) => {
 	const { session } = await parent();
 	const { username } = params;
+	const db = locals.db;
 
 	const [perfContribs, graphicsContribs, videoContribs] = await Promise.all([
 		db.select({
@@ -45,7 +45,7 @@ export const load = async ({ params, parent, url }) => {
 		...graphicsContribs.map(g => g.groupId),
 		...videoContribs.map(v => v.groupId)
 	])];
-	
+
 	if (allGroupIds.length === 0) {
 		return { username, session, contributions: [], totalContributions: 0, currentTier: null, pagination: null };
 	}
@@ -69,7 +69,7 @@ export const load = async ({ params, parent, url }) => {
 	}).from(games).where(inArray(games.groupId, paginatedGroupIds));
 
 	const contributionsByGroup = new Map();
-	
+
 	for (const game of gamesInvolved) {
 		contributionsByGroup.set(game.groupId, {
 			game: { name: game.names[0], id: game.id, iconUrl: game.iconUrl },

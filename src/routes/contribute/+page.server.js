@@ -1,11 +1,10 @@
-import { db } from '$lib/db';
 import { games, performanceProfiles, graphicsSettings, gameGroups, dataRequests } from '$lib/db/schema';
 import { sql, and, notExists, eq, inArray, count, desc } from 'drizzle-orm';
 
 const PAGE_SIZE = 50;
 
 /** @type {import('./$types').PageServerLoad} */
-export const load = async ({ parent, url, cookies }) => {
+export const load = async ({ parent, url, cookies, locals }) => {
 	const { session } = await parent();
 
 	if (!session?.user) {
@@ -13,8 +12,10 @@ export const load = async ({ parent, url, cookies }) => {
 	}
 
 	const page = parseInt(url.searchParams.get('page') || '1', 10);
-    const sortBy = url.searchParams.get('sort') || 'default'; 
+	const sortBy = url.searchParams.get('sort') || 'default';
 	const preferredRegion = cookies.get('preferred_region') || 'US';
+
+	const db = locals.db;
 
 	const subqueryPerformance = db
 		.select({ groupId: performanceProfiles.groupId })
@@ -37,27 +38,27 @@ export const load = async ({ parent, url, cookies }) => {
 	const totalItems = totalCountResult[0].count;
 	const totalPages = Math.ceil(totalItems / PAGE_SIZE);
 
-    // Get paginated group IDs
-    let groupIds = [];
-    
-    if (sortBy === 'requests') {
-        const rankedGroups = await db.select({
-            groupId: games.groupId,
-            requestCount: count(dataRequests.userId)
-        })
-        .from(games)
-        .leftJoin(dataRequests, eq(games.id, dataRequests.gameId))
-        .where(inArray(games.groupId, groupsQuery)) // Only missing groups
-        .groupBy(games.groupId)
-        .orderBy(desc(count(dataRequests.userId)))
-        .limit(PAGE_SIZE)
-        .offset((page - 1) * PAGE_SIZE);
-        
-        groupIds = rankedGroups.map(g => g.groupId);
-    } else {
-        const groupsWithMissingData = await groupsQuery.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE);
-        groupIds = groupsWithMissingData.map(g => g.id);
-    }
+	// Get paginated group IDs
+	let groupIds = [];
+
+	if (sortBy === 'requests') {
+		const rankedGroups = await db.select({
+			groupId: games.groupId,
+			requestCount: count(dataRequests.userId)
+		})
+			.from(games)
+			.leftJoin(dataRequests, eq(games.id, dataRequests.gameId))
+			.where(inArray(games.groupId, groupsQuery)) // Only missing groups
+			.groupBy(games.groupId)
+			.orderBy(desc(count(dataRequests.userId)))
+			.limit(PAGE_SIZE)
+			.offset((page - 1) * PAGE_SIZE);
+
+		groupIds = rankedGroups.map(g => g.groupId);
+	} else {
+		const groupsWithMissingData = await groupsQuery.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE);
+		groupIds = groupsWithMissingData.map(g => g.id);
+	}
 
 	let gamesList = [];
 	if (groupIds.length > 0) {
@@ -69,10 +70,10 @@ export const load = async ({ parent, url, cookies }) => {
 			END
 		`;
 
-        const requestCountSubquery = db.select({
-            gameId: dataRequests.gameId,
-            count: count(dataRequests.userId).as('req_count')
-        }).from(dataRequests).groupBy(dataRequests.gameId).as('req_counts');
+		const requestCountSubquery = db.select({
+			gameId: dataRequests.gameId,
+			count: count(dataRequests.userId).as('req_count')
+		}).from(dataRequests).groupBy(dataRequests.gameId).as('req_counts');
 
 		gamesList = await db
 			.selectDistinctOn([games.groupId], {
@@ -80,22 +81,22 @@ export const load = async ({ parent, url, cookies }) => {
 				names: games.names,
 				iconUrl: games.iconUrl,
 				regions: games.regions,
-                requestCount: sql`COALESCE(${requestCountSubquery.count}, 0)`
+				requestCount: sql`COALESCE(${requestCountSubquery.count}, 0)`
 			})
 			.from(games)
-            .leftJoin(requestCountSubquery, eq(games.id, requestCountSubquery.gameId))
+			.leftJoin(requestCountSubquery, eq(games.id, requestCountSubquery.gameId))
 			.where(inArray(games.groupId, groupIds))
 			.orderBy(games.groupId, regionPriority);
-            
-        if (sortBy === 'requests') {
-            gamesList.sort((a, b) => Number(b.requestCount) - Number(a.requestCount));
-        }
+
+		if (sortBy === 'requests') {
+			gamesList.sort((a, b) => Number(b.requestCount) - Number(a.requestCount));
+		}
 	}
 
 	return {
 		session,
 		games: gamesList,
-        sortBy,
+		sortBy,
 		pagination: {
 			currentPage: page,
 			totalPages,
