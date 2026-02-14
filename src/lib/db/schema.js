@@ -85,5 +85,6 @@ export const userPreferences = pgTable('user_preferences', {
 	userId: text('user_id').primaryKey(),
 	hasOnboarded: integer('has_onboarded').default(0),
 	preferredRegion: text('preferred_region'),
+	featuredGameId: text('featured_game_id').references(() => games.id, { onDelete: 'set null' }),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 });

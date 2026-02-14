@@ -3,6 +3,7 @@
     import { slide } from "svelte/transition";
     import Icon from "@iconify/svelte";
     import { getVersionInfo } from "$lib/services/versionService";
+    import { uiStore } from "$lib/stores/ui.svelte";
 
     let activeAnnouncement = $state(null);
     let isVisible = $state(false);
@@ -49,6 +50,18 @@
                 return "mdi:information";
         }
     }
+
+    /**
+     * @param {MouseEvent} e
+     * @param {string} link
+     */
+    function handleLinkClick(e, link) {
+        if (link.startsWith("/settings")) {
+            e.preventDefault();
+            const section = link.split("#")[1] || undefined;
+            uiStore.openSettings(section);
+        }
+    }
 </script>
 
 {#if isVisible && activeAnnouncement}
@@ -67,11 +80,25 @@
                 {#if activeAnnouncement.link}
                     <a
                         href={activeAnnouncement.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        target={activeAnnouncement.link.startsWith("http")
+                            ? "_blank"
+                            : "_self"}
+                        rel={activeAnnouncement.link.startsWith("http")
+                            ? "noopener noreferrer"
+                            : ""}
                         class="link"
+                        onclick={(e) =>
+                            handleLinkClick(e, activeAnnouncement.link)}
                     >
-                        Learn More <Icon icon="mdi:open-in-new" width="14" />
+                        {activeAnnouncement.link.startsWith("http")
+                            ? "Learn More"
+                            : "Check it out"}
+                        <Icon
+                            icon={activeAnnouncement.link.startsWith("http")
+                                ? "mdi:open-in-new"
+                                : "mdi:chevron-right"}
+                            width="14"
+                        />
                     </a>
                 {/if}
                 <a href="/announcements" class="history-link">History</a>
@@ -98,7 +125,7 @@
         font-size: 0.9rem;
         color: white;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        z-index: 100;
+        z-index: 90;
         gap: 1rem;
     }
 

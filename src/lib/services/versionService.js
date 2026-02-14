@@ -6,8 +6,26 @@
 import { version } from '$app/environment';
 
 /**
+ * @typedef {Object} Announcement
+ * @property {string} id
+ * @property {string} date
+ * @property {string} message
+ * @property {string} type
+ * @property {string} [link]
+ * @property {boolean} active
+ */
+
+/**
+ * @typedef {Object} VersionInfo
+ * @property {string} version
+ * @property {Object.<string, boolean>} features
+ * @property {Announcement[]} announcements
+ * @property {string} lastUpdated
+ */
+
+/**
  * Get current version and feature flags
- * @returns {Object}
+ * @returns {VersionInfo}
  */
 export function getVersionInfo() {
     return {
@@ -20,28 +38,26 @@ export function getVersionInfo() {
         },
         announcements: [
             {
-                id: 'feature-adaptive-themes',
+                id: 'feature-performance-hero',
                 date: '2026-02-14',
-                message: 'Immersive Themes are here! Experience dynamic colors and blurred backgrounds based on game art.',
+                message: 'Instant Insights! The Hero section now displays FPS and resolution data for your favorite games.',
                 type: 'feature',
-                link: '/settings',
                 active: true
             },
             {
-                id: 'feature-beta-contributions',
+                id: 'feature-light-mode-polish',
                 date: '2026-02-14',
-                message: 'Beta Contribution Flow is live! Help the community by suggesting performance and graphics profiles.',
+                message: 'Shiny & New! We\'ve polished Light Mode for better contrast and a smoother day-time experience.',
                 type: 'success',
-                link: '/contribute/upcoming',
                 active: true
             },
             {
-                id: 'feature-hero-refactor',
-                date: '2026-01-16',
-                message: 'New Hero design! Swipe on mobile to browse recent updates',
+                id: 'feature-beta-refinements',
+                date: '2026-02-14',
+                message: 'Enhanced Contributions! The Beta Workflow is now more robust with improved verification and feedback.',
                 type: 'feature',
-                link: 'https://github.com/biase-d/titledb-browser/pull/42',
-                active: false
+                link: '/settings#beta',
+                active: true
             }
         ],
         lastUpdated: new Date().toISOString().split('T')[0]

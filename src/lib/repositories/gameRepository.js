@@ -571,16 +571,34 @@ export async function getUserContributionStats(db, username) {
         db.select({
             groupId: performanceProfiles.groupId,
             gameVersion: performanceProfiles.gameVersion,
-            sourcePrUrl: performanceProfiles.sourcePrUrl
-        }).from(performanceProfiles).where(sql`${performanceProfiles.contributor} @> ARRAY[${username}]`),
+            sourcePrUrl: performanceProfiles.sourcePrUrl,
+            prNumber: performanceProfiles.prNumber
+        }).from(performanceProfiles).where(
+            and(
+                sql`${username} ILIKE ANY(${performanceProfiles.contributor})`,
+                eq(performanceProfiles.status, 'approved')
+            )
+        ),
 
         db.select({
-            groupId: graphicsSettings.groupId
-        }).from(graphicsSettings).where(sql`${graphicsSettings.contributor} @> ARRAY[${username}]`),
+            groupId: graphicsSettings.groupId,
+            prNumber: graphicsSettings.prNumber
+        }).from(graphicsSettings).where(
+            and(
+                sql`${username} ILIKE ANY(${graphicsSettings.contributor})`,
+                eq(graphicsSettings.status, 'approved')
+            )
+        ),
 
         db.select({
-            groupId: youtubeLinks.groupId
-        }).from(youtubeLinks).where(eq(youtubeLinks.submittedBy, username))
+            groupId: youtubeLinks.groupId,
+            prNumber: youtubeLinks.prNumber
+        }).from(youtubeLinks).where(
+            and(
+                sql`${youtubeLinks.submittedBy} ILIKE ${username}`,
+                eq(youtubeLinks.status, 'approved')
+            )
+        )
     ]);
 
     return { perfContribs, graphicsContribs, videoContribs };

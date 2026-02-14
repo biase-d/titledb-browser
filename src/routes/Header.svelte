@@ -2,6 +2,7 @@
 	import Icon from "@iconify/svelte";
 	import AuthButton from "./AuthButton.svelte";
 	import SettingsModal from "./SettingsModal.svelte";
+	import { uiStore } from "$lib/stores/ui.svelte";
 	import { browser } from "$app/environment";
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
@@ -12,7 +13,6 @@
 	let { data } = $props();
 
 	let isMobileMenuOpen = $state(false);
-	let showSettings = $state(false);
 
 	// Search State
 	let searchValue = $state("");
@@ -80,7 +80,8 @@
 		<!-- Left: Logo -->
 		<div class="header-left">
 			<a href="/" class="logo" onclick={closeMenu}>
-				<span class="logo-text">Switch Performance</span>
+				<span class="logo-text desktop-only">Switch Performance</span>
+				<span class="logo-text mobile-only">SP</span>
 			</a>
 		</div>
 
@@ -273,7 +274,7 @@
 					class="drawer-btn"
 					onclick={() => {
 						closeMenu();
-						showSettings = true;
+						uiStore.openSettings();
 					}}
 				>
 					<Icon icon="mdi:cog-outline" /> Settings
@@ -287,7 +288,7 @@
 	</div>
 {/if}
 
-<SettingsModal bind:show={showSettings} />
+<SettingsModal bind:show={uiStore.showSettings} />
 
 <style>
 	.app-header {
@@ -631,9 +632,38 @@
 	.desktop-only {
 		display: none;
 	}
+	.mobile-only {
+		display: flex;
+	}
+
 	@media (min-width: 1024px) {
 		.desktop-only {
 			display: flex;
+		}
+		.mobile-only {
+			display: none;
+		}
+	}
+
+	@media (max-width: 768px) {
+		.header-center {
+			transition: all 0.3s ease;
+		}
+
+		.header-center:has(.search-bar.focused) {
+			position: absolute;
+			left: 0;
+			top: 0;
+			height: 100%;
+			background: var(--surface-color);
+			z-index: 100;
+			padding: 0 1rem;
+			display: flex;
+			align-items: center;
+		}
+
+		.search-container {
+			max-width: none;
 		}
 	}
 </style>

@@ -1,6 +1,8 @@
 <script>
     import { getVersionInfo } from "$lib/services/versionService";
     import Icon from "@iconify/svelte";
+    import { uiStore } from "$lib/stores/ui.svelte";
+    import { goto } from "$app/navigation";
 
     const { announcements } = getVersionInfo();
     const sortedAnnouncements = announcements.sort(
@@ -34,6 +36,18 @@
                 return "var(--error-color, #ef4444)";
             default:
                 return "var(--text-secondary, #6b7280)";
+        }
+    }
+
+    /**
+     * @param {MouseEvent} e
+     * @param {string} link
+     */
+    function handleLinkClick(e, link) {
+        if (link.startsWith("/settings")) {
+            e.preventDefault();
+            const section = link.split("#")[1] || undefined;
+            uiStore.openSettings(section);
         }
     }
 </script>
@@ -78,12 +92,22 @@
                         {#if item.link}
                             <a
                                 href={item.link}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                target={item.link.startsWith("http")
+                                    ? "_blank"
+                                    : "_self"}
+                                rel={item.link.startsWith("http")
+                                    ? "noopener noreferrer"
+                                    : ""}
                                 class="read-more"
+                                onclick={(e) => handleLinkClick(e, item.link)}
                             >
-                                View details on GitHub <Icon
-                                    icon="mdi:open-in-new"
+                                {item.link.startsWith("http")
+                                    ? "View details on GitHub"
+                                    : "Learn more"}
+                                <Icon
+                                    icon={item.link.startsWith("http")
+                                        ? "mdi:open-in-new"
+                                        : "mdi:chevron-right"}
                                     width="14"
                                 />
                             </a>

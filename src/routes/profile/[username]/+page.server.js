@@ -15,6 +15,7 @@ export const load = async ({ params, parent, url, locals }) => {
 		contributions: result.contributions,
 		totalContributions: result.totalContributions,
 		currentTierName: result.currentTierName,
+		featuredGame: result.featuredGame,
 		pagination: result.pagination
 	};
 };

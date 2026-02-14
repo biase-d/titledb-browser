@@ -15,10 +15,16 @@ export async function POST({ request, locals }) {
         return json({ error: 'Missing signature' }, { status: 401 });
     }
 
+    const secret = env.INTERNAL_WEBHOOK_SECRET;
+    if (!secret) {
+        console.error('INTERNAL_WEBHOOK_SECRET is not defined in environment variables');
+        return json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
     const body = await request.text();
     const hmac = await crypto.subtle.importKey(
         'raw',
-        new TextEncoder().encode(env.INTERNAL_WEBHOOK_SECRET),
+        new TextEncoder().encode(secret),
         { name: 'HMAC', hash: 'SHA-256' },
         false,
         ['sign']
@@ -30,7 +36,14 @@ export async function POST({ request, locals }) {
         .join('');
 
     const expectedSignature = `sha256=${signedHex}`;
+
     if (signature !== expectedSignature) {
+        console.error('Webhook signature mismatch:', {
+            received: signature,
+            expected: expectedSignature,
+            secretLength: secret.length,
+            bodyLength: body.length
+        });
         return json({ error: 'Invalid signature' }, { status: 401 });
     }
 

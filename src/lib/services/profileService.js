@@ -4,6 +4,7 @@
  */
 
 import * as gameRepo from '$lib/repositories/gameRepository';
+import * as prefRepo from '$lib/repositories/preferencesRepository';
 
 const BADGES = [
     { threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
@@ -28,9 +29,39 @@ const BADGES = [
 export async function getUserContributions(db, username, page) {
     const PAGE_SIZE = 24;
 
-    const data = await gameRepo.getUserContributionStats(db, username);
+    /** @type {[any, any]} */
+    const [data, preferences] = await Promise.all([
+        gameRepo.getUserContributionStats(db, username),
+        prefRepo.getUserPreferences(db, username)
+    ]);
 
-    const totalContributions = data.perfContribs.length + data.graphicsContribs.length + data.videoContribs.length;
+    // Fetch featured game info if set
+    let featuredGame = null;
+    if (preferences?.featuredGameId) {
+        featuredGame = await gameRepo.findGameById(db, preferences.featuredGameId);
+    }
+
+    // Normalize PR identifiers to avoid double counting, with fallback for missing info
+    /** @param {any} p @param {string} type @param {number|string} id */
+    const getPrId = (p, type, id) => {
+        if (p.prNumber) return `pr-${p.prNumber}`;
+        const url = p.sourcePrUrl?.toLowerCase();
+        if (url) {
+            const match = url.match(/\/pull\/(\d+)/);
+            if (match) return `pr-${match[1]}`;
+            return url;
+        }
+        // Fallback: If no PR metadata is found, treat each DB entry as a unique legacy contribution
+        return `legacy-${type}-${id}`;
+    };
+
+    const uniquePrs = new Set([
+        ...data.perfContribs.map((p, i) => getPrId(p, 'perf', p.id || i)),
+        ...data.graphicsContribs.map((g, i) => getPrId(g, 'graph', g.groupId || i)),
+        ...data.videoContribs.map((v, i) => getPrId(v, 'vid', v.id || i))
+    ].filter(Boolean));
+
+    const totalContributions = uniquePrs.size;
     const currentTier = BADGES.find(badge => totalContributions >= badge.threshold) || null;
 
     const allGroupIds = [...new Set([
@@ -58,6 +89,7 @@ export async function getUserContributions(db, username, page) {
             contributions: [],
             totalContributions,
             currentTierName: currentTier?.name || null,
+            featuredGame,
             pagination: { currentPage: page, totalPages, totalItems }
         };
     }
@@ -98,6 +130,7 @@ export async function getUserContributions(db, username, page) {
         contributions: Array.from(contributionsByGroup.values()),
         totalContributions,
         currentTierName: currentTier?.name || null,
+        featuredGame,
         pagination: {
             currentPage: page,
             totalPages,
