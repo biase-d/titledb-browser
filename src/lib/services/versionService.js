@@ -20,12 +20,20 @@ export function getVersionInfo() {
         },
         announcements: [
             {
-                id: 'maintenance-2023-10-27',
-                date: '2023-10-27',
-                message: 'Scheduled maintenance: The site will be read-only on Oct 28th for database upgrades',
-                type: 'warning',
-                link: 'https://github.com/biase-d/titledb-browser/issues/1',
-                active: false // Expired
+                id: 'feature-adaptive-themes',
+                date: '2026-02-14',
+                message: 'Immersive Themes are here! Experience dynamic colors and blurred backgrounds based on game art.',
+                type: 'feature',
+                link: '/settings',
+                active: true
+            },
+            {
+                id: 'feature-beta-contributions',
+                date: '2026-02-14',
+                message: 'Beta Contribution Flow is live! Help the community by suggesting performance and graphics profiles.',
+                type: 'success',
+                link: '/contribute/upcoming',
+                active: true
             },
             {
                 id: 'feature-hero-refactor',
@@ -33,7 +41,7 @@ export function getVersionInfo() {
                 message: 'New Hero design! Swipe on mobile to browse recent updates',
                 type: 'feature',
                 link: 'https://github.com/biase-d/titledb-browser/pull/42',
-                active: true
+                active: false
             }
         ],
         lastUpdated: new Date().toISOString().split('T')[0]
