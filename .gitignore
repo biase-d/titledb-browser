@@ -31,3 +31,6 @@ todo.txt
 debug-*
 audit-*
 *.bak
+
+# Deployment
+ecosystem.config.cjs
