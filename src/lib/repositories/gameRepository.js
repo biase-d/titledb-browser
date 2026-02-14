@@ -57,7 +57,8 @@ export async function searchGames(db, searchParams) {
     const latestProfileSubquery = db.$with('latest_profile').as(
         db.selectDistinctOn([performanceProfiles.groupId], {
             groupId: performanceProfiles.groupId,
-            profiles: performanceProfiles.profiles
+            profiles: performanceProfiles.profiles,
+            status: performanceProfiles.status
         }).from(performanceProfiles).orderBy(performanceProfiles.groupId, desc(performanceProfiles.gameVersion))
     );
 
@@ -108,7 +109,12 @@ export async function searchGames(db, searchParams) {
         whereClauses.push(or(hasGraphics, hasMeaningfulPerformance));
     }
 
-    const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
+    const baseWhere = whereClauses.length > 0 ? and(...whereClauses) : undefined;
+    const statusFilters = and(
+        or(eq(latestProfileSubquery.status, 'approved'), sql`${latestProfileSubquery.status} IS NULL`),
+        or(eq(graphicsSettings.status, 'approved'), sql`${graphicsSettings.status} IS NULL`)
+    );
+    const where = and(baseWhere, statusFilters);
 
     const regionPriority = sql`
 		CASE 
@@ -145,7 +151,7 @@ export async function searchGames(db, searchParams) {
         .from(games)
         .leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
         .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
-        .where(and(where, eq(latestProfileSubquery.status, 'approved'), or(eq(graphicsSettings.status, 'approved'), sql`${graphicsSettings.status} IS NULL`)))
+        .where(where)
         .orderBy(games.groupId, regionPriority, desc(games.lastUpdated))
         .as('grouped_games');
 
