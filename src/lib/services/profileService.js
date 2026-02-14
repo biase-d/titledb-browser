@@ -20,11 +20,20 @@ const BADGES = [
 ].sort((a, b) => b.threshold - a.threshold);
 
 /**
+ * @typedef {Object} UserContributionResult
+ * @property {Array<any>} contributions
+ * @property {number} totalContributions
+ * @property {string|null} currentTierName
+ * @property {any|null} featuredGame
+ * @property {{currentPage: number, totalPages: number, totalItems: number}|null} pagination
+ */
+
+/**
  * Get user contributions with badge calculation
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @param {string} username
  * @param {number} page
- * @returns {Promise<Object>}
+ * @returns {Promise<UserContributionResult>}
  */
 export async function getUserContributions(db, username, page) {
     const PAGE_SIZE = 24;
@@ -56,18 +65,18 @@ export async function getUserContributions(db, username, page) {
     };
 
     const uniquePrs = new Set([
-        ...data.perfContribs.map((p, i) => getPrId(p, 'perf', p.id || i)),
-        ...data.graphicsContribs.map((g, i) => getPrId(g, 'graph', g.groupId || i)),
-        ...data.videoContribs.map((v, i) => getPrId(v, 'vid', v.id || i))
+        ...data.perfContribs.map((/** @type {any} */ p, /** @type {number} */ i) => getPrId(p, 'perf', p.id || i)),
+        ...data.graphicsContribs.map((/** @type {any} */ g, /** @type {number} */ i) => getPrId(g, 'graph', g.groupId || i)),
+        ...data.videoContribs.map((/** @type {any} */ v, /** @type {number} */ i) => getPrId(v, 'vid', v.id || i))
     ].filter(Boolean));
 
     const totalContributions = uniquePrs.size;
     const currentTier = BADGES.find(badge => totalContributions >= badge.threshold) || null;
 
     const allGroupIds = [...new Set([
-        ...data.perfContribs.map(p => p.groupId),
-        ...data.graphicsContribs.map(g => g.groupId),
-        ...data.videoContribs.map(v => v.groupId)
+        ...data.perfContribs.map((/** @type {any} */ p) => p.groupId),
+        ...data.graphicsContribs.map((/** @type {any} */ g) => g.groupId),
+        ...data.videoContribs.map((/** @type {any} */ v) => v.groupId)
     ])];
 
     if (allGroupIds.length === 0) {
@@ -75,6 +84,7 @@ export async function getUserContributions(db, username, page) {
             contributions: [],
             totalContributions: 0,
             currentTierName: null,
+            featuredGame: null,
             pagination: null
         };
     }

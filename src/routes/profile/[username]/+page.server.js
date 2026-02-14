@@ -12,6 +12,7 @@ export const load = async ({ params, parent, url, locals }) => {
 	return {
 		username,
 		session,
+		githubAvatarUrl: `https://github.com/${username}.png`,
 		contributions: result.contributions,
 		totalContributions: result.totalContributions,
 		currentTierName: result.currentTierName,

@@ -164,12 +164,31 @@
 
 			<div class="hero-content">
 				<div class="user-info">
-					<div class="user-avatar-placeholder">
-						<Icon
-							icon="mdi:account-circle"
-							width="80"
-							height="80"
-						/>
+					<div class="user-avatar-wrapper">
+						{#if data.githubAvatarUrl}
+							<img
+								src={data.githubAvatarUrl}
+								alt="{username}'s GitHub avatar"
+								class="user-avatar"
+								onerror={(e) => {
+									e.currentTarget.style.display = "none";
+									e.currentTarget.nextElementSibling.style.display =
+										"flex";
+								}}
+							/>
+						{/if}
+						<div
+							class="user-avatar-placeholder"
+							style="display: {data.githubAvatarUrl
+								? 'none'
+								: 'flex'}"
+						>
+							<Icon
+								icon="mdi:account-circle"
+								width="80"
+								height="80"
+							/>
+						</div>
 					</div>
 					<div class="user-details">
 						<div class="name-badge-row">
@@ -469,9 +488,25 @@
 		gap: 2rem;
 	}
 
-	.user-avatar-placeholder {
+	.user-avatar-wrapper {
+		position: relative;
 		width: 100px;
 		height: 100px;
+		flex-shrink: 0;
+	}
+
+	.user-avatar {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+		border: 2px solid var(--border-color);
+		box-shadow: var(--shadow-lg);
+	}
+
+	.user-avatar-placeholder {
+		width: 100%;
+		height: 100%;
 		background: var(--input-bg);
 		border-radius: 50%;
 		display: flex;
