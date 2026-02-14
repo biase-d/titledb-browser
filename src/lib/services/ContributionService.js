@@ -92,12 +92,12 @@ export async function prepareGroupUpdate(path, submittedIds) {
 /**
  * Submit a contribution using the active strategy
  * @param {Object} prDetails
- * @param {string} prDetails.title
- * @param {string} prDetails.body
+ * @param {string} prDetails.prTitle
+ * @param {string} prDetails.prBody
  * @param {Array<{path: string, content: string|null, encoding?: string}>} prDetails.files - Files to create/update
  * @param {string} username
  * @param {any} dbConnection
- * @returns {Promise<{url: string, number: number}|null>}
+ * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
  */
 export async function submitContribution(prDetails, username, dbConnection) {
     const isBetaEnabled = isFeatureEnabled('betaFlow');

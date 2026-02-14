@@ -242,8 +242,8 @@ export const actions = {
 			const commitMessage = [`feat(${newGroupId}): Update data for ${gameName}`, '', ...[...allContributors].map(c => `Co-authored-by: ${c} <${c}@users.noreply.github.com>`)].join('\n');
 
 			const prDetails = {
-				title: prTitle,
-				body: prBody,
+				prTitle,
+				prBody,
 				files: filesToCommit,
 				groupId: newGroupId,
 				commitMessage,

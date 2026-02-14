@@ -5,21 +5,34 @@
 
 import * as githubRepo from '$lib/repositories/githubRepository';
 import * as gameRepo from '$lib/repositories/gameRepository';
-import { db } from '$lib/db'; // Assuming a default db export exists or is needed
 import { performanceProfiles, graphicsSettings, youtubeLinks } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
+
+/**
+ * @typedef {Object} ContributionDetails
+ * @property {string} groupId
+ * @property {string} [prTitle]
+ * @property {string} [title]
+ * @property {string} [prBody]
+ * @property {string} [body]
+ * @property {string} commitMessage
+ * @property {Array<{path: string, content: string|null, sha?: string|null}>} files
+ * @property {any} [rawPerformance]
+ * @property {any} [rawGraphics]
+ * @property {any} [rawYoutube]
+ */
 
 /**
  * Base Strategy Class
  */
 class ContributionStrategy {
     /**
-     * @param {Object} details 
-     * @param {Object} user 
+     * @param {ContributionDetails} details 
+     * @param {string} username 
      * @param {any} dbConnection
      * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
      */
-    async submit(details, user, dbConnection) {
+    async submit(details, username, dbConnection) {
         throw new Error('Method not implemented');
     }
 }
@@ -28,14 +41,19 @@ class ContributionStrategy {
  * Legacy/Current behavior: Only creates a Pull Request on GitHub
  */
 export class GitHubOnlyStrategy extends ContributionStrategy {
-    async submit(details, user, dbConnection) {
-        const branchName = `contrib/${user.login}/${details.groupId}-${Date.now()}`;
+    /**
+     * @param {ContributionDetails} details 
+     * @param {string} username 
+     * @param {any} dbConnection
+     */
+    async submit(details, username, dbConnection) {
+        const branchName = `contrib/${username}/${details.groupId}-${Date.now()}`;
 
         const prDetails = await githubRepo.createPullRequest({
             branchName,
             commitMessage: details.commitMessage,
-            prTitle: details.prTitle,
-            prBody: details.prBody,
+            prTitle: details.prTitle || details.title || '',
+            prBody: details.prBody || details.body || '',
             files: details.files
         });
 
@@ -51,14 +69,19 @@ export class GitHubOnlyStrategy extends ContributionStrategy {
  * New behavior: Inserts into DB as 'pending' and then creates a GitHub PR
  */
 export class DatabaseAndGitHubStrategy extends ContributionStrategy {
-    async submit(details, user, dbConnection) {
-        const branchName = `contrib-beta/${user.login}/${details.groupId}-${Date.now()}`;
+    /**
+     * @param {ContributionDetails} details 
+     * @param {string} username 
+     * @param {any} dbConnection
+     */
+    async submit(details, username, dbConnection) {
+        const branchName = `contrib-beta/${username}/${details.groupId}-${Date.now()}`;
 
         const prDetails = await githubRepo.createPullRequest({
             branchName,
             commitMessage: details.commitMessage,
-            prTitle: details.prTitle,
-            prBody: details.prBody,
+            prTitle: details.prTitle || details.title || '',
+            prBody: details.prBody || details.body || '',
             files: details.files
         });
 
@@ -82,7 +105,6 @@ export class DatabaseAndGitHubStrategy extends ContributionStrategy {
 /**
  * Factory for selecting the strategy
  * @param {boolean} isBetaEnabled 
- * @param {any} dbAdapter
  * @returns {ContributionStrategy}
  */
 export function getContributionStrategy(isBetaEnabled) {
