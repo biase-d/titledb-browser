@@ -9,6 +9,13 @@
     let isVisible = $state(false);
 
     onMount(() => {
+        // Hide banner for first-time visitors
+        const hasVisited = localStorage.getItem("has_visited");
+        if (!hasVisited) {
+            localStorage.setItem("has_visited", "true");
+            return;
+        }
+
         const { announcements } = getVersionInfo();
 
         // Find latest active announcement
