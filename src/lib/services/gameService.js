@@ -103,7 +103,8 @@ export async function getPublisherStats(db, publisherName) {
         // Use the aggregated performance object from the search result
         // Logic here mimics what PlayabilityBadge does
         const profile = game.performance || {};
-        const score = calculatePlayabilityScore(profile);
+        const scoreObj = calculatePlayabilityScore(profile);
+        const score = scoreObj.score;
         if (score && stats.tiers[score] !== undefined) {
             stats.tiers[score]++;
         } else {

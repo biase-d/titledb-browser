@@ -60,12 +60,17 @@ export const COUNTRY_GROUPS = [
 ];
 
 function createPreferencesStore() {
-    const initialRegion = browser 
-        ? (localStorage.getItem('preferred_region') || 'US') 
+    const initialRegion = browser
+        ? (localStorage.getItem('preferred_region') || 'US')
         : 'US';
 
+    const initialAdaptiveTheme = browser
+        ? (localStorage.getItem('adaptive_theme') !== 'false')
+        : true;
+
     const { subscribe, set, update } = writable({
-        region: initialRegion
+        region: initialRegion,
+        adaptiveTheme: initialAdaptiveTheme
     });
 
     return {
@@ -84,6 +89,20 @@ function createPreferencesStore() {
                 return newState;
             });
             invalidateAll();
+        },
+        /**
+         * Toggles the adaptive theme preference
+         * @param {boolean} enabled
+         */
+        setAdaptiveTheme: (enabled) => {
+            if (!browser) return;
+
+            update(state => {
+                const newState = { ...state, adaptiveTheme: enabled };
+                localStorage.setItem('adaptive_theme', enabled.toString());
+                document.cookie = `adaptive_theme=${enabled}; path=/; max-age=31536000; SameSite=Lax`;
+                return newState;
+            });
         }
     };
 }

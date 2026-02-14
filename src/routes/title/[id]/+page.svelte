@@ -203,6 +203,21 @@
 			isRequesting = false;
 		}
 	}
+
+	import { themeStore } from "$lib/stores/theme.svelte";
+	$effect(() => {
+		console.log("[TitlePage] Theme trigger effect running for ID:", id);
+		if (id) {
+			themeStore.setTheme(
+				game.iconUrl || game.bannerUrl,
+				game.bannerUrl || game.iconUrl,
+			);
+		}
+		return () => {
+			console.log("[TitlePage] Theme trigger cleanup");
+			themeStore.clearTheme();
+		};
+	});
 </script>
 
 <svelte:head>
@@ -824,6 +839,10 @@
 		box-shadow: var(--shadow-lg);
 		object-fit: cover;
 	}
+
+	.game-icon.fallback-icon {
+		object-position: center;
+	}
 	@media (min-width: 768px) {
 		.game-icon,
 		.game-icon-placeholder {
@@ -1237,7 +1256,9 @@
 		overflow: hidden;
 		border: 1px solid var(--border-color);
 		aspect-ratio: 16 / 9;
+		/* Fix for Safari overflow clipping during transform */
 		-webkit-mask-image: -webkit-radial-gradient(white, black);
+		mask-image: -webkit-radial-gradient(white, black);
 		transform: translateZ(0);
 	}
 	.screenshot-button img {

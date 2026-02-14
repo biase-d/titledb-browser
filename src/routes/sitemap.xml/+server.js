@@ -1,17 +1,8 @@
-import { games } from '$lib/db/schema';
-import { desc } from 'drizzle-orm';
+import * as gameRepo from '$lib/repositories/gameRepository';
 
+/** @type {import('./$types').RequestHandler} */
 export const GET = async ({ url, locals }) => {
-    const db = locals.db;
-
-    const allGames = await db
-        .select({
-            id: games.id,
-            lastUpdated: games.lastUpdated
-        })
-        .from(games)
-        .orderBy(desc(games.lastUpdated))
-        .limit(45000);
+    const allGames = await gameRepo.getGameIdsForSitemap(locals.db);
 
     const origin = url.origin;
 

@@ -1,10 +1,10 @@
 <script>
-	import Icon from '@iconify/svelte';
-	import { slide } from 'svelte/transition';
-	import { createImageSet } from '$lib/image';
-	import { getRegionLabel } from '$lib/regions';
-	import { preferences } from '$lib/stores/preferences';
-	import { getLocalizedName } from '$lib/i18n';
+	import Icon from "@iconify/svelte";
+	import { slide } from "svelte/transition";
+	import { createImageSet } from "$lib/image";
+	import { getRegionLabel } from "$lib/regions";
+	import { preferences } from "$lib/stores/preferences";
+	import { getLocalizedName } from "$lib/i18n";
 
 	let { titleData } = $props();
 
@@ -12,32 +12,33 @@
 	let iconUrl = $derived(titleData.iconUrl);
 	let names = $derived(titleData.names || []);
 	let regions = $derived(titleData.regions || []);
-	let publisher = $derived(titleData.publisher || 'N/A');
+	let publisher = $derived(titleData.publisher || "N/A");
 	let performance = $derived(titleData.performance || {});
 
 	let docked = $derived(performance.docked || {});
 	let handheld = $derived(performance.handheld || {});
 
-	let imageSet = $derived(createImageSet(iconUrl));
+	let imageSet = $derived(createImageSet(iconUrl || titleData.bannerUrl));
 
-	let preferredRegion = $state('US');
-	preferences.subscribe(p => preferredRegion = p.region);
+	let preferredRegion = $state("US");
+	preferences.subscribe((p) => (preferredRegion = p.region));
 
 	let titleName = $derived(getLocalizedName(names, preferredRegion));
 	let regionLabel = $derived(getRegionLabel(regions));
-	let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
+	let showRegionBadge = $derived(regionLabel && regionLabel !== "Worldwide");
 
 	let performanceInfo = $derived(
 		[
 			docked.target_fps && `Docked mode runs at ${docked.target_fps} FPS`,
-			handheld.target_fps && `Handheld mode runs at ${handheld.target_fps} FPS`
+			handheld.target_fps &&
+				`Handheld mode runs at ${handheld.target_fps} FPS`,
 		]
 			.filter(Boolean)
-			.join('. ')
+			.join(". "),
 	);
 
 	let ariaLabel = $derived(
-		`View details for ${titleName} by ${publisher}.${performanceInfo ? ` ${performanceInfo}.` : ''}`
+		`View details for ${titleName} by ${publisher}.${performanceInfo ? ` ${performanceInfo}.` : ""}`,
 	);
 </script>
 
@@ -51,7 +52,8 @@
 	<div class="image-container">
 		<img
 			class="card-icon"
-			src={imageSet?.src || iconUrl}
+			class:fallback-icon={!iconUrl && titleData.bannerUrl}
+			src={imageSet?.src || iconUrl || titleData.bannerUrl}
 			srcset={imageSet?.srcset}
 			sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
 			alt={`Game icon for ${titleName}`}
@@ -59,19 +61,23 @@
 			width="200"
 			height="200"
 		/>
-		
+
 		{#if docked.target_fps || handheld.target_fps}
 			<div class="card-perf-badge" aria-hidden="true">
 				{#if docked.target_fps}
 					<span title={`Docked: ${docked.target_fps} FPS`}>
 						<Icon icon="mdi:television" />
-						{docked.target_fps === 'Unlocked' ? '60' : docked.target_fps}
+						{docked.target_fps === "Unlocked"
+							? "60"
+							: docked.target_fps}
 					</span>
 				{/if}
 				{#if handheld.target_fps}
 					<span title={`Handheld: ${handheld.target_fps} FPS`}>
 						<Icon icon="mdi:nintendo-switch" />
-						{handheld.target_fps === 'Unlocked' ? '60' : handheld.target_fps}
+						{handheld.target_fps === "Unlocked"
+							? "60"
+							: handheld.target_fps}
 					</span>
 				{/if}
 			</div>
@@ -79,12 +85,24 @@
 	</div>
 
 	<div class="card-info">
-		<p class="card-title" title={titleName} lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>{titleName}</p>
-		
+		<p
+			class="card-title"
+			title={titleName}
+			lang={preferredRegion === "JP"
+				? "ja"
+				: preferredRegion === "KR"
+					? "ko"
+					: "en"}
+		>
+			{titleName}
+		</p>
+
 		<div class="card-meta">
 			<p class="card-publisher">{publisher}</p>
 			{#if showRegionBadge}
-				<span class="region-badge" title={regionLabel}>{regionLabel}</span>
+				<span class="region-badge" title={regionLabel}
+					>{regionLabel}</span
+				>
 			{/if}
 		</div>
 	</div>
@@ -101,8 +119,11 @@
 		overflow: hidden;
 		box-shadow: var(--shadow-sm);
 		/* Hardware acceleration for the card itself */
-		transform: translateZ(0); 
-		transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+		transform: translateZ(0);
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease,
+			border-color 0.2s ease;
 		text-decoration: none;
 		color: inherit;
 		height: 100%;
@@ -129,13 +150,14 @@
 		background-color: var(--input-bg);
 		/* Fix for Safari overflow clipping during transform */
 		-webkit-mask-image: -webkit-radial-gradient(white, black);
+		mask-image: -webkit-radial-gradient(white, black);
 	}
 
 	.card-icon {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		
+
 		/* SMOOTHING FIXES */
 		transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 		will-change: transform;
@@ -144,7 +166,7 @@
 		backface-visibility: hidden;
 		-webkit-font-smoothing: subpixel-antialiased;
 	}
-	
+
 	.game-card:hover .card-icon {
 		transform: scale(1.05) translateZ(0);
 	}
@@ -166,6 +188,7 @@
 		line-height: 1.3;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 		color: var(--text-primary);
@@ -218,7 +241,7 @@
 		border-radius: 6px;
 		backdrop-filter: blur(4px);
 		border: 1px solid rgba(255, 255, 255, 0.15);
-		box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 		z-index: 2;
 	}
 

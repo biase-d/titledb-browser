@@ -4,8 +4,8 @@
  * Migrated from $lib/getStats.js
  */
 
-import { games } from '$lib/db/schema';
-import { and, count, countDistinct, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { games, performanceProfiles, graphicsSettings, youtubeLinks, gameGroups, dataRequests, favorites } from '$lib/db/schema';
+import { and, count, countDistinct, desc, eq, gte, lt, sql, sum } from 'drizzle-orm';
 
 /**
  * Get comprehensive database statistics
@@ -36,21 +36,21 @@ export async function getStats(db, searchParams) {
             '15-20GB': { min: '16106127360', max: '21474836480' },
             '>20GB': { min: '21474836480' }
         };
-        const range = sizeRanges[sizeBucket];
+        const range = (/** @type {any} */ (sizeRanges))[sizeBucket];
         if (range) {
-            if (range.min) whereConditions.push(gte(games.sizeInBytes, range.min)); // Start using camelCase column names from schema
+            if (range.min) whereConditions.push(gte(games.sizeInBytes, range.min));
             if (range.max) whereConditions.push(lt(games.sizeInBytes, range.max));
         }
     }
 
     const combinedWheres = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
-    // Use sql template for complex count queries that might be specific to Postgres
-    // but try to keep it standard SQL where possible
-    const kpisQuery = db
+    // KPI queries
+    const basicKpisQuery = db
         .select({
             total_titles: count(games.id),
-            total_publishers: countDistinct(games.publisher)
+            total_publishers: countDistinct(games.publisher),
+            total_size: sum(games.sizeInBytes)
         })
         .from(games)
         .where(combinedWheres);
@@ -76,7 +76,6 @@ export async function getStats(db, searchParams) {
         .orderBy(desc(count(games.id)))
         .limit(10);
 
-    // Note: CASE statements are widely supported
     const sizeBucketCase = sql`
         CASE
             WHEN "size_in_bytes" < 5368709120 THEN '<5GB'
@@ -104,18 +103,89 @@ export async function getStats(db, searchParams) {
             END
         `);
 
-    const [kpisResult, releasesByYear, topPublishers, sizeDistribution] = await Promise.all([
-        kpisQuery,
-        releasesByYearQuery,
-        topPublishersQuery,
-        sizeDistributionQuery
-    ]);
+    // Top Requested Games
+    const topRequestedQuery = db
+        .select({
+            gameId: dataRequests.gameId,
+            name: sql`MIN(${games.names}[1])`.as('name'),
+            count: count(dataRequests.gameId)
+        })
+        .from(dataRequests)
+        .innerJoin(games, eq(dataRequests.gameId, games.id))
+        .groupBy(dataRequests.gameId)
+        .orderBy(desc(count(dataRequests.gameId)))
+        .limit(5);
 
-    return {
-        kpis: kpisResult[0],
+    // Top Favorited Games
+    const topFavoritedQuery = db
+        .select({
+            gameId: favorites.gameId,
+            name: sql`MIN(${games.names}[1])`.as('name'),
+            count: count(favorites.gameId)
+        })
+        .from(favorites)
+        .innerJoin(games, eq(favorites.gameId, games.id))
+        .groupBy(favorites.gameId)
+        .orderBy(desc(count(favorites.gameId)))
+        .limit(5);
+
+    // Total unique contributors across all tables
+    const totalContributorsQuery = db.select({
+        count: sql`COUNT(DISTINCT contributor_name)`.as('count')
+    }).from(sql`(
+        SELECT unnest(contributor) as contributor_name FROM ${performanceProfiles}
+        UNION
+        SELECT unnest(contributor) as contributor_name FROM ${graphicsSettings}
+        UNION
+        SELECT submitted_by as contributor_name FROM ${youtubeLinks}
+    ) as subquery`).where(sql`contributor_name IS NOT NULL AND contributor_name != ''`);
+
+    const [
+        basicKpis,
         releasesByYear,
         topPublishers,
         sizeDistribution,
+        totalPerf,
+        totalGraphics,
+        totalYoutube,
+        totalGroups,
+        totalRequests,
+        totalFavorites,
+        topRequested,
+        topFavorited,
+        contributorsResult
+    ] = await Promise.all([
+        basicKpisQuery,
+        releasesByYearQuery,
+        topPublishersQuery,
+        sizeDistributionQuery,
+        db.select({ count: count() }).from(performanceProfiles).then((/** @type {any} */ r) => r[0].count),
+        db.select({ count: count() }).from(graphicsSettings).then((/** @type {any} */ r) => r[0].count),
+        db.select({ count: count() }).from(youtubeLinks).then((/** @type {any} */ r) => r[0].count),
+        db.select({ count: count() }).from(gameGroups).then((/** @type {any} */ r) => r[0].count),
+        db.select({ count: count() }).from(dataRequests).then((/** @type {any} */ r) => r[0].count),
+        db.select({ count: count() }).from(favorites).then((/** @type {any} */ r) => r[0].count),
+        topRequestedQuery,
+        topFavoritedQuery,
+        totalContributorsQuery.then((/** @type {any} */ r) => r[0])
+    ]);
+
+    return {
+        kpis: {
+            ...basicKpis[0],
+            total_performance: totalPerf,
+            total_graphics: totalGraphics,
+            total_youtube: totalYoutube,
+            total_groups: totalGroups,
+            total_requests: totalRequests,
+            total_favorites: totalFavorites,
+            total_contributors: Number(contributorsResult?.count || 0)
+        },
+        releasesByYear,
+        topPublishers,
+        sizeDistribution,
+        topRequested,
+        topFavorited,
         activeFilters: { publisher, year, sizeBucket }
     };
 }

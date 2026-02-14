@@ -1,10 +1,10 @@
 <script>
-	import Icon from '@iconify/svelte';
-	import { slide } from 'svelte/transition';
-	import { getRegionLabel } from '$lib/regions';
-	import { createImageSet } from '$lib/image';
-	import { preferences } from '$lib/stores/preferences';
-	import { getLocalizedName } from '$lib/i18n';
+	import Icon from "@iconify/svelte";
+	import { slide } from "svelte/transition";
+	import { getRegionLabel } from "$lib/regions";
+	import { createImageSet } from "$lib/image";
+	import { preferences } from "$lib/stores/preferences";
+	import { getLocalizedName } from "$lib/i18n";
 
 	let { titleData } = $props();
 
@@ -17,27 +17,27 @@
 	let docked = $derived(performance.docked || {});
 	let handheld = $derived(performance.handheld || {});
 
-	let imageSet = $derived(createImageSet(iconUrl));
-	
-	let preferredRegion = $state('US');
-	preferences.subscribe(p => preferredRegion = p.region);
-	
+	let imageSet = $derived(createImageSet(iconUrl || titleData.bannerUrl));
+
+	let preferredRegion = $state("US");
+	preferences.subscribe((p) => (preferredRegion = p.region));
+
 	let titleName = $derived(getLocalizedName(names, preferredRegion));
 
 	let regionLabel = $derived(getRegionLabel(regions));
-	let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
+	let showRegionBadge = $derived(regionLabel && regionLabel !== "Worldwide");
 
 	let performanceInfo = $derived(
 		[
 			docked.target_fps && `docked at ${docked.target_fps} FPS`,
-			handheld.target_fps && `handheld at ${handheld.target_fps} FPS`
+			handheld.target_fps && `handheld at ${handheld.target_fps} FPS`,
 		]
 			.filter(Boolean)
-			.join(', ')
+			.join(", "),
 	);
 
 	let ariaLabel = $derived(
-		`View details for ${titleName}.${performanceInfo ? ` Performance: ${performanceInfo}.` : ''}`
+		`View details for ${titleName}.${performanceInfo ? ` Performance: ${performanceInfo}.` : ""}`,
 	);
 </script>
 
@@ -49,18 +49,26 @@
 	aria-label={ariaLabel}
 >
 	<div class="icon-wrapper">
-		<img 
-			src={imageSet?.src || iconUrl} 
+		<img
+			src={imageSet?.src || iconUrl || titleData.bannerUrl}
 			srcset={imageSet?.srcset}
-			alt="" 
-			loading="lazy" 
-			width="48" 
+			alt={`Game icon for ${titleName}`}
+			class:fallback-icon={!iconUrl && titleData.bannerUrl}
+			loading="lazy"
+			width="48"
 			height="48"
 		/>
 	</div>
 
 	<div class="list-item-info">
-		<span class="title-name" lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>
+		<span
+			class="title-name"
+			lang={preferredRegion === "JP"
+				? "ja"
+				: preferredRegion === "KR"
+					? "ko"
+					: "en"}
+		>
 			{titleName}
 		</span>
 		<div class="meta-row">
@@ -77,15 +85,25 @@
 	{#if docked.target_fps || handheld.target_fps}
 		<div class="perf-tags" aria-hidden="true">
 			{#if docked.target_fps}
-				<span class="perf-tag docked" title={`Docked: ${docked.target_fps} FPS`}>
+				<span
+					class="perf-tag docked"
+					title={`Docked: ${docked.target_fps} FPS`}
+				>
 					<Icon icon="mdi:television" />
-					{docked.target_fps === 'Unlocked' ? '60' : docked.target_fps}
+					{docked.target_fps === "Unlocked"
+						? "60"
+						: docked.target_fps}
 				</span>
 			{/if}
 			{#if handheld.target_fps}
-				<span class="perf-tag handheld" title={`Handheld: ${handheld.target_fps} FPS`}>
+				<span
+					class="perf-tag handheld"
+					title={`Handheld: ${handheld.target_fps} FPS`}
+				>
 					<Icon icon="mdi:nintendo-switch" />
-					{handheld.target_fps === 'Unlocked' ? '60' : handheld.target_fps}
+					{handheld.target_fps === "Unlocked"
+						? "60"
+						: handheld.target_fps}
 				</span>
 			{/if}
 		</div>
@@ -112,7 +130,11 @@
 	.list-item:hover,
 	.list-item:focus-visible {
 		border-color: var(--primary-color);
-		background-color: color-mix(in srgb, var(--primary-color) 2%, transparent);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 2%,
+			transparent
+		);
 		transform: translateX(4px);
 	}
 
@@ -215,7 +237,7 @@
 		white-space: nowrap;
 		border: 1px solid var(--border-color);
 	}
-	
+
 	.perf-tag :global(svg) {
 		color: var(--text-secondary);
 	}

@@ -7,6 +7,8 @@
 import * as githubRepo from '$lib/repositories/githubRepository';
 import stringify from 'json-stable-stringify';
 import { merge } from 'lodash-es';
+import { getContributionStrategy } from './contributionStrategies';
+import { isFeatureEnabled } from './versionService';
 
 /**
  * Prepare a file update by merging existing remote data with new user data
@@ -88,22 +90,18 @@ export async function prepareGroupUpdate(path, submittedIds) {
 }
 
 /**
- * Submit a contribution via Pull Request
+ * Submit a contribution using the active strategy
  * @param {Object} prDetails
  * @param {string} prDetails.title
  * @param {string} prDetails.body
  * @param {Array<{path: string, content: string}>} prDetails.files
  * @param {string} username
- * @returns {Promise<{url: string, number: number}>}
+ * @param {any} dbConnection
+ * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
  */
-export async function submitContribution(prDetails, username) {
-    const branchName = `contribution/${username}-${Date.now()}`;
+export async function submitContribution(prDetails, username, dbConnection) {
+    const isBetaEnabled = isFeatureEnabled('betaFlow');
+    const strategy = getContributionStrategy(isBetaEnabled);
 
-    return await githubRepo.createPullRequest({
-        branchName,
-        commitMessage: prDetails.title,
-        prTitle: prDetails.title,
-        prBody: prDetails.body,
-        files: prDetails.files
-    });
+    return await strategy.submit(prDetails, username, dbConnection);
 }

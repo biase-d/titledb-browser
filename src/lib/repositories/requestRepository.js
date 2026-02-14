@@ -76,3 +76,11 @@ export async function removeDataRequest(db, userId, gameId) {
         ));
 }
 
+/**
+ * Get all data requests (for backup/admin purposes)
+ * @param {import('$lib/database/types').DatabaseAdapter} db
+ * @returns {Promise<Array>}
+ */
+export async function getAllDataRequests(db) {
+    return await db.select().from(dataRequests);
+}

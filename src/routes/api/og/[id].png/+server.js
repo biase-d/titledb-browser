@@ -1,7 +1,11 @@
-import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import * as gameRepo from '$lib/repositories/gameRepository';
 import { generateOgImage } from '$lib/server/og-generator';
 
+/**
+ * Format performance profile data for display
+ * @param {Object} modeData
+ * @returns {string|null}
+ */
 function formatPerf(modeData) {
     if (!modeData) return null;
 
@@ -16,6 +20,11 @@ function formatPerf(modeData) {
     return `${res} • ${fps}`;
 }
 
+/**
+ * Format graphics settings for display
+ * @param {Object} modeData
+ * @returns {string|null}
+ */
 function formatGraphics(modeData) {
     if (!modeData) return null;
 
@@ -31,24 +40,15 @@ function formatGraphics(modeData) {
     return `${res} • ${fps}`;
 }
 
+/** @type {import('./$types').RequestHandler} */
 export async function GET({ params, locals }) {
     try {
         const gameId = params.id;
-        const db = locals.db;
 
-        const game = await db.query.games.findFirst({ where: eq(games.id, gameId) });
-        if (!game) return new Response('Game not found', { status: 404 });
+        const data = await gameRepo.getGameWithPerformanceForOg(locals.db, gameId);
+        if (!data) return new Response('Game not found', { status: 404 });
 
-        const groupId = game.groupId;
-        const [perf, graphics] = await Promise.all([
-            db.query.performanceProfiles.findFirst({
-                where: eq(performanceProfiles.groupId, groupId),
-                orderBy: (profiles) => [desc(profiles.lastUpdated)]
-            }),
-            db.query.graphicsSettings.findFirst({
-                where: eq(graphicsSettings.groupId, groupId)
-            })
-        ]);
+        const { game, performance: perf, graphics } = data;
 
         let dockedText = 'No Data';
         let handheldText = 'No Data';

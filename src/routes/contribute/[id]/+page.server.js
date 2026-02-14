@@ -240,18 +240,23 @@ export const actions = {
 			const prBody = [`Contribution submitted by @${user.login} for **${gameName}**.`, '', `*   **Title ID:** \`${titleId}\``, `*   **Group ID:** \`${newGroupId}\``, '', '### Summary of Changes', ...changeSummary.map(c => `*   ${c}`)].join('\n');
 			const commitMessage = [`feat(${newGroupId}): Update data for ${gameName}`, '', ...[...allContributors].map(c => `Co-authored-by: ${c} <${c}@users.noreply.github.com>`)].join('\n');
 
-			const prUrl = await GitHubService.createPullRequest({
-				branchName,
+			const prDetails = {
+				title: prTitle,
+				body: prBody,
+				files: filesToCommit,
+				groupId: newGroupId,
 				commitMessage,
-				prTitle,
-				prBody,
-				files: filesToCommit
-			});
+				rawPerformance: performanceData,
+				rawGraphics: graphicsData ? { settings: graphicsData, contributor: [user.login] } : null,
+				rawYoutube: youtubeLinks
+			};
 
-			if (prUrl) {
-				return { success: true, prUrl };
+			const result = await submitContribution(prDetails, user.login, locals.db);
+
+			if (result.success) {
+				return { success: true, prUrl: result.url };
 			}
-			return fail(500, { error: 'An unexpected error occurred.' });
+			return fail(500, { error: result.error || 'An unexpected error occurred.' });
 
 		} catch (err) {
 			if (err instanceof GitConflictError) {

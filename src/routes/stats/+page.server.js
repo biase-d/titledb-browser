@@ -1,6 +1,6 @@
-import { getStats } from '$lib/getStats.js'
+import { getStats } from '$lib/repositories/statsRepository';
 
-export const load = async ({ url }) => {
-  const stats = await getStats(url.searchParams)
-  return { stats }
-}
+export const load = async ({ url, locals }) => {
+  const stats = await getStats(locals.db, url.searchParams);
+  return { stats };
+};
