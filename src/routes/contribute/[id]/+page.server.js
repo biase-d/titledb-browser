@@ -1,6 +1,6 @@
 import { getGameDetails } from '$lib/games/getGameDetails';
 import { GitHubService, GitConflictError } from '$lib/services/GitHubService';
-import { prepareFileUpdate, prepareGroupUpdate } from '$lib/services/ContributionService';
+import { prepareFileUpdate, prepareGroupUpdate, submitContribution } from '$lib/services/ContributionService';
 import { error, redirect, fail } from '@sveltejs/kit';
 import stringify from 'json-stable-stringify';
 import { pruneEmptyValues, generateChangeSummary, isProfileEmpty } from '$lib/utils.js';
@@ -104,6 +104,7 @@ export const actions = {
 			const oldGroupId = currentGroupId || titleId.substring(0, 13) + '000';
 			const isGroupMove = newGroupId !== oldGroupId;
 
+			/** @type {Array<{path: string, content: string|null, sha: string|null}>} */
 			const filesToCommit = [];
 			const allContributors = new Set([user.login]);
 
@@ -148,7 +149,7 @@ export const actions = {
 					}
 				} else if (!submittedProfilesMap.has(key)) {
 					const filePath = `profiles/${newGroupId}/${fileName}`;
-					const shaToUse = shas.performance?.[key];
+					const shaToUse = shas.performance?.[key] ?? null;
 					filesToCommit.push({ path: filePath, content: null, sha: shaToUse });
 				}
 			}
@@ -170,9 +171,9 @@ export const actions = {
 					let finalSha = update.sha;
 					if (!isGroupMove && shas.graphics) finalSha = shas.graphics;
 
-					filesToCommit.push({ path: newPath, content: update.content, sha: finalSha });
+					filesToCommit.push({ path: newPath, content: update.content, sha: finalSha ?? null });
 				} else if (!isGroupMove) {
-					filesToCommit.push({ path: newPath, content: null, sha: shas.graphics });
+					filesToCommit.push({ path: newPath, content: null, sha: shas.graphics ?? null });
 				}
 			}
 
@@ -200,9 +201,9 @@ export const actions = {
 						if (contributor) allContributors.add(contributor);
 						return { url: link.url, notes: link.notes, submittedBy: contributor };
 					});
-					filesToCommit.push({ path: newPath, content: stringify(youtubeFileContent, { space: 2 }), sha: shaToUse });
+					filesToCommit.push({ path: newPath, content: stringify(youtubeFileContent, { space: 2 }), sha: shaToUse ?? null });
 				} else if (!isGroupMove) {
-					filesToCommit.push({ path: newPath, content: null, sha: shaToUse });
+					filesToCommit.push({ path: newPath, content: null, sha: shaToUse ?? null });
 				}
 			}
 

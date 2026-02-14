@@ -94,10 +94,10 @@ export async function prepareGroupUpdate(path, submittedIds) {
  * @param {Object} prDetails
  * @param {string} prDetails.title
  * @param {string} prDetails.body
- * @param {Array<{path: string, content: string}>} prDetails.files
+ * @param {Array<{path: string, content: string|null, encoding?: string}>} prDetails.files - Files to create/update
  * @param {string} username
  * @param {any} dbConnection
- * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
+ * @returns {Promise<{url: string, number: number}|null>}
  */
 export async function submitContribution(prDetails, username, dbConnection) {
     const isBetaEnabled = isFeatureEnabled('betaFlow');

@@ -31,7 +31,7 @@ export async function getRemoteSha(path) {
  * @param {string} params.commitMessage - Commit message
  * @param {string} params.prTitle - PR title
  * @param {string} params.prBody - PR body
- * @param {Array<{path: string, content: string, encoding?: string}>} params.files - Files to create/update
+ * @param {Array<{path: string, content: string|null}>} params.files - Files to create/update
  * @returns {Promise<{url: string, number: number}>}
  */
 export async function createPullRequest(params) {
