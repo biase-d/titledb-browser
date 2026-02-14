@@ -3,6 +3,8 @@
     import Icon from "@iconify/svelte";
     import { preferences, COUNTRY_GROUPS } from "$lib/stores/preferences";
     import { getFlagIcon } from "$lib/flags";
+    import { uiStore } from "$lib/stores/ui.svelte";
+    import { tick } from "svelte";
 
     let { show = $bindable() } = $props();
 
@@ -20,6 +22,21 @@
             show = false;
         }, 300);
     }
+
+    $effect(() => {
+        if (show && uiStore.settingsSection) {
+            tick().then(() => {
+                const element = document.getElementById(
+                    uiStore.settingsSection || "",
+                );
+                if (element) {
+                    element.scrollIntoView({ behavior: "smooth" });
+                    // Clear after scroll so it doesn't trigger again unless requested
+                    uiStore.settingsSection = undefined;
+                }
+            });
+        }
+    });
 </script>
 
 {#if show}
@@ -41,7 +58,7 @@
             </div>
 
             <div class="modal-body">
-                <section>
+                <section id="region">
                     <div class="section-title-row">
                         <Icon icon="mdi:earth" class="section-icon" />
                         <h3>Preferred Country</h3>
@@ -174,7 +191,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 100;
+        z-index: 2000;
     }
 
     .modal-content {

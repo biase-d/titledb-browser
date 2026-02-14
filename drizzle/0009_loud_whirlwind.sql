@@ -1,0 +1,2 @@
+ALTER TABLE "user_preferences" ADD COLUMN "featured_game_id" text;--> statement-breakpoint
+ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_featured_game_id_games_id_fk" FOREIGN KEY ("featured_game_id") REFERENCES "public"."games"("id") ON DELETE set null ON UPDATE no action;

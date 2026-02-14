@@ -26,11 +26,13 @@ export async function getUserPreferences(db, userId) {
  * @param {Object} data
  * @param {boolean} [data.hasOnboarded]
  * @param {string} [data.preferredRegion]
+ * @param {string} [data.featuredGameId]
  * @returns {Promise<Object>}
  */
 export async function upsertUserPreferences(db, userId, data) {
     if (!userId) throw new Error('UserId is required');
 
+    /** @type {any} */
     const values = {
         userId,
         lastUpdated: new Date()
@@ -38,6 +40,7 @@ export async function upsertUserPreferences(db, userId, data) {
 
     if (data.hasOnboarded !== undefined) values.hasOnboarded = data.hasOnboarded;
     if (data.preferredRegion !== undefined) values.preferredRegion = data.preferredRegion;
+    if (data.featuredGameId !== undefined) values.featuredGameId = data.featuredGameId;
 
     const result = await db.insert(userPreferences)
         .values(values)

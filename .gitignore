@@ -19,6 +19,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+ecosystem.config.cjs
 !.env.test
 
 # Vite
@@ -31,3 +32,6 @@ todo.txt
 debug-*
 audit-*
 *.bak
+
+# Deployment
+ecosystem.config.cjs

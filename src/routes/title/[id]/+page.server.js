@@ -1,6 +1,7 @@
-import { error } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import * as gameService from '$lib/services/gameService';
 import { Game } from '$lib/models/Game.js';
+import * as prefRepo from '$lib/repositories/preferencesRepository';
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent, url, cookies, locals }) => {
@@ -31,4 +32,19 @@ export const load = async ({ params, parent, url, cookies, locals }) => {
 			origin: url.origin,
 		}
 	};
+};
+
+/** @type {import('./$types').Actions} */
+export const actions = {
+	setFeatured: async ({ locals, params }) => {
+		// @ts-ignore
+		const username = session?.user?.login;
+		const gameId = params.id;
+
+		if (!username) return fail(401);
+
+		await prefRepo.upsertUserPreferences(locals.db, username, { featuredGameId: gameId });
+
+		return { success: true };
+	}
 };

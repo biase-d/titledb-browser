@@ -64,6 +64,13 @@
       "when": 1771064473024,
       "tag": "0008_supreme_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771096812013,
+      "tag": "0009_loud_whirlwind",
+      "breakpoints": true
     }
   ]
 }

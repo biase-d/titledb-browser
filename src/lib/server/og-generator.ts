@@ -9,16 +9,16 @@ async function fetchBuffer(url: string, timeout = 5000) {
         console.log(`[OG] Fetching font: ${url}`);
         const res = await fetch(url, { signal: controller.signal });
         clearTimeout(id);
-        
+
         if (!res.ok) {
             console.warn(`[OG] Failed to fetch font: ${url} (${res.status})`);
             return null;
         }
         return await res.arrayBuffer();
-    } catch (e) { 
+    } catch (e) {
         clearTimeout(id);
         console.error(`[OG] Fetch error for ${url}:`, e);
-        return null; 
+        return null;
     }
 }
 
@@ -28,7 +28,7 @@ async function fetchDynamicFont(family: string, text: string) {
         const cssReq = await fetch(API, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36' }
         });
-        
+
         if (cssReq.ok) {
             const css = await cssReq.text();
             const resource = css.match(/src:\s*url\((['"]?)(.*?)\1\)/);
@@ -126,7 +126,7 @@ export async function generateOgImage(data: OgData): Promise<Response> {
             </div>
             <div style="display: flex; justify-content: flex-end; margin-top: 30px; opacity: 0.6;">
                 <div style="display: flex; font-size: 24px; color: white; font-family: 'Inter'; font-weight: 600;">
-                    switch-performance.com
+                    switchperformance.biasedproject.com
                 </div>
             </div>
         </div>
@@ -136,7 +136,7 @@ export async function generateOgImage(data: OgData): Promise<Response> {
     const element = toVdom(htmlString);
 
     console.log("[OG] Generating ImageResponse...");
-    
+
     return new ImageResponse(element, {
         width: 1200,
         height: 630,

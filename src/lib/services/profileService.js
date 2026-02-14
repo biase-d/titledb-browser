@@ -4,6 +4,7 @@
  */
 
 import * as gameRepo from '$lib/repositories/gameRepository';
+import * as prefRepo from '$lib/repositories/preferencesRepository';
 
 const BADGES = [
     { threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
@@ -19,24 +20,63 @@ const BADGES = [
 ].sort((a, b) => b.threshold - a.threshold);
 
 /**
+ * @typedef {Object} UserContributionResult
+ * @property {Array<any>} contributions
+ * @property {number} totalContributions
+ * @property {string|null} currentTierName
+ * @property {any|null} featuredGame
+ * @property {{currentPage: number, totalPages: number, totalItems: number}|null} pagination
+ */
+
+/**
  * Get user contributions with badge calculation
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @param {string} username
  * @param {number} page
- * @returns {Promise<Object>}
+ * @returns {Promise<UserContributionResult>}
  */
 export async function getUserContributions(db, username, page) {
     const PAGE_SIZE = 24;
 
-    const data = await gameRepo.getUserContributionStats(db, username);
+    /** @type {[any, any]} */
+    const [data, preferences] = await Promise.all([
+        gameRepo.getUserContributionStats(db, username),
+        prefRepo.getUserPreferences(db, username)
+    ]);
 
-    const totalContributions = data.perfContribs.length + data.graphicsContribs.length + data.videoContribs.length;
+    // Fetch featured game info if set
+    let featuredGame = null;
+    if (preferences?.featuredGameId) {
+        featuredGame = await gameRepo.findGameById(db, preferences.featuredGameId);
+    }
+
+    // Normalize PR identifiers to avoid double counting, with fallback for missing info
+    /** @param {any} p @param {string} type @param {number|string} id */
+    const getPrId = (p, type, id) => {
+        if (p.prNumber) return `pr-${p.prNumber}`;
+        const url = p.sourcePrUrl?.toLowerCase();
+        if (url) {
+            const match = url.match(/\/pull\/(\d+)/);
+            if (match) return `pr-${match[1]}`;
+            return url;
+        }
+        // Fallback: If no PR metadata is found, treat each DB entry as a unique legacy contribution
+        return `legacy-${type}-${id}`;
+    };
+
+    const uniquePrs = new Set([
+        ...data.perfContribs.map((/** @type {any} */ p, /** @type {number} */ i) => getPrId(p, 'perf', p.id || i)),
+        ...data.graphicsContribs.map((/** @type {any} */ g, /** @type {number} */ i) => getPrId(g, 'graph', g.groupId || i)),
+        ...data.videoContribs.map((/** @type {any} */ v, /** @type {number} */ i) => getPrId(v, 'vid', v.id || i))
+    ].filter(Boolean));
+
+    const totalContributions = uniquePrs.size;
     const currentTier = BADGES.find(badge => totalContributions >= badge.threshold) || null;
 
     const allGroupIds = [...new Set([
-        ...data.perfContribs.map(p => p.groupId),
-        ...data.graphicsContribs.map(g => g.groupId),
-        ...data.videoContribs.map(v => v.groupId)
+        ...data.perfContribs.map((/** @type {any} */ p) => p.groupId),
+        ...data.graphicsContribs.map((/** @type {any} */ g) => g.groupId),
+        ...data.videoContribs.map((/** @type {any} */ v) => v.groupId)
     ])];
 
     if (allGroupIds.length === 0) {
@@ -44,6 +84,7 @@ export async function getUserContributions(db, username, page) {
             contributions: [],
             totalContributions: 0,
             currentTierName: null,
+            featuredGame: null,
             pagination: null
         };
     }
@@ -58,6 +99,7 @@ export async function getUserContributions(db, username, page) {
             contributions: [],
             totalContributions,
             currentTierName: currentTier?.name || null,
+            featuredGame,
             pagination: { currentPage: page, totalPages, totalItems }
         };
     }
@@ -98,6 +140,7 @@ export async function getUserContributions(db, username, page) {
         contributions: Array.from(contributionsByGroup.values()),
         totalContributions,
         currentTierName: currentTier?.name || null,
+        featuredGame,
         pagination: {
             currentPage: page,
             totalPages,

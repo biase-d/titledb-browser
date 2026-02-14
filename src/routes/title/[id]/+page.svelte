@@ -342,6 +342,21 @@
 						</div>
 					</div>
 					<div class="header-actions">
+						{#if session?.user}
+							<form method="POST" action="?/setFeatured">
+								<button
+									class="action-button featured-btn"
+									type="submit"
+									title="Set as Profile Backdrop"
+								>
+									<Icon
+										icon="mdi:image-marker-outline"
+										width="24"
+										height="24"
+									/>
+								</button>
+							</form>
+						{/if}
 						<button
 							class="favorite-button"
 							onclick={() => favorites.toggle(id)}
@@ -924,24 +939,35 @@
 	.header-actions {
 		grid-area: actions;
 		display: flex;
-		justify-self: end;
+		gap: 0.75rem;
+		align-items: center;
 	}
 
-	.favorite-button {
+	.favorite-button,
+	.action-button {
 		background: rgba(255, 255, 255, 0.1);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		color: white;
-		border-radius: 50%;
 		width: 44px;
 		height: 44px;
+		border-radius: 12px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		transition: all 0.2s ease;
+		backdrop-filter: blur(8px);
+		transition: all 0.2s;
 	}
-	.favorite-button:hover {
+
+	.favorite-button:hover,
+	.action-button:hover {
 		background: rgba(255, 255, 255, 0.2);
+		transform: translateY(-2px);
+	}
+
+	.featured-btn:hover {
+		color: var(--primary-color);
+		border-color: var(--primary-color);
 	}
 
 	.main-layout {

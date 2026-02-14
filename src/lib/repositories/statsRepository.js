@@ -55,13 +55,21 @@ export async function getStats(db, searchParams) {
         .from(games)
         .where(combinedWheres);
 
+    const yearExpr = sql`CAST(FLOOR("release_date" / 10000) AS INTEGER)`;
     const releasesByYearQuery = db
         .select({
-            year: sql`CAST(FLOOR("release_date" / 10000) AS INTEGER)`.as('year'),
+            year: yearExpr.as('year'),
             count: count(games.id)
         })
         .from(games)
-        .where(and(sql`"release_date" IS NOT NULL`, combinedWheres))
+        .where(
+            and(
+                sql`"release_date" IS NOT NULL`,
+                combinedWheres,
+                gte(yearExpr, 1990),
+                lt(yearExpr, 2027)
+            )
+        )
         .groupBy(sql`year`)
         .orderBy(sql`year`);
 

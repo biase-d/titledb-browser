@@ -23,7 +23,10 @@ export const COUNTRY_GROUPS = [
             { id: 'KR', label: 'Korea' },
             { id: 'HK', label: 'Hong Kong' },
             { id: 'TW', label: 'Taiwan' },
-            { id: 'CN', label: 'China' }
+            { id: 'CN', label: 'China' },
+            { id: 'SG', label: 'Singapore' },
+            { id: 'MY', label: 'Malaysia' },
+            { id: 'TH', label: 'Thailand' }
         ]
     },
     {
