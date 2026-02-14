@@ -46,6 +46,9 @@
 			? getLocalizedName(featuredGame.names, preferredRegion)
 			: "",
 	);
+	let featuredPerformance = $derived(
+		featuredGame?.performance || { docked: {}, handheld: {} },
+	);
 
 	function startCarousel() {
 		if (!browser) return;
@@ -210,6 +213,20 @@
 
 <svelte:head>
 	<title>Switch Performance</title>
+	{#if featuredGame && !search && !hasActiveFilters}
+		{@html `<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "VideoGame",
+			"name": "${featuredName}",
+			"gamePlatform": "Nintendo Switch",
+			"image": "${featuredGame.bannerUrl || featuredGame.iconUrl}",
+			"url": "${page.url.origin}/title/${featuredGame.id}",
+			"applicationCategory": "Game",
+			"operatingSystem": "Nintendo Switch OS"
+		}
+		<\/script>`}
+	{/if}
 </svelte:head>
 
 <main class="main-content">
@@ -252,6 +269,57 @@
 						</div>
 
 						<h1>{featuredName}</h1>
+
+						{#if featuredPerformance.docked?.target_fps || featuredPerformance.handheld?.target_fps}
+							<div class="hero-performance">
+								{#if featuredPerformance.docked?.target_fps}
+									<span
+										class="perf-badge"
+										title="Docked: {featuredPerformance
+											.docked.target_fps} FPS"
+									>
+										<Icon
+											icon="mdi:television"
+											width="16"
+										/>
+										{featuredPerformance.docked
+											.target_fps === "Unlocked"
+											? "60"
+											: featuredPerformance.docked
+													.target_fps} FPS
+									</span>
+								{/if}
+								{#if featuredPerformance.handheld?.target_fps}
+									<span
+										class="perf-badge"
+										title="Handheld: {featuredPerformance
+											.handheld.target_fps} FPS"
+									>
+										<Icon
+											icon="mdi:nintendo-switch"
+											width="16"
+										/>
+										{featuredPerformance.handheld
+											.target_fps === "Unlocked"
+											? "60"
+											: featuredPerformance.handheld
+													.target_fps} FPS
+									</span>
+								{/if}
+								{#if featuredPerformance.docked?.resolution_type || featuredPerformance.handheld?.resolution_type}
+									<span class="perf-badge res-badge">
+										<Icon
+											icon="mdi:monitor-screenshot"
+											width="16"
+										/>
+										{featuredPerformance.docked
+											?.resolution_type ||
+											featuredPerformance.handheld
+												?.resolution_type}
+									</span>
+								{/if}
+							</div>
+						{/if}
 
 						<a href="/title/{featuredGame.id}" class="hero-cta">
 							View Details <Icon icon="mdi:arrow-right" />
@@ -451,12 +519,28 @@
 	.hero-overlay {
 		position: absolute;
 		inset: 0;
-		background: linear-gradient(
-			to top,
-			rgba(0, 0, 0, 0.95) 0%,
-			rgba(0, 0, 0, 0.6) 60%,
-			rgba(0, 0, 0, 0.3) 100%
-		);
+	}
+
+	@media (prefers-color-scheme: dark) {
+		.hero-overlay {
+			background: linear-gradient(
+				to top,
+				rgba(0, 0, 0, 0.95) 0%,
+				rgba(0, 0, 0, 0.6) 60%,
+				rgba(0, 0, 0, 0.3) 100%
+			);
+		}
+	}
+
+	@media (prefers-color-scheme: light) {
+		.hero-overlay {
+			background: linear-gradient(
+				to top,
+				rgba(255, 255, 255, 0.95) 0%,
+				rgba(255, 255, 255, 0.7) 60%,
+				rgba(255, 255, 255, 0.4) 100%
+			);
+		}
 	}
 
 	.hero-content {
@@ -498,7 +582,8 @@
 		font-weight: 800;
 		margin: 0;
 		line-height: 1.2;
-		text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+		color: var(--text-primary);
+		text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -517,8 +602,8 @@
 		align-items: center;
 		align-self: flex-start;
 		gap: 0.5rem;
-		background-color: white;
-		color: black;
+		background-color: var(--primary-color);
+		color: var(--primary-action-text);
 		padding: 10px 20px;
 		border-radius: 99px;
 		font-weight: 700;
@@ -527,11 +612,42 @@
 		transition:
 			transform 0.2s,
 			box-shadow 0.2s;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 	}
 
 	.hero-cta:hover {
 		transform: translateY(-2px);
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	}
+
+	.hero-performance {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.perf-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 6px 12px;
+		background: color-mix(
+			in srgb,
+			var(--primary-color, rgba(0, 0, 0, 0.6)) 70%,
+			black
+		);
+		color: white;
+		border-radius: 8px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+	}
+
+	.perf-badge :global(svg) {
+		opacity: 0.9;
 	}
 
 	/* --- Carousel Controls --- */

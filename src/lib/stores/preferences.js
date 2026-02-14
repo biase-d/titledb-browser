@@ -68,9 +68,14 @@ function createPreferencesStore() {
         ? (localStorage.getItem('adaptive_theme') !== 'false')
         : true;
 
+    const initialBetaFlow = browser
+        ? (localStorage.getItem('beta_flow') === 'true')
+        : false;
+
     const { subscribe, set, update } = writable({
         region: initialRegion,
-        adaptiveTheme: initialAdaptiveTheme
+        adaptiveTheme: initialAdaptiveTheme,
+        betaFlow: initialBetaFlow
     });
 
     return {
@@ -103,6 +108,21 @@ function createPreferencesStore() {
                 document.cookie = `adaptive_theme=${enabled}; path=/; max-age=31536000; SameSite=Lax`;
                 return newState;
             });
+        },
+        /**
+         * Toggles the beta contribution flow preference
+         * @param {boolean} enabled
+         */
+        setBetaFlow: (enabled) => {
+            if (!browser) return;
+
+            update(state => {
+                const newState = { ...state, betaFlow: enabled };
+                localStorage.setItem('beta_flow', enabled.toString());
+                document.cookie = `beta_flow=${enabled}; path=/; max-age=31536000; SameSite=Lax`;
+                return newState;
+            });
+            invalidateAll();
         }
     };
 }

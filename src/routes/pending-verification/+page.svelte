@@ -3,6 +3,7 @@
     let { data } = $props();
     const { groups } = data;
 
+    /** @param {any} date */
     function formatDate(date) {
         if (!date) return "Unknown date";
         return new Intl.DateTimeFormat("en-US", {
@@ -57,7 +58,12 @@
                                 />
                                 <div class="game-text">
                                     <h2 class="game-name">
-                                        {group.game.names.en}
+                                        <a
+                                            href={`/title/${group.game.id}`}
+                                            class="title-link"
+                                        >
+                                            {group.game.name}
+                                        </a>
                                     </h2>
                                     <p class="group-id">{group.groupId}</p>
                                 </div>
@@ -77,7 +83,7 @@
                                 >{formatDate(group.submittedAt)}</span
                             >
                             <a
-                                href={`https://github.com/biase-d/titledb-data/pull/${group.prNumber}`}
+                                href={`https://github.com/biase-d/nx-performance/pull/${group.prNumber}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="pr-link github-glow"
@@ -94,32 +100,56 @@
                     </div>
 
                     <div class="card-body">
-                        <h3 class="section-label">Contribution Details</h3>
-                        <div class="pills-row">
-                            {#if group.contributions.performance.length > 0}
-                                <div class="type-pill perf">
-                                    <Icon icon="mdi:speedometer" />
-                                    <span
-                                        >{group.contributions.performance
-                                            .length} Performance Profiles</span
-                                    >
-                                </div>
-                            {/if}
+                        <div class="card-sections">
+                            <div class="details-section">
+                                <h3 class="section-label">
+                                    Contribution Details
+                                </h3>
+                                <div class="pills-row">
+                                    {#if group.contributions.performance.length > 0}
+                                        <div class="type-pill perf">
+                                            <Icon icon="mdi:speedometer" />
+                                            <span
+                                                >{group.contributions
+                                                    .performance.length} Performance
+                                                Profiles</span
+                                            >
+                                        </div>
+                                    {/if}
 
-                            {#if group.contributions.graphics.length > 0}
-                                <div class="type-pill graphics">
-                                    <Icon icon="mdi:tune" />
-                                    <span>Graphics Settings</span>
-                                </div>
-                            {/if}
+                                    {#if group.contributions.graphics.length > 0}
+                                        <div class="type-pill graphics">
+                                            <Icon icon="mdi:tune" />
+                                            <span>Graphics Settings</span>
+                                        </div>
+                                    {/if}
 
-                            {#if group.contributions.youtube.length > 0}
-                                <div class="type-pill video">
-                                    <Icon icon="mdi:youtube" />
-                                    <span
-                                        >{group.contributions.youtube.length} Gameplay
-                                        Videos</span
-                                    >
+                                    {#if group.contributions.youtube.length > 0}
+                                        <div class="type-pill video">
+                                            <Icon icon="mdi:youtube" />
+                                            <span
+                                                >{group.contributions.youtube
+                                                    .length} Gameplay Videos</span
+                                            >
+                                        </div>
+                                    {/if}
+                                </div>
+                            </div>
+
+                            {#if group.contributors && group.contributors.length > 0}
+                                <div class="contributors-section">
+                                    <h3 class="section-label">Contributors</h3>
+                                    <div class="contributor-list">
+                                        {#each group.contributors as contributor}
+                                            <span class="contributor-badge">
+                                                <Icon
+                                                    icon="mdi:account-outline"
+                                                    width="14"
+                                                />
+                                                {contributor}
+                                            </span>
+                                        {/each}
+                                    </div>
                                 </div>
                             {/if}
                         </div>
@@ -308,8 +338,57 @@
         opacity: 0.5;
     }
 
+    .title-link {
+        color: inherit;
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+
+    .title-link:hover {
+        color: var(--primary-color, #eab308);
+        text-underline-offset: 4px;
+        text-decoration: underline;
+    }
+
     .card-body {
         padding: 1.5rem;
+    }
+
+    .card-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .contributors-section {
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+        padding-top: 1.5rem;
+    }
+
+    .contributor-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .contributor-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.3rem 0.75rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #d1d5db;
+        transition: all 0.2s ease;
+    }
+
+    .contributor-badge:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: white;
     }
 
     .section-label {

@@ -72,11 +72,27 @@ export async function extractTheme(imageUrl) {
                 g = Math.floor(g / count);
                 b = Math.floor(b / count);
 
-                const theme = {
-                    primary: `rgb(${r}, ${g}, ${b})`,
-                    accent: `rgba(${r}, ${g}, ${b}, 0.15)`,
-                    overlay: `rgba(${Math.floor(r * 0.1)}, ${Math.floor(g * 0.1)}, ${Math.floor(b * 0.1)}, 0.7)`
-                };
+                const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+                let primary = `rgb(${r}, ${g}, ${b})`;
+                let accent = `rgba(${r}, ${g}, ${b}, 0.15)`;
+                let overlay = `rgba(${Math.floor(r * 0.1)}, ${Math.floor(g * 0.1)}, ${Math.floor(b * 0.1)}, 0.7)`;
+
+                if (!isDarkMode) {
+                    // In light mode, we might need to darken the color to ensure it's readable as an accent/primary
+                    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                    if (brightness > 160) {
+                        const factor = 0.6;
+                        r = Math.floor(r * factor);
+                        g = Math.floor(g * factor);
+                        b = Math.floor(b * factor);
+                        primary = `rgb(${r}, ${g}, ${b})`;
+                    }
+                    accent = `rgba(${r}, ${g}, ${b}, 0.12)`;
+                    overlay = `rgba(255, 255, 255, 0.85)`; // Light mode uses light overlay
+                }
+
+                const theme = { primary, accent, overlay };
 
                 console.log('[ThemeEngine] Extracted theme:', theme);
                 resolve(theme);

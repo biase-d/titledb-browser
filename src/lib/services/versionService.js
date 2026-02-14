@@ -11,12 +11,12 @@ import { version } from '$app/environment';
  */
 export function getVersionInfo() {
     return {
-        version: version || '0.1.0', // Fallback if not injected
+        version: version || '3.0.0', // Fallback if not injected
         features: {
             newContributionFlow: true,
             gamification: false, // Planned feature
             cloudStorage: true,
-            betaFlow: false // New multi-stage flow
+            betaFlow: false // New multi-stage flow (User-controlled via Settings)
         },
         announcements: [
             {

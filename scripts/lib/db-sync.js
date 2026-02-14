@@ -28,7 +28,7 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
 
   // Sync the performance, graphics, video, and group data from nx-performance
   const affectedGroupIds = new Set();
-  const groupLatestUpdate = new Map(); 
+  const groupLatestUpdate = new Map();
 
   for (const [type, config] of Object.entries(DATA_SOURCES)) {
     const filesToProcess = discoveredFiles[type] || [];
@@ -58,14 +58,14 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
  */
 async function syncDataRequests(db, REPOS) {
   const requestsPath = path.join(REPOS.nx_performance.path, 'meta', 'requests.json');
-  
+
   try {
     const fileContent = await fs.readFile(requestsPath, 'utf-8');
     const requests = JSON.parse(fileContent);
 
     if (Array.isArray(requests) && requests.length > 0) {
       console.log(`Restoring ${requests.length} data requests (votes)...`);
-      
+
       await db.insert(dataRequests)
         .values(requests)
         .onConflictDoNothing();
@@ -89,7 +89,7 @@ async function syncDataType(context) {
   const dataDir = path.join(REPOS.nx_performance.path, config.path);
   const dbRecords = type === 'groups' ? [] : await db.select().from(config.table);
   const localFileKeys = new Set();
-  const recordsToUpsert = []; 
+  const recordsToUpsert = [];
 
   const dbRecordsMap = new Map(dbRecords.map(r => [config.getKeyFromRecord(r), r]));
 
@@ -100,7 +100,7 @@ async function syncDataType(context) {
     try {
       const lastUpdated = (type === 'performance' ? dateMap.performance?.[fileKey] : dateMap[type]?.[groupId]) || new Date();
       const dbRecord = dbRecordsMap.get(fileKey);
-      
+
       const dbTimestamp = dbRecord?.lastUpdated || dbRecord?.submittedAt;
       const hasChanged = type === 'groups' || !dbRecord || (dbTimestamp && Math.floor(lastUpdated.getTime() / 1000) > Math.floor(dbTimestamp.getTime() / 1000));
 
@@ -120,7 +120,7 @@ async function syncDataType(context) {
             groupLatestUpdate.set(groupId, lastUpdated);
           }
         }
-      } else if (type !== 'groups') { 
+      } else if (type !== 'groups') {
         const existingDate = groupLatestUpdate.get(groupId);
         if (!existingDate || lastUpdated > existingDate) {
           groupLatestUpdate.set(groupId, lastUpdated);
@@ -199,7 +199,7 @@ async function syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata)
   const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid');
   const titledbRepoPath = REPOS.titledb_filtered.path;
   const git = simpleGit();
-  
+
   const currentTitledbHash = (await git.cwd(titledbRepoPath).log(['-n', '1', '--pretty=format:%H'])).latest.hash;
   metadata.titledbFilteredHash = currentTitledbHash;
 
@@ -210,8 +210,8 @@ async function syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata)
     try {
       details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'));
     } catch (e) { /* ignore */ }
-    
-    const groupId = getBaseId(id); 
+
+    const groupId = getBaseId(id);
     const regions = regionsList[id] || [];
 
     gamesToUpsert.push({
@@ -232,12 +232,12 @@ async function syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata)
         set: {
           names: sql`excluded.names`,
           regions: sql`excluded.regions`,
-          publisher: sql`excluded.publisher`,
-          release_date: sql`excluded.release_date`,
-          size_in_bytes: sql`excluded.size_in_bytes`,
-          icon_url: sql`excluded.icon_url`,
-          banner_url: sql`excluded.banner_url`,
-          screenshots: sql`excluded.screenshots`,
+          publisher: sql`COALESCE(excluded.publisher, games.publisher)`,
+          release_date: sql`COALESCE(excluded.release_date, games.release_date)`,
+          size_in_bytes: sql`COALESCE(excluded.size_in_bytes, games.size_in_bytes)`,
+          icon_url: sql`COALESCE(excluded.icon_url, games.icon_url)`,
+          banner_url: sql`COALESCE(excluded.banner_url, games.banner_url)`,
+          screenshots: sql`COALESCE(excluded.screenshots, games.screenshots)`,
           group_id: sql`excluded.group_id`,
         }
       });

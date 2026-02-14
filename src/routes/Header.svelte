@@ -80,7 +80,7 @@
 		<!-- Left: Logo -->
 		<div class="header-left">
 			<a href="/" class="logo" onclick={closeMenu}>
-				<span class="logo-text">TitleDB</span>
+				<span class="logo-text">Switch Performance</span>
 			</a>
 		</div>
 
@@ -295,10 +295,14 @@
 		top: 0;
 		z-index: 50;
 		width: 100%;
-		background-color: rgba(18, 18, 18, 0.8);
+		background-color: color-mix(
+			in srgb,
+			var(--surface-color) 80%,
+			transparent
+		);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+		border-bottom: 1px solid var(--border-color);
 	}
 
 	.header-inner {
@@ -335,8 +339,12 @@
 		font-size: 1.25rem;
 		font-weight: 900;
 		letter-spacing: -0.02em;
-		color: white;
-		background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+		color: var(--text-primary);
+		background: linear-gradient(
+			135deg,
+			var(--text-primary) 0%,
+			var(--text-secondary) 100%
+		);
 		background-clip: text;
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
@@ -364,9 +372,9 @@
 		height: 42px;
 		padding: 0 40px;
 		border-radius: 12px;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		background: rgba(255, 255, 255, 0.03);
-		color: white;
+		border: 1px solid var(--border-color);
+		background: var(--input-bg);
+		color: var(--text-primary);
 		font-size: 0.9rem;
 		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 	}
@@ -383,7 +391,8 @@
 		top: 50%;
 		transform: translateY(-50%);
 		display: flex;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--text-secondary);
+		opacity: 0.6;
 	}
 
 	.icon-wrapper.left {
@@ -402,10 +411,10 @@
 		top: calc(100% + 8px);
 		left: 0;
 		right: 0;
-		background: #1c1c1c;
-		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: var(--surface-color);
+		border: 1px solid var(--border-color);
 		border-radius: 16px;
-		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+		box-shadow: var(--shadow-lg);
 		overflow: hidden;
 		z-index: 100;
 	}
@@ -413,7 +422,7 @@
 	.dropdown-status {
 		padding: 1.5rem;
 		text-align: center;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--text-secondary);
 		font-size: 0.85rem;
 	}
 
@@ -423,12 +432,12 @@
 		justify-content: space-between;
 		padding: 0.85rem 1.25rem;
 		text-decoration: none;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+		border-bottom: 1px solid var(--border-color);
 		transition: background 0.2s;
 	}
 
 	.dropdown-item:hover {
-		background: rgba(255, 255, 255, 0.03);
+		background: var(--input-bg);
 	}
 
 	.item-info {
@@ -437,23 +446,24 @@
 		gap: 2px;
 	}
 	.item-name {
-		color: white;
+		color: var(--text-primary);
 		font-weight: 600;
 		font-size: 0.9rem;
 	}
 	.item-id {
-		color: rgba(255, 255, 255, 0.3);
+		color: var(--text-secondary);
 		font-size: 0.7rem;
 		font-family: monospace;
 	}
 	.item-arrow {
-		color: rgba(255, 255, 255, 0.2);
+		color: var(--text-secondary);
+		opacity: 0.3;
 	}
 
 	.view-all-btn {
 		width: 100%;
 		padding: 0.85rem;
-		background: rgba(255, 255, 255, 0.02);
+		background: var(--input-bg);
 		border: none;
 		color: var(--primary-color);
 		font-weight: 700;
@@ -480,7 +490,7 @@
 		gap: 0.5rem;
 		padding: 0.5rem 0.85rem;
 		border-radius: 10px;
-		color: rgba(255, 255, 255, 0.6);
+		color: var(--text-secondary);
 		text-decoration: none;
 		font-size: 0.85rem;
 		font-weight: 600;
@@ -488,8 +498,8 @@
 	}
 
 	.quick-link:hover {
-		color: white;
-		background: rgba(255, 255, 255, 0.05);
+		color: var(--text-primary);
+		background: var(--input-bg);
 	}
 
 	.quick-link.active {
@@ -503,10 +513,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: var(--input-bg);
+		border: 1px solid var(--border-color);
 		border-radius: 12px;
-		color: white;
+		color: var(--text-primary);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
@@ -530,12 +540,12 @@
 		width: 100%;
 		max-width: 340px;
 		height: 100%;
-		background: #121212;
-		border-left: 1px solid rgba(255, 255, 255, 0.05);
+		background: var(--surface-color);
+		border-left: 1px solid var(--border-color);
 		display: flex;
 		flex-direction: column;
 		padding: 1.5rem;
-		box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+		box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
 	}
 
 	.drawer-header {
@@ -550,7 +560,7 @@
 	.drawer-title {
 		font-size: 1.1rem;
 		font-weight: 800;
-		color: white;
+		color: var(--text-primary);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
@@ -558,7 +568,7 @@
 	.close-drawer {
 		background: none;
 		border: none;
-		color: rgba(255, 255, 255, 0.4);
+		color: var(--text-secondary);
 		cursor: pointer;
 		padding: 4px;
 	}
@@ -576,7 +586,7 @@
 		gap: 1rem;
 		padding: 0.9rem 1.25rem;
 		border-radius: 12px;
-		color: rgba(255, 255, 255, 0.7);
+		color: var(--text-secondary);
 		text-decoration: none;
 		font-weight: 600;
 		font-size: 1rem;
@@ -590,8 +600,8 @@
 
 	.drawer-links a:hover,
 	.drawer-btn:hover {
-		background: rgba(255, 255, 255, 0.04);
-		color: white;
+		background: var(--input-bg);
+		color: var(--text-primary);
 	}
 
 	.drawer-links :global(svg) {

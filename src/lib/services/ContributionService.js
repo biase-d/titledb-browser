@@ -27,16 +27,18 @@ export async function prepareFileUpdate(path, newData, username, isDeepMerge = f
     const contributors = new Set();
 
     // Preserve existing contributors
-    if (remoteContent && remoteContent.contributor) {
-        const existing = Array.isArray(remoteContent.contributor)
-            ? remoteContent.contributor
-            : [remoteContent.contributor];
+    const remoteData = /** @type {any} */ (remoteContent);
+    if (remoteData && remoteData.contributor) {
+        const existing = Array.isArray(remoteData.contributor)
+            ? remoteData.contributor
+            : [remoteData.contributor];
         existing.forEach(c => contributors.add(c));
     }
 
+    const nextData = /** @type {any} */ (newData);
     // Add new contributors from request
-    if (newData.contributor) {
-        const clientContribs = Array.isArray(newData.contributor) ? newData.contributor : [newData.contributor];
+    if (nextData.contributor) {
+        const clientContribs = Array.isArray(nextData.contributor) ? nextData.contributor : [nextData.contributor];
         clientContribs.forEach(c => contributors.add(c));
     }
 
@@ -58,8 +60,8 @@ export async function prepareFileUpdate(path, newData, username, isDeepMerge = f
     }
 
     // Preserve lastUpdated if not provided in new data
-    if (remoteContent && remoteContent.lastUpdated && !finalContent.lastUpdated) {
-        finalContent.lastUpdated = remoteContent.lastUpdated;
+    if (remoteData && remoteData.lastUpdated && !finalContent.lastUpdated) {
+        finalContent.lastUpdated = remoteData.lastUpdated;
     }
 
     // Set updated contributors list
@@ -78,10 +80,12 @@ export async function prepareFileUpdate(path, newData, username, isDeepMerge = f
  * @returns {Promise<{content: string, sha: string|null}>}
  */
 export async function prepareGroupUpdate(path, submittedIds) {
-    const remoteIds = await githubRepo.getRemoteJson(path) || [];
+    const remoteIds = Array.isArray(await githubRepo.getRemoteJson(path))
+        ? await githubRepo.getRemoteJson(path)
+        : [];
     const sha = await githubRepo.getRemoteSha(path);
 
-    const mergedIds = Array.from(new Set([...remoteIds, ...submittedIds])).sort();
+    const mergedIds = Array.from(new Set([...(Array.isArray(remoteIds) ? remoteIds : []), ...submittedIds])).sort();
 
     return {
         content: stringify(mergedIds, { space: 2 }),
@@ -97,10 +101,10 @@ export async function prepareGroupUpdate(path, submittedIds) {
  * @param {Array<{path: string, content: string|null, encoding?: string}>} prDetails.files - Files to create/update
  * @param {string} username
  * @param {any} dbConnection
+ * @param {boolean} [isBetaEnabled=false]
  * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
  */
-export async function submitContribution(prDetails, username, dbConnection) {
-    const isBetaEnabled = isFeatureEnabled('betaFlow');
+export async function submitContribution(prDetails, username, dbConnection, isBetaEnabled = false) {
     const strategy = getContributionStrategy(isBetaEnabled);
 
     return await strategy.submit(prDetails, username, dbConnection);

@@ -187,8 +187,6 @@ export async function searchGames(db, searchParams) {
     }
 
     const results = await finalQuery.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE);
-
-    // Map results (no fallback to graphics settings as requested)
     const mappedResults = results.map(r => {
         let finalPerformance = r.performance;
 
@@ -695,5 +693,18 @@ export async function approveContribution(db, prNumber) {
         db.update(performanceProfiles).set({ status: 'approved' }).where(eq(performanceProfiles.prNumber, prNumber)),
         db.update(graphicsSettings).set({ status: 'approved' }).where(eq(graphicsSettings.prNumber, prNumber)),
         db.update(youtubeLinks).set({ status: 'approved' }).where(eq(youtubeLinks.prNumber, prNumber))
+    ]);
+}
+/**
+ * Reject a pending contribution
+ * @param {import('$lib/database/types').DatabaseAdapter} db
+ * @param {number} prNumber
+ * @returns {Promise<void>}
+ */
+export async function rejectContribution(db, prNumber) {
+    await Promise.all([
+        db.update(performanceProfiles).set({ status: 'rejected' }).where(eq(performanceProfiles.prNumber, prNumber)),
+        db.update(graphicsSettings).set({ status: 'rejected' }).where(eq(graphicsSettings.prNumber, prNumber)),
+        db.update(youtubeLinks).set({ status: 'rejected' }).where(eq(youtubeLinks.prNumber, prNumber))
     ]);
 }

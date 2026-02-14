@@ -10,6 +10,21 @@ class ThemeStore {
      */
     backgroundImage = $state(null);
     isActive = $state(false);
+    /** @type {string | null} */
+    lastColorSource = null;
+    /** @type {string | null} */
+    lastBackgroundUrl = null;
+
+    constructor() {
+        if (typeof window !== 'undefined') {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (this.isActive && this.lastColorSource) {
+                    console.log('[ThemeStore] System theme changed, refreshing theme');
+                    this.setTheme(this.lastColorSource, this.lastBackgroundUrl);
+                }
+            });
+        }
+    }
 
     /**
      * @param {string | null} colorSource
@@ -17,6 +32,9 @@ class ThemeStore {
      */
     async setTheme(colorSource, backgroundUrl) {
         console.log('[ThemeStore] Setting theme for:', colorSource);
+        this.lastColorSource = colorSource;
+        this.lastBackgroundUrl = backgroundUrl || null;
+
         if (!colorSource) {
             this.clearTheme();
             return;
@@ -38,6 +56,8 @@ class ThemeStore {
         this.colors = null;
         this.backgroundImage = null;
         this.isActive = false;
+        this.lastColorSource = null;
+        this.lastBackgroundUrl = null;
     }
 }
 

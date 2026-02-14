@@ -1,4 +1,5 @@
 import * as gameRepo from '$lib/repositories/gameRepository';
+import { Game } from '$lib/models/Game';
 
 /**
  * @type {import('./$types').PageServerLoad}
@@ -14,7 +15,8 @@ export async function load({ locals }) {
         ...pendingData.youtube.map((/** @type {any} */ y) => y.groupId)
     ]);
 
-    const games = await gameRepo.getGamesForGroups(locals.db, Array.from(groupIds));
+    const rawGames = await gameRepo.getGamesForGroups(locals.db, Array.from(groupIds));
+    const games = rawGames.map(g => new Game({ game: g }));
 
     // Group everything by prNumber
     const prGroups = new Map();
@@ -27,10 +29,25 @@ export async function load({ locals }) {
                 groupId: item.groupId,
                 game: games.find(g => g.groupId === item.groupId),
                 contributions: { performance: [], graphics: [], youtube: [] },
+                contributors: new Set(),
                 submittedAt: item.lastUpdated || item.createdAt // Fallback
             });
         }
-        prGroups.get(item.prNumber).contributions[type].push(item);
+
+        const group = prGroups.get(item.prNumber);
+        group.contributions[type].push(item);
+
+        // Add contributors
+        if (item.contributor) {
+            if (Array.isArray(item.contributor)) {
+                item.contributor.forEach(c => group.contributors.add(c));
+            } else {
+                group.contributors.add(item.contributor);
+            }
+        }
+        if (item.submittedBy) {
+            group.contributors.add(item.submittedBy);
+        }
     };
 
     pendingData.performance.forEach((/** @type {any} */ p) => addToGroup(p, 'performance'));
@@ -38,6 +55,11 @@ export async function load({ locals }) {
     pendingData.youtube.forEach((/** @type {any} */ y) => addToGroup(y, 'youtube'));
 
     return {
-        groups: Array.from(prGroups.values()).sort((a, b) => b.prNumber - a.prNumber)
+        groups: Array.from(prGroups.values())
+            .map(group => ({
+                ...group,
+                contributors: Array.from(group.contributors).sort()
+            }))
+            .sort((a, b) => b.prNumber - a.prNumber)
     };
 }

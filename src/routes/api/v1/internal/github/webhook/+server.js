@@ -36,12 +36,18 @@ export async function POST({ request, locals }) {
 
     const payload = JSON.parse(body);
 
-    if (payload.action === 'closed' && payload.pull_request?.merged) {
+    if (payload.action === 'closed') {
         const prNumber = payload.pull_request.number;
+        const isMerged = !!payload.pull_request.merged;
 
         try {
-            await gameRepo.approveContribution(locals.db, prNumber);
-            return json({ success: true, message: `Contribution PR #${prNumber} approved and live.` });
+            if (isMerged) {
+                await gameRepo.approveContribution(locals.db, prNumber);
+                return json({ success: true, message: `Contribution PR #${prNumber} approved and live.` });
+            } else {
+                await gameRepo.rejectContribution(locals.db, prNumber);
+                return json({ success: true, message: `Contribution PR #${prNumber} rejected and cleaned up.` });
+            }
         } catch (err) {
             console.error('Webhook error:', err);
             return json({ error: 'Failed to update database' }, { status: 500 });

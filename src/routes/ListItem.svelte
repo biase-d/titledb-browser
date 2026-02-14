@@ -127,13 +127,18 @@
 			transform 0.2s ease;
 	}
 
+	.list-item:hover .title-name,
+	.list-item:focus-visible .title-name {
+		color: var(--primary-color);
+	}
+
 	.list-item:hover,
 	.list-item:focus-visible {
 		border-color: var(--primary-color);
 		background-color: color-mix(
 			in srgb,
-			var(--primary-color) 2%,
-			transparent
+			var(--primary-color) 4%,
+			var(--surface-color)
 		);
 		transform: translateX(4px);
 	}
@@ -150,6 +155,7 @@
 		object-fit: cover;
 		background-color: var(--input-bg);
 		display: block;
+		border: 1px solid var(--border-color);
 	}
 
 	.list-item-info {
@@ -169,6 +175,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		line-height: 1.2;
+		transition: color 0.2s ease;
 	}
 
 	.meta-row {
@@ -193,16 +200,30 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.02em;
-		color: var(--text-secondary);
-		background-color: var(--input-bg);
+		color: color-mix(
+			in srgb,
+			var(--primary-color, var(--text-secondary)) 80%,
+			black
+		);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color, transparent) 8%,
+			var(--input-bg)
+		);
 		padding: 2px 6px;
 		border-radius: 4px;
-		border: 1px solid var(--border-color);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--primary-color, transparent) 20%,
+				var(--border-color)
+			);
 		max-width: 140px;
 	}
 
 	.region-badge :global(svg) {
 		flex-shrink: 0;
+		color: var(--primary-color, var(--text-secondary));
 	}
 
 	.badge-text {
@@ -236,9 +257,28 @@
 		border-radius: var(--radius-md);
 		white-space: nowrap;
 		border: 1px solid var(--border-color);
+		transition: all 0.2s ease;
+	}
+
+	.list-item:hover .perf-tag {
+		border-color: color-mix(
+			in srgb,
+			var(--primary-color) 30%,
+			var(--border-color)
+		);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 5%,
+			var(--input-bg)
+		);
 	}
 
 	.perf-tag :global(svg) {
 		color: var(--text-secondary);
+		transition: color 0.2s ease;
+	}
+
+	.list-item:hover .perf-tag :global(svg) {
+		color: var(--primary-color);
 	}
 </style>

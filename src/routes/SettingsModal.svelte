@@ -122,6 +122,41 @@
                         </label>
                     </div>
                 </section>
+
+                <div class="drawer-divider"></div>
+
+                <section>
+                    <div class="section-title-row">
+                        <Icon icon="mdi:flask-outline" class="section-icon" />
+                        <h3>Beta Features</h3>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label"
+                                >Beta Contribution Flow</span
+                            >
+                            <span class="setting-desc"
+                                >Enable the new multi-stage database + GitHub
+                                contribution system</span
+                            >
+                        </div>
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                checked={$preferences.betaFlow}
+                                onchange={(e) => {
+                                    const target =
+                                        /** @type {HTMLInputElement} */ (
+                                            e.target
+                                        );
+                                    preferences.setBetaFlow(target.checked);
+                                }}
+                            />
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </section>
             </div>
         </div>
     </div>

@@ -1,5 +1,6 @@
 <script>
     import "../app.css";
+    import { page } from "$app/stores";
     import Header from "./Header.svelte";
     import Footer from "./Footer.svelte";
     import OnboardingModal from "./OnboardingModal.svelte";
@@ -69,7 +70,9 @@
         {@render children?.()}
     </main>
 
-    <Footer />
+    {#if !$page.url.pathname.startsWith("/contribute/")}
+        <Footer />
+    {/if}
 </div>
 
 <OnboardingModal />

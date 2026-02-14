@@ -139,6 +139,36 @@
 		hasGraphicsData(game?.graphics?.settings),
 	);
 
+	/**
+	 * Check if a performance profile has actual performance data (FPS, resolution)
+	 * not just graphics settings
+	 * @param {Object} profile
+	 * @returns {boolean}
+	 */
+	function hasActualPerformanceData(profile) {
+		if (!profile) return false;
+
+		const { docked, handheld } = profile;
+
+		// Check if either mode has FPS data
+		if (docked?.target_fps || handheld?.target_fps) {
+			return true;
+		}
+
+		// Check if either mode has resolution data
+		if (docked?.resolution_type || handheld?.resolution_type) {
+			return true;
+		}
+
+		return false;
+	}
+
+	let gameHasPerformanceData = $derived(
+		performance?.profiles
+			? hasActualPerformanceData(performance.profiles)
+			: false,
+	);
+
 	let allContributors = $derived(game.allContributors);
 
 	let isSingleContributor = $derived(allContributors.length === 1);
@@ -303,7 +333,7 @@
 							{#if game.regions && game.regions.length > 0}
 								<RegionPopover regions={game.regions} />
 							{/if}
-							{#if performance?.profiles}
+							{#if gameHasPerformanceData}
 								<PlayabilityBadge
 									profile={performance.profiles}
 									large={true}
