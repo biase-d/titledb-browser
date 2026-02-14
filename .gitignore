@@ -19,6 +19,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+ecosystem.config.cjs
 !.env.test
 
 # Vite
