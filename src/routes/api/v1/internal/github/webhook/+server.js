@@ -10,16 +10,32 @@ import * as gameRepo from '$lib/repositories/gameRepository';
  */
 
 export async function POST({ request, locals }) {
-    // 1. Basic security check
-    // In a prod environment, we would use GitHub signature verification
-    const apiKey = request.headers.get('x-github-token');
-    if (!apiKey || apiKey !== env.INTERNAL_WEBHOOK_SECRET) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
+    const signature = request.headers.get('x-hub-signature-256');
+    if (!signature) {
+        return json({ error: 'Missing signature' }, { status: 401 });
     }
 
-    const payload = await request.json();
+    const body = await request.text();
+    const hmac = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(env.INTERNAL_WEBHOOK_SECRET),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signatureBuffer = new TextEncoder().encode(body);
+    const signedBuffer = await crypto.subtle.sign('HMAC', hmac, signatureBuffer);
+    const signedHex = Array.from(new Uint8Array(signedBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 
-    // We only care about merged PRs
+    const expectedSignature = `sha256=${signedHex}`;
+    if (signature !== expectedSignature) {
+        return json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    const payload = JSON.parse(body);
+
     if (payload.action === 'closed' && payload.pull_request?.merged) {
         const prNumber = payload.pull_request.number;
 
