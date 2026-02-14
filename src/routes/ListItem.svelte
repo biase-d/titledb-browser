@@ -1,10 +1,10 @@
 <script>
-	import Icon from '@iconify/svelte';
-	import { slide } from 'svelte/transition';
-	import { getRegionLabel } from '$lib/regions';
-	import { createImageSet } from '$lib/image';
-	import { preferences } from '$lib/stores/preferences';
-	import { getLocalizedName } from '$lib/i18n';
+	import Icon from "@iconify/svelte";
+	import { slide } from "svelte/transition";
+	import { getRegionLabel } from "$lib/regions";
+	import { createImageSet } from "$lib/image";
+	import { preferences } from "$lib/stores/preferences";
+	import { getLocalizedName } from "$lib/i18n";
 
 	let { titleData } = $props();
 
@@ -17,27 +17,27 @@
 	let docked = $derived(performance.docked || {});
 	let handheld = $derived(performance.handheld || {});
 
-	let imageSet = $derived(createImageSet(iconUrl));
-	
-	let preferredRegion = $state('US');
-	preferences.subscribe(p => preferredRegion = p.region);
-	
+	let imageSet = $derived(createImageSet(iconUrl || titleData.bannerUrl));
+
+	let preferredRegion = $state("US");
+	preferences.subscribe((p) => (preferredRegion = p.region));
+
 	let titleName = $derived(getLocalizedName(names, preferredRegion));
 
 	let regionLabel = $derived(getRegionLabel(regions));
-	let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide');
+	let showRegionBadge = $derived(regionLabel && regionLabel !== "Worldwide");
 
 	let performanceInfo = $derived(
 		[
 			docked.target_fps && `docked at ${docked.target_fps} FPS`,
-			handheld.target_fps && `handheld at ${handheld.target_fps} FPS`
+			handheld.target_fps && `handheld at ${handheld.target_fps} FPS`,
 		]
 			.filter(Boolean)
-			.join(', ')
+			.join(", "),
 	);
 
 	let ariaLabel = $derived(
-		`View details for ${titleName}.${performanceInfo ? ` Performance: ${performanceInfo}.` : ''}`
+		`View details for ${titleName}.${performanceInfo ? ` Performance: ${performanceInfo}.` : ""}`,
 	);
 </script>
 
@@ -49,18 +49,26 @@
 	aria-label={ariaLabel}
 >
 	<div class="icon-wrapper">
-		<img 
-			src={imageSet?.src || iconUrl} 
+		<img
+			src={imageSet?.src || iconUrl || titleData.bannerUrl}
 			srcset={imageSet?.srcset}
-			alt="" 
-			loading="lazy" 
-			width="48" 
+			alt={`Game icon for ${titleName}`}
+			class:fallback-icon={!iconUrl && titleData.bannerUrl}
+			loading="lazy"
+			width="48"
 			height="48"
 		/>
 	</div>
 
 	<div class="list-item-info">
-		<span class="title-name" lang={preferredRegion === 'JP' ? 'ja' : preferredRegion === 'KR' ? 'ko' : 'en'}>
+		<span
+			class="title-name"
+			lang={preferredRegion === "JP"
+				? "ja"
+				: preferredRegion === "KR"
+					? "ko"
+					: "en"}
+		>
 			{titleName}
 		</span>
 		<div class="meta-row">
@@ -77,15 +85,25 @@
 	{#if docked.target_fps || handheld.target_fps}
 		<div class="perf-tags" aria-hidden="true">
 			{#if docked.target_fps}
-				<span class="perf-tag docked" title={`Docked: ${docked.target_fps} FPS`}>
+				<span
+					class="perf-tag docked"
+					title={`Docked: ${docked.target_fps} FPS`}
+				>
 					<Icon icon="mdi:television" />
-					{docked.target_fps === 'Unlocked' ? '60' : docked.target_fps}
+					{docked.target_fps === "Unlocked"
+						? "60"
+						: docked.target_fps}
 				</span>
 			{/if}
 			{#if handheld.target_fps}
-				<span class="perf-tag handheld" title={`Handheld: ${handheld.target_fps} FPS`}>
+				<span
+					class="perf-tag handheld"
+					title={`Handheld: ${handheld.target_fps} FPS`}
+				>
 					<Icon icon="mdi:nintendo-switch" />
-					{handheld.target_fps === 'Unlocked' ? '60' : handheld.target_fps}
+					{handheld.target_fps === "Unlocked"
+						? "60"
+						: handheld.target_fps}
 				</span>
 			{/if}
 		</div>
@@ -109,10 +127,19 @@
 			transform 0.2s ease;
 	}
 
+	.list-item:hover .title-name,
+	.list-item:focus-visible .title-name {
+		color: var(--primary-color);
+	}
+
 	.list-item:hover,
 	.list-item:focus-visible {
 		border-color: var(--primary-color);
-		background-color: color-mix(in srgb, var(--primary-color) 2%, transparent);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 4%,
+			var(--surface-color)
+		);
 		transform: translateX(4px);
 	}
 
@@ -128,6 +155,7 @@
 		object-fit: cover;
 		background-color: var(--input-bg);
 		display: block;
+		border: 1px solid var(--border-color);
 	}
 
 	.list-item-info {
@@ -147,6 +175,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		line-height: 1.2;
+		transition: color 0.2s ease;
 	}
 
 	.meta-row {
@@ -171,16 +200,30 @@
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.02em;
-		color: var(--text-secondary);
-		background-color: var(--input-bg);
+		color: color-mix(
+			in srgb,
+			var(--primary-color, var(--text-secondary)) 80%,
+			black
+		);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color, transparent) 8%,
+			var(--input-bg)
+		);
 		padding: 2px 6px;
 		border-radius: 4px;
-		border: 1px solid var(--border-color);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--primary-color, transparent) 20%,
+				var(--border-color)
+			);
 		max-width: 140px;
 	}
 
 	.region-badge :global(svg) {
 		flex-shrink: 0;
+		color: var(--primary-color, var(--text-secondary));
 	}
 
 	.badge-text {
@@ -214,9 +257,28 @@
 		border-radius: var(--radius-md);
 		white-space: nowrap;
 		border: 1px solid var(--border-color);
+		transition: all 0.2s ease;
 	}
-	
+
+	.list-item:hover .perf-tag {
+		border-color: color-mix(
+			in srgb,
+			var(--primary-color) 30%,
+			var(--border-color)
+		);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 5%,
+			var(--input-bg)
+		);
+	}
+
 	.perf-tag :global(svg) {
 		color: var(--text-secondary);
+		transition: color 0.2s ease;
+	}
+
+	.list-item:hover .perf-tag :global(svg) {
+		color: var(--primary-color);
 	}
 </style>

@@ -3,11 +3,13 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			db: import('drizzle-orm/neon-http').NeonHttpDatabase<typeof import('$lib/db/schema') > | import('drizzle-orm/postgres-js').PostgresJsDatabase<typeof import('$lib/db/schema') >;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
 	}
 }
 
-export {};
+export { };

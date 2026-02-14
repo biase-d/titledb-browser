@@ -60,12 +60,22 @@ export const COUNTRY_GROUPS = [
 ];
 
 function createPreferencesStore() {
-    const initialRegion = browser 
-        ? (localStorage.getItem('preferred_region') || 'US') 
+    const initialRegion = browser
+        ? (localStorage.getItem('preferred_region') || 'US')
         : 'US';
 
+    const initialAdaptiveTheme = browser
+        ? (localStorage.getItem('adaptive_theme') !== 'false')
+        : true;
+
+    const initialBetaFlow = browser
+        ? (localStorage.getItem('beta_flow') === 'true')
+        : false;
+
     const { subscribe, set, update } = writable({
-        region: initialRegion
+        region: initialRegion,
+        adaptiveTheme: initialAdaptiveTheme,
+        betaFlow: initialBetaFlow
     });
 
     return {
@@ -81,6 +91,35 @@ function createPreferencesStore() {
                 const newState = { ...state, region: regionCode };
                 localStorage.setItem('preferred_region', regionCode);
                 document.cookie = `preferred_region=${regionCode}; path=/; max-age=31536000; SameSite=Lax`;
+                return newState;
+            });
+            invalidateAll();
+        },
+        /**
+         * Toggles the adaptive theme preference
+         * @param {boolean} enabled
+         */
+        setAdaptiveTheme: (enabled) => {
+            if (!browser) return;
+
+            update(state => {
+                const newState = { ...state, adaptiveTheme: enabled };
+                localStorage.setItem('adaptive_theme', enabled.toString());
+                document.cookie = `adaptive_theme=${enabled}; path=/; max-age=31536000; SameSite=Lax`;
+                return newState;
+            });
+        },
+        /**
+         * Toggles the beta contribution flow preference
+         * @param {boolean} enabled
+         */
+        setBetaFlow: (enabled) => {
+            if (!browser) return;
+
+            update(state => {
+                const newState = { ...state, betaFlow: enabled };
+                localStorage.setItem('beta_flow', enabled.toString());
+                document.cookie = `beta_flow=${enabled}; path=/; max-age=31536000; SameSite=Lax`;
                 return newState;
             });
             invalidateAll();

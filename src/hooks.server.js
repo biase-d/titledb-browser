@@ -2,6 +2,13 @@ import { SvelteKitAuth } from "@auth/sveltekit"
 import GitHub from "@auth/sveltekit/providers/github"
 import { GITHUB_ID, GITHUB_SECRET } from "$env/static/private"
 import { sequence } from "@sveltejs/kit/hooks";
+import { db } from "$lib/db";
+
+/** @type {import('@sveltejs/kit').Handle} */
+const dbHandler = async ({ event, resolve }) => {
+  event.locals.db = db;
+  return resolve(event);
+};
 
 /** @type {import('@sveltejs/kit').Handle} */
 const authHandler = SvelteKitAuth({
@@ -37,4 +44,4 @@ const authHandler = SvelteKitAuth({
   },
 }).handle;
 
-export const handle = sequence(authHandler);
+export const handle = sequence(dbHandler, authHandler);

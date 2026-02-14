@@ -1,20 +1,12 @@
-import { db } from '$lib/db';
-import { games } from '$lib/db/schema';
-import { desc } from 'drizzle-orm';
+import * as gameRepo from '$lib/repositories/gameRepository';
 
-export const GET = async ({ url }) => {
-	const allGames = await db
-		.select({
-			id: games.id,
-			lastUpdated: games.lastUpdated
-		})
-		.from(games)
-		.orderBy(desc(games.lastUpdated))
-        .limit(45000);
+/** @type {import('./$types').RequestHandler} */
+export const GET = async ({ url, locals }) => {
+    const allGames = await gameRepo.getGameIdsForSitemap(locals.db);
 
-	const origin = url.origin;
+    const origin = url.origin;
 
-	const xml = `<?xml version="1.0" encoding="UTF-8" ?>
+    const xml = `<?xml version="1.0" encoding="UTF-8" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>${origin}/</loc>
@@ -32,25 +24,25 @@ export const GET = async ({ url }) => {
         <changefreq>weekly</changefreq>
     </url>
     ${allGames
-		.map((game) => {
-			const lastMod = game.lastUpdated 
-                ? new Date(game.lastUpdated).toISOString() 
-                : new Date().toISOString();
-			return `<url>
+            .map((game) => {
+                const lastMod = game.lastUpdated
+                    ? new Date(game.lastUpdated).toISOString()
+                    : new Date().toISOString();
+                return `<url>
         <loc>${origin}/title/${game.id}</loc>
         <lastmod>${lastMod}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>`;
-		})
-		.join('')}
+            })
+            .join('')}
 </urlset>`;
 
-	return new Response(xml.trim(), {
-		headers: {
-			'Content-Type': 'application/xml',
-			'Cache-Control': 'max-age=3600',
+    return new Response(xml.trim(), {
+        headers: {
+            'Content-Type': 'application/xml',
+            'Cache-Control': 'max-age=3600',
             'X-Robots-Tag': 'noindex'
-		}
-	});
+        }
+    });
 };

@@ -2,6 +2,7 @@ import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqu
 
 export const resolutionTypeEnum = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed']);
 export const fpsBehaviorEnum = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unstable', 'Very Unstable']);
+export const contributionStatusEnum = pgEnum('contribution_status', ['pending', 'approved', 'rejected']);
 
 export const gameGroups = pgTable('game_groups', {
 	id: text('id').primaryKey(),
@@ -31,6 +32,8 @@ export const performanceProfiles = pgTable('performance_profiles', {
 	profiles: jsonb('profiles').notNull(),
 	contributor: text('contributor').array(),
 	sourcePrUrl: text('source_pr_url'),
+	status: contributionStatusEnum('status').notNull().default('approved'),
+	prNumber: integer('pr_number'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 }, (table) => {
 	return {
@@ -42,6 +45,8 @@ export const graphicsSettings = pgTable('graphics_settings', {
 	groupId: text('group_id').primaryKey().references(() => gameGroups.id),
 	settings: jsonb('settings').notNull(),
 	contributor: text('contributor').array(),
+	status: contributionStatusEnum('status').notNull().default('approved'),
+	prNumber: integer('pr_number'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 });
 
@@ -51,6 +56,8 @@ export const youtubeLinks = pgTable('youtube_links', {
 	url: text('url').notNull(),
 	notes: text('notes'),
 	submittedBy: text('submitted_by'),
+	status: contributionStatusEnum('status').notNull().default('approved'),
+	prNumber: integer('pr_number'),
 	submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow()
 });
 
@@ -62,4 +69,21 @@ export const dataRequests = pgTable('data_requests', {
 	return {
 		pk: primaryKey({ columns: [table.gameId, table.userId] })
 	};
+});
+
+export const favorites = pgTable('favorites', {
+	userId: text('user_id').notNull(),
+	gameId: text('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+}, (table) => {
+	return {
+		pk: primaryKey({ columns: [table.userId, table.gameId] })
+	};
+});
+
+export const userPreferences = pgTable('user_preferences', {
+	userId: text('user_id').primaryKey(),
+	hasOnboarded: integer('has_onboarded').default(0),
+	preferredRegion: text('preferred_region'),
+	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 });

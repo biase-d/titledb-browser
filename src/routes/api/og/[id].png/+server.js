@@ -1,11 +1,14 @@
-import { db } from '$lib/db';
-import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import * as gameRepo from '$lib/repositories/gameRepository';
 import { generateOgImage } from '$lib/server/og-generator';
 
+/**
+ * Format performance profile data for display
+ * @param {Object} modeData
+ * @returns {string|null}
+ */
 function formatPerf(modeData) {
     if (!modeData) return null;
-    
+
     if (!modeData.resolution_type && !modeData.target_fps && !modeData.fps_behavior) return null;
 
     let res = 'Unknown';
@@ -13,10 +16,15 @@ function formatPerf(modeData) {
     else if (modeData.resolution_type === 'Dynamic') res = 'Dynamic';
     else if (modeData.resolution_type === 'Multiple Fixed') res = 'Multiple';
 
-	const fps = modeData.target_fps ? `${modeData.target_fps} FPS` : (modeData.fps_behavior || 'Unknown');
-	return `${res} • ${fps}`;
+    const fps = modeData.target_fps ? `${modeData.target_fps} FPS` : (modeData.fps_behavior || 'Unknown');
+    return `${res} • ${fps}`;
 }
 
+/**
+ * Format graphics settings for display
+ * @param {Object} modeData
+ * @returns {string|null}
+ */
 function formatGraphics(modeData) {
     if (!modeData) return null;
 
@@ -24,31 +32,23 @@ function formatGraphics(modeData) {
 
     let res = modeData.resolution?.resolutionType || 'Unknown';
     if (res === 'Fixed' && modeData.resolution?.fixedResolution) res = modeData.resolution.fixedResolution;
-    
+
     let fps = 'Unknown';
     if (modeData.framerate?.targetFps) fps = `${modeData.framerate.targetFps} FPS`;
     else if (modeData.framerate?.lockType) fps = modeData.framerate.lockType;
 
-	return `${res} • ${fps}`;
+    return `${res} • ${fps}`;
 }
 
-export async function GET({ params }) {
+/** @type {import('./$types').RequestHandler} */
+export async function GET({ params, locals }) {
     try {
         const gameId = params.id;
-        
-        const game = await db.query.games.findFirst({ where: eq(games.id, gameId) });
-        if (!game) return new Response('Game not found', { status: 404 });
-        
-        const groupId = game.groupId;
-        const [perf, graphics] = await Promise.all([
-            db.query.performanceProfiles.findFirst({
-                where: eq(performanceProfiles.groupId, groupId),
-                orderBy: (profiles) => [desc(profiles.lastUpdated)]
-            }),
-            db.query.graphicsSettings.findFirst({
-                where: eq(graphicsSettings.groupId, groupId)
-            })
-        ]);
+
+        const data = await gameRepo.getGameWithPerformanceForOg(locals.db, gameId);
+        if (!data) return new Response('Game not found', { status: 404 });
+
+        const { game, performance: perf, graphics } = data;
 
         let dockedText = 'No Data';
         let handheldText = 'No Data';

@@ -78,8 +78,8 @@ export class GitHubService {
 	 * @param {string} params.commitMessage
 	 * @param {string} params.prTitle
 	 * @param {string} params.prBody
-	 * @param {Array<{path: string, content: string|null, sha?: string}>} params.files
-	 * @returns {Promise<string|null>} The PR URL
+	 * @param {Array<{path: string, content: string|null, encoding?: string}>} params.files - Files to create/update
+	 * @returns {Promise<{url: string, number: number}|null>}
 	 */
 	static async createPullRequest({ branchName, commitMessage, prTitle, prBody, files }) {
 		try {
@@ -112,7 +112,7 @@ export class GitHubService {
 						owner: REPO_OWNER,
 						repo: REPO_NAME,
 						content: file.content,
-						encoding: 'utf-8'
+						encoding: file.encoding || 'utf-8' // Use provided encoding or default to utf-8
 					});
 
 					return {
@@ -156,12 +156,16 @@ export class GitHubService {
 				draft: true
 			});
 
-			return pullRequest.html_url;
+			return {
+				url: pullRequest.html_url,
+				number: pullRequest.number
+			};
 
 		} catch (error) {
+			const err = error instanceof Error ? error : new Error(String(error));
 			if (error.status === 409 || error.status === 422) {
 				console.warn(`[GitHubService] Git conflict (${error.status}) for branch ${branchName}.`);
-				
+
 				try {
 					await octokit.git.deleteRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${branchName}` });
 				} catch (e) { /* ignore cleanup error */ }
@@ -169,12 +173,13 @@ export class GitHubService {
 				throw new GitConflictError('The contribution data has changed since you loaded the page. Please refresh and try again.');
 			}
 
-			console.error('[GitHubService] Unexpected error:', error.message);
+			console.error('[GitHubService] Unexpected error:', err.message);
 
 			try {
 				await octokit.git.deleteRef({ owner: REPO_OWNER, repo: REPO_NAME, ref: `heads/${branchName}` });
 			} catch (cleanupError) {
-				console.error(`[GitHubService] Failed to cleanup branch ${branchName}:`, cleanupError.message);
+				const cErr = cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError));
+				console.error(`[GitHubService] Failed to cleanup branch ${branchName}:`, cErr.message);
 			}
 
 			return null;

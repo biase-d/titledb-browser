@@ -57,6 +57,13 @@
       "when": 1763885655435,
       "tag": "0007_pink_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771064473024,
+      "tag": "0008_supreme_stryfe",
+      "breakpoints": true
     }
   ]
 }
