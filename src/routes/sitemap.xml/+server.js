@@ -6,6 +6,29 @@ export const GET = async ({ url, locals }) => {
 
     const origin = url.origin
 
+    /**
+     * @param {string} str
+     */
+    const escapeXml = (str) =>
+        str.replace(/[<>&"']/g, (c) => {
+            switch (c) {
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '&': return '&amp;';
+                case '"': return '&quot;';
+                case "'": return '&apos;';
+                default: return c;
+            }
+        });
+
+    /**
+     * @param {Date | string | null} date
+     */
+    const formatDate = (date) => {
+        const d = date ? new Date(date) : new Date();
+        return d.toISOString().split('T')[0];
+    };
+
     const xml = `<?xml version="1.0" encoding="UTF-8" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
@@ -35,11 +58,9 @@ export const GET = async ({ url, locals }) => {
     </url>
     ${allGames
             .map((game) => {
-                const lastMod = game.lastUpdated
-                    ? new Date(game.lastUpdated).toISOString()
-                    : new Date().toISOString()
+                const lastMod = formatDate(game.lastUpdated);
                 return `<url>
-        <loc>${origin}/title/${game.id}</loc>
+        <loc>${origin}/title/${escapeXml(game.id)}</loc>
         <lastmod>${lastMod}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
