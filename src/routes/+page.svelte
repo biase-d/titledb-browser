@@ -11,6 +11,8 @@
 	import { createImageSet } from "$lib/image";
 	import { getLocalizedName } from "$lib/i18n";
 	import { preferences } from "$lib/stores/preferences";
+	import SkeletonCard from "$lib/components/SkeletonCard.svelte";
+	import { navigating } from "$app/stores";
 
 	let { data } = $props();
 	let { randomGames = [] } = $derived(data);
@@ -109,6 +111,13 @@
 	$effect(() => {
 		if (browser) localStorage.setItem("viewMode", viewMode);
 	});
+
+	$effect(() => {
+		const q = page.url.searchParams.get("q") || "";
+		if (search !== q) search = q;
+	});
+
+	let showSkeletons = $derived($navigating?.to?.url.pathname === "/");
 
 	function updateData({ resetPage = false } = {}) {
 		if (!browser) return;
@@ -402,18 +411,24 @@
 		</div>
 
 		<div class="results-container {viewMode}">
-			{#each results as item (item.id)}
-				{#if viewMode === "list"}
-					<ListItem titleData={item} />
-				{:else}
-					<GridItem titleData={item} />
-				{/if}
+			{#if showSkeletons}
+				{#each Array(viewMode === "grid" ? 12 : 8) as _}
+					<SkeletonCard {viewMode} />
+				{/each}
 			{:else}
-				<div class="no-results">
-					<h3>No Titles Found</h3>
-					<p>Try adjusting your search or filter criteria</p>
-				</div>
-			{/each}
+				{#each results as item (item.id)}
+					{#if viewMode === "list"}
+						<ListItem titleData={item} query={search} />
+					{:else}
+						<GridItem titleData={item} query={search} />
+					{/if}
+				{:else}
+					<div class="no-results">
+						<h3>No Titles Found</h3>
+						<p>Try adjusting your search or filter criteria</p>
+					</div>
+				{/each}
+			{/if}
 		</div>
 	</section>
 

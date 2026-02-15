@@ -5,8 +5,9 @@
 	import { createImageSet } from "$lib/image";
 	import { preferences } from "$lib/stores/preferences";
 	import { getLocalizedName } from "$lib/i18n";
+	import TextHighlight from "$lib/components/TextHighlight.svelte";
 
-	let { titleData } = $props();
+	let { titleData, query = "" } = $props();
 
 	let id = $derived(titleData.id);
 	let names = $derived(titleData.names || []);
@@ -50,7 +51,7 @@
 	href={`/title/${id}`}
 	class="list-item"
 	transition:slide|local
-	data-sveltekit-preload-data="hover"
+	data-sveltekit-preload-data="tap"
 	aria-label={ariaLabel}
 >
 	<div class="icon-wrapper">
@@ -74,7 +75,7 @@
 					? "ko"
 					: "en"}
 		>
-			{titleName}
+			<TextHighlight text={titleName} {query} />
 		</span>
 		<div class="meta-row">
 			{#if showRegionBadge}

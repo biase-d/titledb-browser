@@ -2,8 +2,8 @@
     import { fade, scale } from "svelte/transition";
     import Icon from "@iconify/svelte";
     import { preferences, COUNTRY_GROUPS } from "$lib/stores/preferences";
-    import { getFlagIcon } from "$lib/flags";
     import { onMount } from "svelte";
+    import { isBot } from "$lib/utils/bot";
 
     let show = $state(false);
     let step = $state(1);
@@ -22,6 +22,11 @@
     ];
 
     onMount(() => {
+        if (isBot()) {
+            console.log("[Onboarding] Bot detected, skipping modal");
+            return;
+        }
+
         const hasOnboarded = localStorage.getItem("has_onboarded");
         if (!hasOnboarded) {
             const current = localStorage.getItem("preferred_region");

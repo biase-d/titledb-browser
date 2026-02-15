@@ -51,6 +51,7 @@
 				<nav>
 					<a href="/privacy">Privacy Policy</a>
 					<a href="/legal">Legal & Disclaimers</a>
+					<a href="/status">System Status</a>
 					<a
 						href="https://github.com/biase-d/titledb-browser/blob/main/LICENSE"
 						target="_blank"

@@ -38,6 +38,14 @@ export function getVersionInfo() {
 		},
 		announcements: [
 			{
+				id: 'feature-contribute-status',
+				date: '2026-02-15',
+				message: 'Community Power! The Contribute page has been redesigned with impact stats, and we\'ve added a new System Status dashboard for transparency.',
+				type: 'success',
+				link: '/contribute',
+				active: true
+			},
+			{
 				id: 'feature-personalization',
 				date: '2026-02-15',
 				message: 'Brand Your Identity! Choose a favorite site color during onboarding or in settings, and enjoy a more compact country selector.',
