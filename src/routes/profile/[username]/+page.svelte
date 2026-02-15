@@ -315,18 +315,15 @@
 			{#if contributions.length > 0}
 				<div class="contributions-layout {viewMode}">
 					{#each contributions as item (item.game.id)}
+						{@const iconSet = createImageSet(item.game.iconUrl, {
+							highRes: $preferences.highResImages,
+							thumbnailWidth: 96,
+						})}
 						<a
 							href={`/title/${item.game.id}`}
 							class="contrib-card {viewMode}"
 						>
 							<div class="game-icon-wrapper">
-								{@const iconSet = createImageSet(
-									item.game.iconUrl,
-									{
-										highRes: $preferences.highResImages,
-										thumbnailWidth: 96,
-									},
-								)}
 								{#if iconSet}
 									<img
 										src={iconSet.src}
