@@ -7,7 +7,7 @@ import { and, count, countDistinct, desc, eq, gte, lt, sql, sum } from 'drizzle-
  * @param {URLSearchParams} searchParams - Filter parameters
  * @returns {Promise<Object>}
  */
-export async function getStats (db, searchParams) {
+export async function getStats(db, searchParams) {
 	const publisher = searchParams.get('publisher')
 	const year = searchParams.get('year')
 	const sizeBucket = searchParams.get('sizeBucket')
@@ -24,7 +24,8 @@ export async function getStats (db, searchParams) {
 
 	if (sizeBucket) {
 		const sizeRanges = {
-			'<1GB': { max: '1073741824' },
+			'<500MB': { max: '524288000' },
+			'500MB-1GB': { min: '524288000', max: '1073741824' },
 			'1-2GB': { min: '1073741824', max: '2147483648' },
 			'2-3GB': { min: '2147483648', max: '3221225472' },
 			'3-4GB': { min: '3221225472', max: '4294967296' },
@@ -40,6 +41,9 @@ export async function getStats (db, searchParams) {
 			if (range.max) whereConditions.push(lt(games.sizeInBytes, range.max))
 		}
 	}
+
+	// Always exclude titles with 0 size (likely placeholders or data entry errors)
+	whereConditions.push(gte(games.sizeInBytes, 1))
 
 	const combinedWheres = whereConditions.length > 0 ? and(...whereConditions) : undefined
 
@@ -84,7 +88,8 @@ export async function getStats (db, searchParams) {
 
 	const sizeBucketCase = sql`
         CASE
-            WHEN "size_in_bytes" < 1073741824 THEN '<1GB'
+            WHEN "size_in_bytes" < 524288000 THEN '<500MB'
+            WHEN "size_in_bytes" >= 524288000 AND "size_in_bytes" < 1073741824 THEN '500MB-1GB'
             WHEN "size_in_bytes" >= 1073741824 AND "size_in_bytes" < 2147483648 THEN '1-2GB'
             WHEN "size_in_bytes" >= 2147483648 AND "size_in_bytes" < 3221225472 THEN '2-3GB'
             WHEN "size_in_bytes" >= 3221225472 AND "size_in_bytes" < 4294967296 THEN '3-4GB'
@@ -105,15 +110,16 @@ export async function getStats (db, searchParams) {
 		.groupBy(sizeBucketCase)
 		.orderBy(sql`
             CASE (${sizeBucketCase})
-                WHEN '<1GB' THEN 1
-                WHEN '1-2GB' THEN 2
-                WHEN '2-3GB' THEN 3
-                WHEN '3-4GB' THEN 4
-                WHEN '4-5GB' THEN 5
-                WHEN '5-10GB' THEN 6
-                WHEN '10-15GB' THEN 7
-                WHEN '15-20GB' THEN 8
-                WHEN '>20GB' THEN 9
+                WHEN '<500MB' THEN 1
+                WHEN '500MB-1GB' THEN 2
+                WHEN '1-2GB' THEN 3
+                WHEN '2-3GB' THEN 4
+                WHEN '3-4GB' THEN 5
+                WHEN '4-5GB' THEN 6
+                WHEN '5-10GB' THEN 7
+                WHEN '10-15GB' THEN 8
+                WHEN '15-20GB' THEN 9
+                WHEN '>20GB' THEN 10
             END
         `)
 
