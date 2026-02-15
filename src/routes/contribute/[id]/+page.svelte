@@ -1,24 +1,24 @@
 <script>
-	import { onMount } from "svelte";
-	import { enhance } from "$app/forms";
-	import { browser } from "$app/environment";
-	import { draftsStore } from "$lib/stores";
-	import { getDraft, deleteDraft } from "$lib/indexedDB";
+	import { onMount, untrack } from 'svelte'
+	import { enhance } from '$app/forms'
+	import { browser } from '$app/environment'
+	import { draftsStore } from '$lib/stores'
+	import { getDraft, deleteDraft } from '$lib/indexedDB'
 	import {
 		generateChangeSummary,
 		pruneEmptyValues,
 		isProfileEmpty,
 		isGraphicsEmpty,
-	} from "$lib/utils.js";
+	} from '$lib/utils.js'
 
-	import { preferences } from "$lib/stores/preferences";
-	import Icon from "@iconify/svelte";
-	import PerformanceTab from "./components/PerformanceTab.svelte";
-	import GraphicsTab from "./components/GraphicsTab.svelte";
-	import YoutubeTab from "./components/YoutubeTab.svelte";
-	import GroupingTab from "./components/GroupingTab.svelte";
+	import { preferences } from '$lib/stores/preferences'
+	import Icon from '@iconify/svelte'
+	import PerformanceTab from './components/PerformanceTab.svelte'
+	import GraphicsTab from './components/GraphicsTab.svelte'
+	import YoutubeTab from './components/YoutubeTab.svelte'
+	import GroupingTab from './components/GroupingTab.svelte'
 
-	let { data, form } = $props();
+	let { data, form } = $props()
 
 	const {
 		id,
@@ -29,57 +29,57 @@
 		existingGraphics,
 		existingYoutubeLinks,
 		shas,
-	} = $derived(data);
+	} = $derived(data)
 
-	let performanceProfiles = $state([]);
-	let graphicsData = $state(/** @type {any} */ ({}));
-	let youtubeLinks = $state([]);
-	let updatedGroup = $state([]);
+	let performanceProfiles = $state([])
+	let graphicsData = $state(/** @type {any} */ ({}))
+	let youtubeLinks = $state([])
+	let updatedGroup = $state([])
 
-	let isSubmitting = $state(false);
-	let showConfirmation = $state(false);
-	let formElement = $state(/** @type {HTMLFormElement | null} */ (null));
-	let activeTab = $state("performance");
+	let isSubmitting = $state(false)
+	let showConfirmation = $state(false)
+	let formElement = $state(/** @type {HTMLFormElement | null} */ (null))
+	let activeTab = $state('performance')
 
-	let groupingSearchInput = $state("");
-	let groupingSearchResults = $state([]);
-	let groupingSearchLoading = $state(false);
-	let groupingDebounceTimer;
+	let groupingSearchInput = $state('')
+	let groupingSearchResults = $state([])
+	let groupingSearchLoading = $state(false)
+	let groupingDebounceTimer
 
-	function sanitizeGraphics(g = {}) {
+	function sanitizeGraphics (g = {}) {
 		const framerateDefaults = {
 			additionalLocks: [],
-			apiBuffering: "Unknown",
-		};
-		const resolutionDefaults = { notes: "", multipleResolutions: [""] };
+			apiBuffering: 'Unknown',
+		}
+		const resolutionDefaults = { notes: '', multipleResolutions: [''] }
 		const defaults = {
 			resolution: resolutionDefaults,
 			framerate: {},
 			custom: {},
-		};
+		}
 
 		const sanitizeMode = (modeData = {}) => {
 			const framerate = {
 				...framerateDefaults,
 				...(modeData.framerate || {}),
-			};
+			}
 			framerate.additionalLocks = (framerate.additionalLocks || []).map(
 				(lock) => ({
-					lockType: "API",
-					targetFps: "",
-					notes: "",
+					lockType: 'API',
+					targetFps: '',
+					notes: '',
 					...lock,
 				}),
-			);
+			)
 			const resolution = {
 				...resolutionDefaults,
 				...(modeData.resolution || {}),
-			};
+			}
 			if (
 				!Array.isArray(resolution.multipleResolutions) ||
 				resolution.multipleResolutions.length === 0
 			) {
-				resolution.multipleResolutions = [""];
+				resolution.multipleResolutions = ['']
 			}
 
 			return {
@@ -87,109 +87,109 @@
 				...modeData,
 				resolution,
 				framerate,
-			};
-		};
+			}
+		}
 
 		return {
 			docked: sanitizeMode(g?.docked),
 			handheld: sanitizeMode(g?.handheld),
 			shared: g?.shared || {},
-		};
+		}
 	}
 
-	function formatPerfResolution(modeData) {
-		if (!modeData) return "N/A";
+	function formatPerfResolution (modeData) {
+		if (!modeData) return 'N/A'
 		switch (modeData.resolution_type) {
-			case "Fixed":
-				return `Fixed at ${modeData.resolution || "N/A"}`;
-			case "Dynamic":
-				if (!modeData.min_res && !modeData.max_res) return "Dynamic";
-				return `Dynamic ${modeData.min_res || "?"} ~ ${modeData.max_res || "?"}`;
-			case "Multiple Fixed":
+			case 'Fixed':
+				return `Fixed at ${modeData.resolution || 'N/A'}`
+			case 'Dynamic':
+				if (!modeData.min_res && !modeData.max_res) return 'Dynamic'
+				return `Dynamic ${modeData.min_res || '?'} ~ ${modeData.max_res || '?'}`
+			case 'Multiple Fixed':
 				return `Multiple: ${
 					modeData.resolutions
-						?.split(",")
+						?.split(',')
 						.filter(Boolean)
 						.map((r) => r.trim())
-						.join(", ") || "N/A"
-				}`;
+						.join(', ') || 'N/A'
+				}`
 			default:
-				return "N/A";
+				return 'N/A'
 		}
 	}
 
-	function formatPerfFramerate(modeData) {
-		if (!modeData) return "N/A";
+	function formatPerfFramerate (modeData) {
+		if (!modeData) return 'N/A'
 		return modeData.target_fps
 			? `${modeData.fps_behavior} ${modeData.target_fps} FPS`
-			: modeData.fps_behavior || "N/A";
+			: modeData.fps_behavior || 'N/A'
 	}
 
-	function formatGfxResolution(resData) {
-		if (!resData) return "N/A";
+	function formatGfxResolution (resData) {
+		if (!resData) return 'N/A'
 		switch (resData.resolutionType) {
-			case "Fixed":
-				return `Fixed at ${resData.fixedResolution || "N/A"}`;
-			case "Dynamic":
-				const min = resData.minResolution || "?";
-				const max = resData.maxResolution || "?";
-				if (min === "?" && max === "?") return "Dynamic";
-				return `Dynamic, ${min} to ${max}`;
-			case "Multiple Fixed":
+			case 'Fixed':
+				return `Fixed at ${resData.fixedResolution || 'N/A'}`
+			case 'Dynamic':
+				const min = resData.minResolution || '?'
+				const max = resData.maxResolution || '?'
+				if (min === '?' && max === '?') return 'Dynamic'
+				return `Dynamic, ${min} to ${max}`
+			case 'Multiple Fixed':
 				return (
-					resData.multipleResolutions?.filter(Boolean).join(", ") ||
-					"N/A"
-				);
+					resData.multipleResolutions?.filter(Boolean).join(', ') ||
+					'N/A'
+				)
 			default:
-				return "N/A";
+				return 'N/A'
 		}
 	}
 
-	function formatGfxFramerate(fpsData) {
-		if (!fpsData) return "N/A";
+	function formatGfxFramerate (fpsData) {
+		if (!fpsData) return 'N/A'
 		switch (fpsData.lockType) {
-			case "Unlocked":
-				return "Unlocked";
-			case "API":
-				return `API Locked to ${fpsData.targetFps} FPS`;
-			case "Custom":
-				return `Custom Lock to ${fpsData.targetFps} FPS`;
+			case 'Unlocked':
+				return 'Unlocked'
+			case 'API':
+				return `API Locked to ${fpsData.targetFps} FPS`
+			case 'Custom':
+				return `Custom Lock to ${fpsData.targetFps} FPS`
 			default:
-				return "N/A";
+				return 'N/A'
 		}
 	}
 
-	{
+	untrack(() => {
 		const sanitizedInitialPerformance = (existingPerformance || []).map(
 			(p) => {
 				const defaultMode = {
-					resolution_type: "Fixed",
-					fps_behavior: "Locked",
-					resolution: "",
-					resolutions: "",
-					min_res: "",
-					max_res: "",
-					resolution_notes: "",
-					target_fps: "",
-					fps_notes: "",
-				};
+					resolution_type: 'Fixed',
+					fps_behavior: 'Locked',
+					resolution: '',
+					resolutions: '',
+					min_res: '',
+					max_res: '',
+					resolution_notes: '',
+					target_fps: '',
+					fps_notes: '',
+				}
 				const docked = {
 					...defaultMode,
 					...(p.profiles?.docked || {}),
-				};
+				}
 				const handheld = {
 					...defaultMode,
 					...(p.profiles?.handheld || {}),
-				};
-				return { ...p, profiles: { docked, handheld } };
+				}
+				return { ...p, profiles: { docked, handheld } }
 			},
-		);
+		)
 
-		performanceProfiles = structuredClone(sanitizedInitialPerformance);
-		graphicsData = sanitizeGraphics(existingGraphics?.settings);
-		youtubeLinks = structuredClone(existingYoutubeLinks || []);
-		updatedGroup = structuredClone(allTitlesInGroup || []);
-	}
+		performanceProfiles = structuredClone(sanitizedInitialPerformance)
+		graphicsData = sanitizeGraphics(existingGraphics?.settings)
+		youtubeLinks = structuredClone(existingYoutubeLinks || [])
+		updatedGroup = structuredClone(allTitlesInGroup || [])
+	})
 
 	const changeSummary = $derived(
 		generateChangeSummary(
@@ -206,28 +206,28 @@
 				updatedGroup,
 			},
 		),
-	);
+	)
 	const hasMeaningfulChanges = $derived(
 		changeSummary.length > 0 &&
-			!changeSummary.every((s) => s.includes("Added empty placeholder")),
-	);
+			!changeSummary.every((s) => s.includes('Added empty placeholder')),
+	)
 
 	onMount(async () => {
-		const savedDraft = await getDraft(id);
+		const savedDraft = await getDraft(id)
 		if (savedDraft) {
-			const rawProfiles = savedDraft.performanceProfiles || [];
+			const rawProfiles = savedDraft.performanceProfiles || []
 			performanceProfiles = rawProfiles.map((p) => {
 				const defaultMode = {
-					resolution_type: "Fixed",
-					fps_behavior: "Locked",
-					resolution: "",
-					resolutions: "",
-					min_res: "",
-					max_res: "",
-					resolution_notes: "",
-					target_fps: "",
-					fps_notes: "",
-				};
+					resolution_type: 'Fixed',
+					fps_behavior: 'Locked',
+					resolution: '',
+					resolutions: '',
+					min_res: '',
+					max_res: '',
+					resolution_notes: '',
+					target_fps: '',
+					fps_notes: '',
+				}
 				return {
 					...p,
 					profiles: {
@@ -240,192 +240,192 @@
 							...(p.profiles?.handheld || {}),
 						},
 					},
-				};
-			});
-			updatedGroup = savedDraft.group || [];
-			graphicsData = sanitizeGraphics(savedDraft.graphics);
-			youtubeLinks = savedDraft.youtube || [];
+				}
+			})
+			updatedGroup = savedDraft.group || []
+			graphicsData = sanitizeGraphics(savedDraft.graphics)
+			youtubeLinks = savedDraft.youtube || []
 		}
-		if (performanceProfiles.length === 0) addNewVersion();
-	});
+		if (performanceProfiles.length === 0) addNewVersion()
+	})
 
 	$effect(() => {
-		if (!browser) return;
+		if (!browser) return
 		const dataToSave = {
 			name,
 			performanceProfiles,
 			graphics: graphicsData,
 			youtube: youtubeLinks,
 			group: updatedGroup,
-		};
+		}
 		const timer = setTimeout(
 			() => draftsStore.save(id, JSON.parse(JSON.stringify(dataToSave))),
 			500,
-		);
-		return () => clearTimeout(timer);
-	});
+		)
+		return () => clearTimeout(timer)
+	})
 
-	function addNewVersion() {
-		let nextVersion = "1.0.0";
+	function addNewVersion () {
+		let nextVersion = '1.0.0'
 		if (performanceProfiles.length > 0) {
 			const getVersionParts = (v) =>
-				(v.match(/[\d.]+/)?.[0] || "0").split(".").map(Number);
+				(v.match(/[\d.]+/)?.[0] || '0').split('.').map(Number)
 			const latestProfile = [...performanceProfiles]
 				.filter((p) => p.gameVersion)
 				.sort((a, b) => {
-					const partsA = getVersionParts(a.gameVersion);
-					const partsB = getVersionParts(b.gameVersion);
+					const partsA = getVersionParts(a.gameVersion)
+					const partsB = getVersionParts(b.gameVersion)
 					for (
 						let i = 0;
 						i < Math.max(partsA.length, partsB.length);
 						i++
 					) {
 						if ((partsB[i] || 0) !== (partsA[i] || 0))
-							return (partsB[i] || 0) - (partsA[i] || 0);
+							return (partsB[i] || 0) - (partsA[i] || 0)
 					}
-					return 0;
-				})[0];
+					return 0
+				})[0]
 			if (latestProfile) {
-				const parts = getVersionParts(latestProfile.gameVersion);
-				while (parts.length < 3) parts.push(0);
-				parts[parts.length - 1]++;
-				nextVersion = parts.join(".");
+				const parts = getVersionParts(latestProfile.gameVersion)
+				while (parts.length < 3) parts.push(0)
+				parts[parts.length - 1]++
+				nextVersion = parts.join('.')
 			}
 		}
 		performanceProfiles.push({
-			tempId: crypto.randomUUID(),
 			gameVersion: nextVersion,
-			suffix: "",
+			suffix: '',
 			profiles: {
 				docked: {
-					resolution_type: "Fixed",
-					fps_behavior: "Locked",
-					resolution: "",
-					resolutions: "",
-					min_res: "",
-					max_res: "",
-					resolution_notes: "",
-					target_fps: "",
-					fps_notes: "",
+					resolution_type: 'Fixed',
+					fps_behavior: 'Locked',
+					resolution: '',
+					resolutions: '',
+					min_res: '',
+					max_res: '',
+					resolution_notes: '',
+					target_fps: '',
+					fps_notes: '',
 				},
 				handheld: {
-					resolution_type: "Fixed",
-					fps_behavior: "Locked",
-					resolution: "",
-					resolutions: "",
-					min_res: "",
-					max_res: "",
-					resolution_notes: "",
-					target_fps: "",
-					fps_notes: "",
+					resolution_type: 'Fixed',
+					fps_behavior: 'Locked',
+					resolution: '',
+					resolutions: '',
+					min_res: '',
+					max_res: '',
+					resolution_notes: '',
+					target_fps: '',
+					fps_notes: '',
 				},
 			},
-		});
+		})
 	}
-	function removeVersion(idToRemove) {
+	function removeVersion (idToRemove) {
 		performanceProfiles = performanceProfiles.filter(
-			(p) => (p.id || p.tempId) !== idToRemove,
-		);
+			(p) => p.id !== idToRemove,
+		)
 	}
 
-	function addResolution(mode) {
-		const resolution = graphicsData[mode].resolution;
+	function addResolution (mode) {
+		const resolution = graphicsData[mode].resolution
 		if (!resolution.multipleResolutions) {
-			resolution.multipleResolutions = [];
+			resolution.multipleResolutions = []
 		}
-		resolution.multipleResolutions.push("");
+		resolution.multipleResolutions.push('')
 	}
 
-	function removeResolution(mode, index) {
-		graphicsData[mode].resolution.multipleResolutions.splice(index, 1);
+	function removeResolution (mode, index) {
+		graphicsData[mode].resolution.multipleResolutions.splice(index, 1)
 	}
 
-	function addAdditionalLock(mode) {
-		const framerate = graphicsData[mode].framerate;
+	function addAdditionalLock (mode) {
+		const framerate = graphicsData[mode].framerate
 		if (!framerate.additionalLocks) {
-			framerate.additionalLocks = [];
+			framerate.additionalLocks = []
 		}
 		framerate.additionalLocks.push({
-			lockType: "API",
-			targetFps: "",
-			notes: "",
-		});
+			lockType: 'API',
+			targetFps: '',
+			notes: '',
+		})
 	}
 
-	function removeAdditionalLock(mode, index) {
-		graphicsData[mode].framerate.additionalLocks.splice(index, 1);
+	function removeAdditionalLock (mode, index) {
+		graphicsData[mode].framerate.additionalLocks.splice(index, 1)
 	}
 
-	function addGraphicsField(section, subkey) {
+	function addGraphicsField (section, subkey) {
 		const target = subkey
 			? graphicsData[section][subkey]
-			: graphicsData[section];
-		if (!target) return;
-		target[""] = { value: "", notes: "" };
+			: graphicsData[section]
+		if (!target) return
+		target[''] = { value: '', notes: '' }
 	}
-	function updateGraphicsKey(section, oldKey, newKey, subkey) {
+	function updateGraphicsKey (section, oldKey, newKey, subkey) {
 		const target = subkey
 			? graphicsData[section][subkey]
-			: graphicsData[section];
-		if (!target || oldKey === newKey || newKey === "") return;
-		const value = target[oldKey];
-		delete target[oldKey];
-		target[newKey] = value;
+			: graphicsData[section]
+		if (!target || oldKey === newKey || newKey === '') return
+		const value = target[oldKey]
+		delete target[oldKey]
+		target[newKey] = value
 	}
-	function removeGraphicsField(section, key, subkey) {
+	function removeGraphicsField (section, key, subkey) {
 		const target = subkey
 			? graphicsData[section][subkey]
-			: graphicsData[section];
-		if (target) delete target[key];
+			: graphicsData[section]
+		if (target) delete target[key]
 	}
 
-	function addYoutubeLink() {
-		youtubeLinks = [...youtubeLinks, { url: "", notes: "" }];
+	function addYoutubeLink () {
+		youtubeLinks = [...youtubeLinks, { url: '', notes: '' }]
 	}
-	function removeYoutubeLink(index) {
-		youtubeLinks.splice(index, 1);
-		youtubeLinks = youtubeLinks;
+	function removeYoutubeLink (index) {
+		youtubeLinks.splice(index, 1)
+		youtubeLinks = youtubeLinks
 	}
 
-	async function performGroupingSearch() {
+	async function performGroupingSearch () {
 		if (groupingSearchInput.length < 3) {
-			groupingSearchResults = [];
-			return;
+			groupingSearchResults = []
+			return
 		}
-		groupingSearchLoading = true;
+		groupingSearchLoading = true
 		try {
 			const res = await fetch(
 				`/api/v1/games/search?q=${encodeURIComponent(groupingSearchInput)}`,
-			);
-			if (res.ok) groupingSearchResults = await res.json();
+			)
+			if (res.ok) groupingSearchResults = await res.json()
 		} catch (e) {
-			console.error("Search failed", e);
+			console.error('Search failed', e)
 		} finally {
-			groupingSearchLoading = false;
+			groupingSearchLoading = false
 		}
 	}
-	function handleGroupingSearchInput() {
-		clearTimeout(groupingDebounceTimer);
-		groupingDebounceTimer = setTimeout(performGroupingSearch, 300);
+	function handleGroupingSearchInput () {
+		clearTimeout(groupingDebounceTimer)
+		groupingDebounceTimer = setTimeout(performGroupingSearch, 300)
 	}
-	function isAlreadyInGroup(titleId) {
-		return updatedGroup.some((t) => t.id === titleId);
+	function isAlreadyInGroup (titleId) {
+		return updatedGroup.some((t) => t.id === titleId)
 	}
-	function addToGroup(title) {
+	function addToGroup (title) {
 		if (!isAlreadyInGroup(title.id)) {
-			updatedGroup = [...updatedGroup, title];
-			groupingSearchInput = "";
-			groupingSearchResults = [];
+			updatedGroup = [...updatedGroup, title]
+			groupingSearchInput = ''
+			groupingSearchResults = []
 		}
 	}
-	function removeFromGroup(titleId) {
-		if (titleId === id) return; // Prevent removing the primary title
-		updatedGroup = updatedGroup.filter((t) => t.id !== titleId);
+	function removeFromGroup (titleId) {
+		if (titleId === id) return // Prevent removing the primary title
+		updatedGroup = updatedGroup.filter((t) => t.id !== titleId)
 	}
 </script>
 
 <svelte:head>
 	<title>Contribute Data for {name}</title>
+	<meta name="robots" content="noindex" />
 </svelte:head>
 
 <main class="page-container">
@@ -475,13 +475,13 @@
 			bind:this={formElement}
 			method="POST"
 			use:enhance={() => {
-				isSubmitting = true;
-				showConfirmation = false;
+				isSubmitting = true
+				showConfirmation = false
 				return async ({ update }) => {
-					await deleteDraft(id);
-					await update();
-					isSubmitting = false;
-				};
+					await deleteDraft(id)
+					await update()
+					isSubmitting = false
+				}
 			}}
 		>
 			<!-- Hidden form data -->
@@ -492,7 +492,7 @@
 				type="hidden"
 				name="performanceData"
 				value={JSON.stringify(
-					performanceProfiles.map(({ tempId, ...p }) => p),
+					performanceProfiles.map(({ _tempId, ...p }) => p),
 				)}
 			/>
 			<input
@@ -535,36 +535,36 @@
 			<div class="tabs">
 				<button
 					type="button"
-					class:active={activeTab === "performance"}
-					onclick={() => (activeTab = "performance")}
+					class:active={activeTab === 'performance'}
+					onclick={() => (activeTab = 'performance')}
 					>Performance</button
 				>
 				<button
 					type="button"
-					class:active={activeTab === "graphics"}
-					onclick={() => (activeTab = "graphics")}>Graphics</button
+					class:active={activeTab === 'graphics'}
+					onclick={() => (activeTab = 'graphics')}>Graphics</button
 				>
 				<button
 					type="button"
-					class:active={activeTab === "youtube"}
-					onclick={() => (activeTab = "youtube")}>YouTube</button
+					class:active={activeTab === 'youtube'}
+					onclick={() => (activeTab = 'youtube')}>YouTube</button
 				>
 				<button
 					type="button"
-					class:active={activeTab === "grouping"}
-					onclick={() => (activeTab = "grouping")}>Grouping</button
+					class:active={activeTab === 'grouping'}
+					onclick={() => (activeTab = 'grouping')}>Grouping</button
 				>
 			</div>
 
 			<div class="tab-content">
-				{#if activeTab === "performance"}
+				{#if activeTab === 'performance'}
 					<PerformanceTab
 						bind:performanceProfiles
 						{addNewVersion}
 						{removeVersion}
 					/>
 				{/if}
-				{#if activeTab === "graphics"}
+				{#if activeTab === 'graphics'}
 					<GraphicsTab
 						bind:graphicsData
 						{addResolution}
@@ -576,14 +576,14 @@
 						{removeGraphicsField}
 					/>
 				{/if}
-				{#if activeTab === "youtube"}
+				{#if activeTab === 'youtube'}
 					<YoutubeTab
 						bind:youtubeLinks
 						{addYoutubeLink}
 						{removeYoutubeLink}
 					/>
 				{/if}
-				{#if activeTab === "grouping"}
+				{#if activeTab === 'grouping'}
 					<GroupingTab
 						bind:updatedGroup
 						bind:groupingSearchInput
@@ -624,8 +624,21 @@
 </main>
 
 {#if showConfirmation}
-	<div class="modal-overlay" onclick={() => (showConfirmation = false)}>
-		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="modal-overlay"
+		onclick={() => (showConfirmation = false)}
+		onkeydown={(e) => e.key === 'Escape' && (showConfirmation = false)}
+		role="presentation"
+	>
+		<div
+			class="modal-content"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-modal="true"
+			aria-label="Confirm Submission"
+			tabindex="-1"
+		>
 			<div class="modal-header">
 				<h2>Confirm Your Submission</h2>
 				<button

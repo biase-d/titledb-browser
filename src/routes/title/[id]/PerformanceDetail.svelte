@@ -1,42 +1,58 @@
 <script>
-	import Icon from '@iconify/svelte';
+	import Icon from '@iconify/svelte'
 
 	const fpsBehaviorDefinitions = {
 		Locked: '99.9-100% of time at target FPS.',
 		Stable: '99-99.9% of time at target FPS.',
 		Unstable: '90-99% of time at target FPS.',
-		'Very Unstable': '0-90% of time at target FPS.'
-	};
+		'Very Unstable': '0-90% of time at target FPS.',
+	}
 
 	/**
 	 * @param {any} modeData
 	 */
-	function hasResolutionData(modeData) { return !!(modeData?.resolution || (modeData?.resolutions && modeData.resolutions.split(',').filter(Boolean).length > 0) || modeData?.min_res || modeData?.max_res); }
-	let { performance, gameId } = $props();
+	function hasResolutionData (modeData) {
+		return !!(
+			modeData?.resolution ||
+			(modeData?.resolutions &&
+				modeData.resolutions.split(',').filter(Boolean).length > 0) ||
+			modeData?.min_res ||
+			modeData?.max_res
+		)
+	}
+	let { performance } = $props()
 
-	function formatResolution(modeData) {
-		if (!modeData) return 'N/A';
+	function formatResolution (modeData) {
+		if (!modeData) return 'N/A'
 		switch (modeData.resolution_type) {
-			case 'Fixed':
-				let { resolution } = modeData;
-				return resolution ? `Fixed at ${resolution}` : 'N/A';
-			case 'Dynamic':
-				if (!modeData.min_res && !modeData.max_res) return 'Dynamic';
-				const min = modeData.min_res || '?';
-				const max = modeData.max_res || '?';
-				return `Dynamic ${min} ~ ${max}`;
-			case 'Multiple Fixed':
-				const resolutions = modeData.resolutions?.split(',').filter(Boolean).map(r => r.trim()).join(', ') || 'N/A';
-				return `Multiple: ${resolutions}`;
+			case 'Fixed': {
+				const { resolution } = modeData
+				return resolution ? `Fixed at ${resolution}` : 'N/A'
+			}
+			case 'Dynamic': {
+				if (!modeData.min_res && !modeData.max_res) return 'Dynamic'
+				const min = modeData.min_res || '?'
+				const max = modeData.max_res || '?'
+				return `Dynamic ${min} ~ ${max}`
+			}
+			case 'Multiple Fixed': {
+				const resolutions =
+					modeData.resolutions
+						?.split(',')
+						.filter(Boolean)
+						.map((r) => r.trim())
+						.join(', ') || 'N/A'
+				return `Multiple: ${resolutions}`
+			}
 			default:
-				return 'N/A';
+				return 'N/A'
 		}
 	}
 
-	function formatFramerate(modeData) {
-		if (!modeData) return 'N/A';
-		if (!modeData.target_fps) return modeData.fps_behavior || 'N/A';
-		return `${modeData.fps_behavior} ${modeData.target_fps} FPS`;
+	function formatFramerate (modeData) {
+		if (!modeData) return 'N/A'
+		if (!modeData.target_fps) return modeData.fps_behavior || 'N/A'
+		return `${modeData.fps_behavior} ${modeData.target_fps} FPS`
 	}
 </script>
 
@@ -46,17 +62,18 @@
 	</div>
 {:else}
 	<div class="perf-card">
-
 		{#if performance.handheld}
 			{@const handheld = performance.handheld}
-			<div class="mode-section ">
+			<div class="mode-section">
 				<h3 class="perf-mode-title">Handheld</h3>
 				<div class="perf-grid">
 					{#if hasResolutionData(handheld)}
 						<div class="perf-item">
 							<p class="label">Resolution</p>
 							<p class="value">{formatResolution(handheld)}</p>
-							{#if handheld.resolution_notes}<p class="subtext">{handheld.resolution_notes}</p>{/if}
+							{#if handheld.resolution_notes}<p class="subtext">
+									{handheld.resolution_notes}
+								</p>{/if}
 						</div>
 					{/if}
 					{#if handheld.fps_behavior}
@@ -67,11 +84,17 @@
 								{#if handheld.fps_behavior && fpsBehaviorDefinitions[handheld.fps_behavior]}
 									<div class="tooltip">
 										<Icon icon="mdi:help-circle-outline" />
-										<span class="tooltip-text">{fpsBehaviorDefinitions[handheld.fps_behavior]}</span>
+										<span class="tooltip-text"
+											>{fpsBehaviorDefinitions[
+												handheld.fps_behavior
+											]}</span
+										>
 									</div>
 								{/if}
 							</div>
-							{#if handheld.fps_notes}<p class="subtext">{handheld.fps_notes}</p>{/if}
+							{#if handheld.fps_notes}<p class="subtext">
+									{handheld.fps_notes}
+								</p>{/if}
 						</div>
 					{/if}
 				</div>
@@ -87,7 +110,9 @@
 						<div class="perf-item">
 							<p class="label">Resolution</p>
 							<p class="value">{formatResolution(docked)}</p>
-							{#if docked.resolution_notes}<p class="subtext">{docked.resolution_notes}</p>{/if}
+							{#if docked.resolution_notes}<p class="subtext">
+									{docked.resolution_notes}
+								</p>{/if}
 						</div>
 					{/if}
 					{#if docked.fps_behavior}
@@ -98,17 +123,22 @@
 								{#if docked.fps_behavior && fpsBehaviorDefinitions[docked.fps_behavior]}
 									<div class="tooltip">
 										<Icon icon="mdi:help-circle-outline" />
-										<span class="tooltip-text">{fpsBehaviorDefinitions[docked.fps_behavior]}</span>
+										<span class="tooltip-text"
+											>{fpsBehaviorDefinitions[
+												docked.fps_behavior
+											]}</span
+										>
 									</div>
 								{/if}
 							</div>
-							{#if docked.fps_notes}<p class="subtext">{docked.fps_notes}</p>{/if}
+							{#if docked.fps_notes}<p class="subtext">
+									{docked.fps_notes}
+								</p>{/if}
 						</div>
 					{/if}
 				</div>
 			</div>
 		{/if}
-
 	</div>
 {/if}
 
@@ -167,7 +197,7 @@
 		padding-top: 2rem;
 		border-top: 1px solid var(--border-color);
 	}
-	
+
 	.notice-card {
 		padding: 2rem;
 		text-align: center;

@@ -1,6 +1,6 @@
 <script>
-    import { calculatePlayabilityScore } from "$lib/playability";
-    import Icon from "@iconify/svelte";
+    import { calculatePlayabilityScore } from '$lib/playability'
+    import Icon from '@iconify/svelte'
 
     /**
      * @typedef {Object} Props
@@ -9,17 +9,17 @@
      */
 
     /** @type {Props} */
-    let { profile, large = false } = $props();
+    let { profile, large = false } = $props()
 
-    let score = $derived(calculatePlayabilityScore(profile));
+    let score = $derived(calculatePlayabilityScore(profile))
 
     const icons = {
-        Perfect: "mdi:star-circle",
-        Great: "mdi:check-circle",
-        Playable: "mdi:check",
-        Rough: "mdi:alert-circle",
-        Unknown: "mdi:help-circle",
-    };
+    	Perfect: 'mdi:star-circle',
+    	Great: 'mdi:check-circle',
+    	Playable: 'mdi:check',
+    	Rough: 'mdi:alert-circle',
+    	Unknown: 'mdi:help-circle',
+    }
 </script>
 
 <div

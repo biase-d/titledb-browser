@@ -1,38 +1,44 @@
 <script>
-	import Icon from '@iconify/svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import { tick } from 'svelte';
+	import Icon from "@iconify/svelte";
+	import { createImageSet } from "$lib/image";
+	import { preferences } from "$lib/stores/preferences";
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
+	import { tick } from "svelte";
 
 	let { data } = $props();
 
 	let games = $derived(data.games);
 	let pagination = $derived(data.pagination);
 	let session = $derived(data.session);
-    let sortBy = $derived(data.sortBy);
+	let sortBy = $derived(data.sortBy);
 
 	let pageHeader;
 
 	async function changePage(newPage) {
 		const url = new URL(page.url);
-		url.searchParams.set('page', newPage.toString());
+		url.searchParams.set("page", newPage.toString());
 		await goto(url.toString(), { noScroll: true });
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		window.scrollTo({ top: 0, behavior: "smooth" });
 		await tick();
 		pageHeader?.focus();
 	}
 
-    function toggleSort() {
-        const url = new URL(page.url);
-        const newSort = sortBy === 'requests' ? 'default' : 'requests';
-        url.searchParams.set('sort', newSort);
-        url.searchParams.set('page', '1'); // Reset to page 1
-        goto(url.toString());
-    }
+	function toggleSort() {
+		const url = new URL(page.url);
+		const newSort = sortBy === "requests" ? "default" : "requests";
+		url.searchParams.set("sort", newSort);
+		url.searchParams.set("page", "1"); // Reset to page 1
+		goto(url.toString());
+	}
 </script>
 
 <svelte:head>
 	<title>Contribute - Switch Performance</title>
+	<meta
+		name="description"
+		content="Help build the most comprehensive Nintendo Switch performance database. Contribute FPS data, resolution details, and graphics settings for games."
+	/>
 </svelte:head>
 
 <main class="page-container" bind:this={pageHeader} tabindex="-1">
@@ -40,8 +46,9 @@
 		<section class="logged-out-cta" aria-labelledby="cta-heading">
 			<h1 id="cta-heading">Join the Community</h1>
 			<p>
-				Switch Performance is powered by contributors like you. Sign in with your GitHub account to 
-				start submitting performance data, suggesting edits, and helping us build the most comprehensive 
+				Switch Performance is powered by contributors like you. Sign in
+				with your GitHub account to start submitting performance data,
+				suggesting edits, and helping us build the most comprehensive
 				database for Nintendo Switch performance.
 			</p>
 			<form action="/auth/signin/github" method="post">
@@ -55,53 +62,77 @@
 		<div class="page-header">
 			<h1>Contribute Data</h1>
 			<p>
-				Help us expand the database! Here is a list of games that currently have no performance or graphics data.
+				Help us expand the database! Here is a list of games that
+				currently have no performance or graphics data.
 			</p>
-            
-            <div class="controls">
-                <button class="sort-btn" class:active={sortBy === 'requests'} onclick={toggleSort}>
-                    <Icon icon="mdi:fire" />
-                    {sortBy === 'requests' ? 'Sorting by Requests' : 'Sort by Most Requested'}
-                </button>
-            </div>
+
+			<div class="controls">
+				<button
+					class="sort-btn"
+					class:active={sortBy === "requests"}
+					onclick={toggleSort}
+				>
+					<Icon icon="mdi:fire" />
+					{sortBy === "requests"
+						? "Sorting by Requests"
+						: "Sort by Most Requested"}
+				</button>
+			</div>
 		</div>
 
 		{#if games.length > 0}
 			<div class="results-container">
 				{#each games as game (game.id)}
-					<a 
-						href={`/contribute/${game.id}`} 
+					{@const iconSet = createImageSet(game.iconUrl, {
+						highRes: $preferences.highResImages,
+						thumbnailWidth: 80,
+					})}
+					<a
+						href={`/contribute/${game.id}`}
 						class="list-item"
 						aria-label={`Contribute data for ${game.names[0]}`}
 					>
-						<img 
-							src={game.iconUrl || '/favicon.svg'} 
-							alt="" 
-							class="list-item-icon" 
-							loading="lazy" 
-							width="40" 
-							height="40"
-						/>
+						{#if iconSet}
+							<img
+								src={iconSet.src}
+								srcset={iconSet.srcset}
+								alt=""
+								class="list-item-icon"
+								loading="lazy"
+							/>
+						{:else}
+							<div class="list-item-icon placeholder">
+								<Icon icon="mdi:image-off" />
+							</div>
+						{/if}
 						<div class="list-item-info">
 							<span class="title-name">{game.names[0]}</span>
 							<span class="title-id">{game.id}</span>
 						</div>
-                        
-                        {#if Number(game.requestCount) > 0}
-                            <div class="request-badge" title="{game.requestCount} users requested data for this game">
-                                <Icon icon="mdi:account-group" /> {game.requestCount}
-                            </div>
-                        {/if}
 
-						<Icon icon="mdi:chevron-right" class="chevron-icon" aria-hidden="true" />
+						{#if Number(game.requestCount) > 0}
+							<div
+								class="request-badge"
+								title="{game.requestCount} users requested data for this game"
+							>
+								<Icon icon="mdi:account-group" />
+								{game.requestCount}
+							</div>
+						{/if}
+
+						<Icon
+							icon="mdi:chevron-right"
+							class="chevron-icon"
+							aria-hidden="true"
+						/>
 					</a>
 				{/each}
 			</div>
 
 			{#if pagination && pagination.totalPages > 1}
 				<nav class="pagination" aria-label="Pagination">
-					<button 
-						disabled={pagination.currentPage <= 1} 
+					<button
+						disabled={pagination.currentPage <= 1}
 						onclick={() => changePage(pagination.currentPage - 1)}
 						aria-label="Go to previous page"
 					>
@@ -112,8 +143,9 @@
 						Page {pagination.currentPage} of {pagination.totalPages}
 					</span>
 
-					<button 
-						disabled={pagination.currentPage >= pagination.totalPages} 
+					<button
+						disabled={pagination.currentPage >=
+							pagination.totalPages}
 						onclick={() => changePage(pagination.currentPage + 1)}
 						aria-label="Go to next page"
 					>
@@ -125,8 +157,8 @@
 			<div class="empty-state">
 				<h3>All Caught Up!</h3>
 				<p>
-					It looks like every game in our database has at least some performance or graphics data. Thank 
-					you to all contributors!
+					It looks like every game in our database has at least some
+					performance or graphics data. Thank you to all contributors!
 				</p>
 			</div>
 		{/if}
@@ -189,37 +221,37 @@
 		color: var(--text-secondary);
 		margin: 0;
 	}
-    
-    .controls {
-        margin-top: 1.5rem;
-        display: flex;
-        justify-content: center;
-    }
-    
-    .sort-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: 1px solid var(--border-color);
-        background-color: var(--surface-color);
-        color: var(--text-secondary);
-        cursor: pointer;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-    
-    .sort-btn:hover {
-        border-color: var(--primary-color);
-        color: var(--primary-color);
-    }
-    
-    .sort-btn.active {
-        background-color: var(--primary-color);
-        color: var(--primary-action-text);
-        border-color: var(--primary-color);
-    }
+
+	.controls {
+		margin-top: 1.5rem;
+		display: flex;
+		justify-content: center;
+	}
+
+	.sort-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 8px 16px;
+		border-radius: 999px;
+		border: 1px solid var(--border-color);
+		background-color: var(--surface-color);
+		color: var(--text-secondary);
+		cursor: pointer;
+		font-weight: 500;
+		transition: all 0.2s;
+	}
+
+	.sort-btn:hover {
+		border-color: var(--primary-color);
+		color: var(--primary-color);
+	}
+
+	.sort-btn.active {
+		background-color: var(--primary-color);
+		color: var(--primary-action-text);
+		border-color: var(--primary-color);
+	}
 
 	.results-container {
 		display: flex;
@@ -245,7 +277,11 @@
 	.list-item:hover,
 	.list-item:focus-visible {
 		border-color: var(--primary-color);
-		background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 5%,
+			transparent
+		);
 	}
 
 	.list-item:focus-visible,
@@ -281,19 +317,19 @@
 		font-size: 0.8rem;
 		color: var(--text-secondary);
 	}
-    
-    .request-badge {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 4px 8px;
-        background-color: color-mix(in srgb, #f59e0b 15%, transparent);
-        color: #d97706;
-        border-radius: 999px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        white-space: nowrap;
-    }
+
+	.request-badge {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 4px 8px;
+		background-color: color-mix(in srgb, #f59e0b 15%, transparent);
+		color: #d97706;
+		border-radius: 999px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		white-space: nowrap;
+	}
 
 	.pagination {
 		display: flex;

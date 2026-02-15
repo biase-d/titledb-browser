@@ -1,6 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
+	/* eslint-disable no-unused-vars */
 	namespace App {
 		// interface Error {}
 		interface Locals {
@@ -12,4 +13,4 @@ declare global {
 	}
 }
 
-export { };
+export { }

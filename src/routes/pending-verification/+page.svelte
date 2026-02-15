@@ -1,7 +1,10 @@
 <script>
     import Icon from "@iconify/svelte";
+    import { createImageSet } from "$lib/image";
+    import { preferences } from "$lib/stores/preferences";
+
     let { data } = $props();
-    const { groups } = data;
+    const groups = $derived(data.groups);
 
     /** @param {any} date */
     function formatDate(date) {
@@ -15,7 +18,11 @@
 </script>
 
 <svelte:head>
-    <title>Pending Verification | TitleDB</title>
+    <title>Pending Verification - Switch Performance</title>
+    <meta
+        name="description"
+        content="View community contributions currently awaiting verification via GitHub Pull Requests. Track the status of pending performance data submissions."
+    />
 </svelte:head>
 
 <div class="pending-dashboard">
@@ -48,14 +55,23 @@
                     <div class="card-header">
                         <div class="game-info">
                             {#if group.game}
-                                <img
-                                    src={group.game.iconUrl ||
-                                        group.game.bannerUrl}
-                                    alt={group.game.names.en}
-                                    class="game-icon"
-                                    class:fallback-icon={!group.game.iconUrl &&
-                                        group.game.bannerUrl}
-                                />
+                                {@const iconSet = createImageSet(
+                                    group.game.iconUrl || group.game.bannerUrl,
+                                    {
+                                        highRes: $preferences.highResImages,
+                                        thumbnailWidth: 96,
+                                    },
+                                )}
+                                {#if iconSet}
+                                    <img
+                                        src={iconSet.src}
+                                        srcset={iconSet.srcset}
+                                        alt={group.game.names.en}
+                                        class="game-icon"
+                                        class:fallback-icon={!group.game
+                                            .iconUrl && group.game.bannerUrl}
+                                    />
+                                {/if}
                                 <div class="game-text">
                                     <h2 class="game-name">
                                         <a
@@ -334,7 +350,7 @@
         transform: scale(1.02);
     }
 
-    .external-icon {
+    .pr-link :global(.external-icon) {
         opacity: 0.5;
     }
 

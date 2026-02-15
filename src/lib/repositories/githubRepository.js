@@ -4,15 +4,15 @@
  * Replaces direct usage of GitHubService class
  */
 
-import { GitHubService } from '$lib/services/GitHubService';
+import { GitHubService } from '$lib/services/GitHubService'
 
 /**
  * Get file content from GitHub as JSON
  * @param {string} path - File path in repository
  * @returns {Promise<Object|null>}
  */
-export async function getRemoteJson(path) {
-    return await GitHubService.getJsonContent(path);
+export async function getRemoteJson (path) {
+	return await GitHubService.getJsonContent(path)
 }
 
 /**
@@ -20,8 +20,8 @@ export async function getRemoteJson(path) {
  * @param {string} path - File path in repository
  * @returns {Promise<string|null>}
  */
-export async function getRemoteSha(path) {
-    return await GitHubService.getFileSha(path);
+export async function getRemoteSha (path) {
+	return await GitHubService.getFileSha(path)
 }
 
 /**
@@ -34,6 +34,6 @@ export async function getRemoteSha(path) {
  * @param {Array<{path: string, content: string|null}>} params.files - Files to create/update
  * @returns {Promise<{url: string, number: number}>}
  */
-export async function createPullRequest(params) {
-    return await GitHubService.createPullRequest(params);
+export async function createPullRequest (params) {
+	return await GitHubService.createPullRequest(params)
 }

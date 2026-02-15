@@ -1,57 +1,57 @@
 <script>
-	let { settings } = $props();
+	let { settings } = $props()
 
-	let dockedSettings = $derived(settings?.docked || {});
-	let handheldSettings = $derived(settings?.handheld || {});
-	let sharedSettings = $derived(settings?.shared || {});
-	let hasSharedSettings = $derived(sharedSettings && Object.entries(sharedSettings).some(([key, data]) => key && data.value));
+	let dockedSettings = $derived(settings?.docked || {})
+	let handheldSettings = $derived(settings?.handheld || {})
+	let sharedSettings = $derived(settings?.shared || {})
+	let hasSharedSettings = $derived(sharedSettings && Object.entries(sharedSettings).some(([key, data]) => key && data.value))
 
- 	function formatResolution(resData) {
- 		if (!resData) return 'N/A';
+ 	function formatResolution (resData) {
+ 		if (!resData) return 'N/A'
  		switch (resData.resolutionType) {
-			case 'Fixed':
-				let { fixedResolution } = resData;
-				return fixedResolution ? `Fixed at ${ fixedResolution }` : 'N/A'
+ 	  case 'Fixed':
+ 	    let { fixedResolution } = resData
+ 	    return fixedResolution ? `Fixed at ${ fixedResolution }` : 'N/A'
  			case 'Dynamic':
- 				const min = resData.minResolution || '?';
- 				const max = resData.maxResolution || '?';
- 				if (min === '?' && max === '?') return 'Dynamic';
- 				return `Dynamic, ${min} to ${max}`;
+ 				const min = resData.minResolution || '?'
+ 				const max = resData.maxResolution || '?'
+ 				if (min === '?' && max === '?') return 'Dynamic'
+ 				return `Dynamic, ${min} to ${max}`
  			case 'Multiple Fixed':
-				return resData.multipleResolutions?.filter(Boolean).join(', ') || 'N/A';
-			default:
-				return 'N/A';
-		}
+ 	    return resData.multipleResolutions?.filter(Boolean).join(', ') || 'N/A'
+ 	  default:
+ 	    return 'N/A'
+ 	  }
+ 	}
+
+	function formatFramerate (fpsData) {
+	  if (!fpsData) return 'N/A'
+	  switch (fpsData.lockType) {
+	  case 'Unlocked':
+	    return 'Unlocked'
+	  case 'API':
+	    return `API Locked to ${fpsData.targetFps} FPS`
+	  case 'Custom':
+	    return `Custom Lock to ${fpsData.targetFps} FPS`
+	  default:
+	    return 'N/A'
+	  }
 	}
 
-	function formatFramerate(fpsData) {
-		if (!fpsData) return 'N/A';
-		switch (fpsData.lockType) {
-			case 'Unlocked':
-				return 'Unlocked';
-			case 'API':
-				return `API Locked to ${fpsData.targetFps} FPS`;
-			case 'Custom':
-				return `Custom Lock to ${fpsData.targetFps} FPS`;
-			default:
-				return 'N/A';
-		}
-	}
-
-	function formatBuffering(buffering) {
-		if (!buffering) return '';
-		switch (buffering) {
-			case 'Double':
-				return 'Double buffer';
-			case 'Double (Reversed)':
-				return 'Double buffer (Reversed)';
-			case 'Triple':
-				return 'Triple buffer';
-			case 'Quadruple':
-				return 'Quadruple buffer';
-			default:
-				return buffering;
-		}
+	function formatBuffering (buffering) {
+	  if (!buffering) return ''
+	  switch (buffering) {
+	  case 'Double':
+	    return 'Double buffer'
+	  case 'Double (Reversed)':
+	    return 'Double buffer (Reversed)'
+	  case 'Triple':
+	    return 'Triple buffer'
+	  case 'Quadruple':
+	    return 'Quadruple buffer'
+	  default:
+	    return buffering
+	  }
 	}
 </script>
 

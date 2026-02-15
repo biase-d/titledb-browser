@@ -5,8 +5,9 @@
 	import { onMount } from "svelte";
 	import { browser } from "$app/environment";
 	import CanvasFlair from "./CanvasFlair.svelte";
-	import { slide, fade, fly } from "svelte/transition";
-	import { cubicOut } from "svelte/easing";
+	import { fade } from "svelte/transition";
+	import { createImageSet } from "$lib/image";
+	import { preferences } from "$lib/stores/preferences";
 
 	const badges = [
 		{
@@ -127,6 +128,10 @@
 
 <svelte:head>
 	<title>{username}'s Profile - Switch Performance</title>
+	<meta
+		name="description"
+		content="{username} has contributed {totalContributions} performance profiles to Switch Performance. View their contributions and badges."
+	/>
 </svelte:head>
 
 <div class="profile-container">
@@ -137,19 +142,19 @@
 			data-tier={currentTierName?.toLowerCase().replace(/\s+/g, "-")}
 		>
 			<div class="hero-background">
-				{#if data.featuredGame?.iconUrl}
-					<img
-						src={data.featuredGame.iconUrl}
-						alt=""
-						class="blurred-bg"
-					/>
-				{:else if contributions[0]?.game?.iconUrl}
-					<img
-						src={contributions[0].game.iconUrl}
-						alt=""
-						class="blurred-bg"
-					/>
-				{/if}
+				{#key username}
+					{@const featuredIcon = createImageSet(
+						data.featuredGame?.iconUrl ||
+							contributions[0]?.game?.iconUrl,
+						{
+							highRes: false, // Always low res for blurred background
+							thumbnailWidth: 100,
+						},
+					)}
+					{#if featuredIcon}
+						<img src={featuredIcon.src} alt="" class="blurred-bg" />
+					{/if}
+				{/key}
 				<div class="overlay-gradient"></div>
 			</div>
 
@@ -310,17 +315,28 @@
 			{#if contributions.length > 0}
 				<div class="contributions-layout {viewMode}">
 					{#each contributions as item (item.game.id)}
+						{@const iconSet = createImageSet(item.game.iconUrl, {
+							highRes: $preferences.highResImages,
+							thumbnailWidth: 96,
+						})}
 						<a
 							href={`/title/${item.game.id}`}
 							class="contrib-card {viewMode}"
 						>
 							<div class="game-icon-wrapper">
-								<img
-									src={item.game.iconUrl || "/favicon.svg"}
-									alt=""
-									class="game-icon"
-									loading="lazy"
-								/>
+								{#if iconSet}
+									<img
+										src={iconSet.src}
+										srcset={iconSet.srcset}
+										alt=""
+										class="game-icon"
+										loading="lazy"
+									/>
+								{:else}
+									<div class="game-icon-placeholder">
+										<Icon icon="mdi:image-off" />
+									</div>
+								{/if}
 							</div>
 
 							<div class="card-body">

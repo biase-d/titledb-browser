@@ -1,5 +1,5 @@
-import { eq, and } from 'drizzle-orm';
-import { favorites } from '$lib/db/schema';
+import { eq, and } from 'drizzle-orm'
+import { favorites } from '$lib/db/schema'
 
 /**
  * Get all favorite game IDs for a user
@@ -7,14 +7,14 @@ import { favorites } from '$lib/db/schema';
  * @param {string} userId
  * @returns {Promise<string[]>}
  */
-export async function getUserFavorites(db, userId) {
-    if (!userId) return [];
-    const results = await db
-        .select({ gameId: favorites.gameId })
-        .from(favorites)
-        .where(eq(favorites.userId, userId));
+export async function getUserFavorites (db, userId) {
+	if (!userId) return []
+	const results = await db
+		.select({ gameId: favorites.gameId })
+		.from(favorites)
+		.where(eq(favorites.userId, userId))
 
-    return results.map(r => r.gameId);
+	return results.map(r => r.gameId)
 }
 
 /**
@@ -24,12 +24,12 @@ export async function getUserFavorites(db, userId) {
  * @param {string} gameId
  * @returns {Promise<void>}
  */
-export async function addFavorite(db, userId, gameId) {
-    if (!userId || !gameId) return;
-    await db
-        .insert(favorites)
-        .values({ userId, gameId })
-        .onConflictDoNothing();
+export async function addFavorite (db, userId, gameId) {
+	if (!userId || !gameId) return
+	await db
+		.insert(favorites)
+		.values({ userId, gameId })
+		.onConflictDoNothing()
 }
 
 /**
@@ -39,14 +39,14 @@ export async function addFavorite(db, userId, gameId) {
  * @param {string} gameId
  * @returns {Promise<void>}
  */
-export async function removeFavorite(db, userId, gameId) {
-    if (!userId || !gameId) return;
-    await db
-        .delete(favorites)
-        .where(
-            and(
-                eq(favorites.userId, userId),
-                eq(favorites.gameId, gameId)
-            )
-        );
+export async function removeFavorite (db, userId, gameId) {
+	if (!userId || !gameId) return
+	await db
+		.delete(favorites)
+		.where(
+			and(
+				eq(favorites.userId, userId),
+				eq(favorites.gameId, gameId)
+			)
+		)
 }

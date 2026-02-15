@@ -8,26 +8,18 @@
     import { themeStore } from "$lib/stores/theme.svelte";
     import { preferences } from "$lib/stores/preferences";
     import { fade } from "svelte/transition";
+    import { createImageSet } from "$lib/image";
 
     let { data, children } = $props();
 
     $effect(() => {
-        console.log("[Layout] Theme effect triggered:", {
-            enabled: $preferences.adaptiveTheme,
-            isActive: themeStore.isActive,
-            hasColors: !!themeStore.colors,
-        });
+        const root = document.documentElement;
 
         if (
             $preferences.adaptiveTheme &&
             themeStore.isActive &&
             themeStore.colors
         ) {
-            console.log(
-                "[Layout] Applying theme colors:",
-                themeStore.colors.primary,
-            );
-            const root = document.documentElement;
             root.style.setProperty(
                 "--primary-color",
                 themeStore.colors.primary,
@@ -37,10 +29,19 @@
                 "--theme-overlay",
                 themeStore.colors.overlay,
             );
+            root.style.setProperty(
+                "--primary-color-hover",
+                `color-mix(in srgb, ${themeStore.colors.primary} 80%, white)`,
+            );
         } else {
-            console.log("[Layout] Removing theme properties");
-            const root = document.documentElement;
-            root.style.removeProperty("--primary-color");
+            root.style.setProperty(
+                "--primary-color",
+                $preferences.favoriteColor,
+            );
+            root.style.setProperty(
+                "--primary-color-hover",
+                `color-mix(in srgb, ${$preferences.favoriteColor} 80%, white)`,
+            );
             root.style.removeProperty("--accent-color");
             root.style.removeProperty("--theme-overlay");
         }
@@ -52,7 +53,10 @@
 {#if $preferences.adaptiveTheme && themeStore.backgroundImage}
     <div class="theme-background-wrapper" transition:fade={{ duration: 600 }}>
         <img
-            src={themeStore.backgroundImage}
+            src={createImageSet(themeStore.backgroundImage, {
+                highRes: false,
+                thumbnailWidth: 100,
+            })?.src}
             alt=""
             class="theme-background-image"
         />
@@ -124,10 +128,27 @@
     }
 
     :global(.has-theme) {
+        /* When theme is active, use a dark-primary hybrid background for immersion */
+        --background-color: color-mix(
+            in srgb,
+            var(--theme-overlay, #0d1117) 80%,
+            #000000
+        );
         --surface-color: color-mix(
             in srgb,
-            var(--background-color) 80%,
-            var(--theme-overlay, transparent)
+            var(--background-color) 90%,
+            var(--primary-color)
         );
+
+        /* Force light-mode variants of text when theme is active */
+        --text-primary: var(--color-text-header-dark);
+        --text-secondary: var(--color-text-muted-dark);
+        --text-body: var(--color-text-body-dark);
+        --border-color: color-mix(
+            in srgb,
+            var(--primary-color) 20%,
+            var(--color-border-dark)
+        );
+        --input-bg: rgba(0, 0, 0, 0.2);
     }
 </style>

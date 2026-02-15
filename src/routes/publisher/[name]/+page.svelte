@@ -1,41 +1,44 @@
 <script>
-	import { page } from "$app/state";
-	import { goto } from "$app/navigation";
-	import { browser } from "$app/environment";
-	import { onMount } from "svelte";
-	import Icon from "@iconify/svelte";
-	import ListItem from "../../ListItem.svelte";
-	import GridItem from "../../GridItem.svelte";
+	import { goto } from '$app/navigation'
+	import { browser } from '$app/environment'
+	import { onMount } from 'svelte'
+	import Icon from '@iconify/svelte'
+	import ListItem from '../../ListItem.svelte'
+	import GridItem from '../../GridItem.svelte'
 
-	let { data } = $props();
+	let { data } = $props()
 
-	let results = $derived(data.results);
-	let pagination = $derived(data.pagination);
-	let publisherName = $derived(data.publisherName);
-	let stats = $derived(data.stats || null);
+	let results = $derived(data.results)
+	let pagination = $derived(data.pagination)
+	let publisherName = $derived(data.publisherName)
+	let stats = $derived(data.stats || null)
 
-	let viewMode = $state("list");
+	let viewMode = $state('list')
 
 	onMount(() => {
-		const savedView = localStorage.getItem("viewMode");
-		if (savedView === "grid" || savedView === "list") viewMode = savedView;
-	});
+		const savedView = localStorage.getItem('viewMode')
+		if (savedView === 'grid' || savedView === 'list') viewMode = savedView
+	})
 
-	function changePage(newPage) {
-		const url = new URL(window.location.href);
-		url.searchParams.set("page", newPage.toString());
-		goto(url, { noScroll: true });
-		if (browser) window.scrollTo({ top: 0, behavior: "smooth" });
+	function changePage (newPage) {
+		const url = new URL(window.location.href)
+		url.searchParams.set('page', newPage.toString())
+		goto(url, { noScroll: true })
+		if (browser) window.scrollTo({ top: 0, behavior: 'smooth' })
 	}
 
-	function toggleView(mode) {
-		viewMode = mode;
-		if (browser) localStorage.setItem("viewMode", mode);
+	function toggleView (mode) {
+		viewMode = mode
+		if (browser) localStorage.setItem('viewMode', mode)
 	}
 </script>
 
 <svelte:head>
 	<title>{publisherName} Games - Switch Performance</title>
+	<meta
+		name="description"
+		content="Browse {pagination.totalItems} Nintendo Switch games published by {publisherName}. View performance profiles, FPS data, and resolution details."
+	/>
 </svelte:head>
 
 <main class="page-container">
@@ -126,13 +129,13 @@
 	<div class="controls">
 		<div class="view-switcher">
 			<button
-				class:active={viewMode === "list"}
-				onclick={() => toggleView("list")}
+				class:active={viewMode === 'list'}
+				onclick={() => toggleView('list')}
 				title="List View"><Icon icon="mdi:view-list" /></button
 			>
 			<button
-				class:active={viewMode === "grid"}
-				onclick={() => toggleView("grid")}
+				class:active={viewMode === 'grid'}
+				onclick={() => toggleView('grid')}
 				title="Grid View"><Icon icon="mdi:view-grid" /></button
 			>
 		</div>
@@ -140,7 +143,7 @@
 
 	<div class="results-container {viewMode}">
 		{#each results as item (item.id)}
-			{#if viewMode === "list"}
+			{#if viewMode === 'list'}
 				<ListItem titleData={item} />
 			{:else}
 				<GridItem titleData={item} />

@@ -1,5 +1,6 @@
-import { Octokit } from '@octokit/rest';
-import { GITHUB_BOT_TOKEN } from '$env/static/private';
+import { Octokit } from '@octokit/rest'
+import { GITHUB_BOT_TOKEN } from '$env/static/private'
+import logger from '$lib/services/loggerService'
 
 const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN })
 
@@ -11,9 +12,10 @@ const DEFAULT_BRANCH = 'v3'
  * Custom error to identify submission conflicts
  */
 export class GitConflictError extends Error {
+	/** @param {string} message */
 	constructor(message) {
 		super(message)
-		this.name = 'GitConflictError';
+		this.name = 'GitConflictError'
 	}
 }
 
@@ -32,18 +34,19 @@ export async function getFileSha(path) {
 
 		// Ensure the response is for a file and has a SHA
 		if (Array.isArray(data) || !('sha' in data)) {
-			return null;
+			return null
 		}
 
-		return data.sha;
+		return data.sha
 	} catch (error) {
+		const err = error instanceof Error ? error : new Error(String(error))
 		// A 404 error is expected if the file doesn't exist, so we return null
-		if (error.status === 404) {
-			return null;
+		if (err instanceof Object && 'status' in err && err.status === 404) {
+			return null
 		}
 		// For other errors, log them but still return null to prevent crashes
-		console.error(`Error fetching SHA for path "${path}":`, error.message)
-		return null;
+		logger.error(`Error fetching SHA for path "${path}"`, err)
+		return null
 	}
 }
 
@@ -57,8 +60,8 @@ export async function getFileSha(path) {
  * @returns {Promise<string|null>} The URL of the created pull request, or null on failure
  */
 export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, filesToCommit, prTitle, prBody) {
-	const owner = REPO_OWNER;
-	const repo = REPO_NAME;
+	const owner = REPO_OWNER
+	const repo = REPO_NAME
 
 	try {
 		// Get the SHA of the main branch
@@ -67,7 +70,7 @@ export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, f
 			repo,
 			branch: DEFAULT_BRANCH
 		})
-		const mainBranchSha = mainBranch.commit.sha;
+		const mainBranchSha = mainBranch.commit.sha
 
 		// Create a new branch from the main branch's SHA
 		await octokit.git.createRef({
@@ -84,10 +87,10 @@ export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, f
 				if (file.content === null) {
 					return {
 						path: file.path,
-						mode: '100644',
-						type: 'blob',
+						mode: /** @type {"100644"} */ ('100644'),
+						type: /** @type {"blob"} */ ('blob'),
 						sha: null // Setting sha to null deletes the file
-					};
+					}
 				}
 
 				// Handle file creation/update
@@ -99,10 +102,10 @@ export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, f
 				})
 				return {
 					path: file.path,
-					mode: '100644',
-					type: 'blob',
+					mode: /** @type {"100644"} */ ('100644'),
+					type: /** @type {"blob"} */ ('blob'),
 					sha: blob.sha
-				};
+				}
 			})
 		)
 
@@ -141,16 +144,17 @@ export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, f
 			draft: true // Create as a draft PR
 		})
 
-		return pullRequest.html_url;
+		return pullRequest.html_url
 	} catch (error) {
 		// If the error is a 409 or 422, it's likely a conflict (e.g., stale SHA)
 		// We throw a custom error to handle this specifically in the form action
-		if (error.status === 409 || error.status === 422) {
-			console.warn(`Caught a git conflict error (${error.status}) for branch ${branchName}.`)
+		const err = error instanceof Error ? error : new Error(String(error))
+		if (err instanceof Object && 'status' in err && (err.status === 409 || err.status === 422)) {
+			logger.warn(`Git conflict (${err.status}) for branch ${branchName}`, { branchName, status: err.status })
 			throw new GitConflictError('A conflict occurred while creating the pull request. The base data may have changed')
 		}
 
-		console.error('An unexpected error occurred during pull request creation:', error.message)
+		logger.error('Unexpected error during pull request creation', err, { branchName })
 
 		// Attempt to clean up the created branch if an error occurs mid-process
 		try {
@@ -159,11 +163,12 @@ export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, f
 				repo,
 				ref: `heads/${branchName}`
 			})
-			console.log(`Cleaned up branch: ${branchName}`)
+			logger.info(`Cleaned up branch: ${branchName}`, { branchName })
 		} catch (cleanupError) {
-			console.error(`Failed to clean up branch ${branchName}:`, cleanupError.message)
+			const cErr = cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError))
+			logger.error(`Failed to clean up branch ${branchName}`, cErr, { branchName })
 		}
 
-		return null;
+		return null
 	}
 }

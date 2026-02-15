@@ -1,40 +1,42 @@
 <script>
-    import Icon from '@iconify/svelte';
-    import { fade, scale } from 'svelte/transition';
-    import { getFlagIcon, getCountryName } from '$lib/flags';
-    import { getRegionLabel } from '$lib/regions';
+    import Icon from '@iconify/svelte'
+    import { scale } from 'svelte/transition'
+    import { getFlagIcon, getCountryName } from '$lib/flags'
+    import { getRegionLabel } from '$lib/regions'
 
-    let { regions = [] } = $props();
+    let { regions = [] } = $props()
 
-    let isOpen = $state(false);
-    let label = $derived(getRegionLabel(regions) || 'Unknown Region');
-    
-    let sortedRegions = $derived([...regions].sort((a, b) => {
-        const priority = ['US', 'JP', 'GB', 'EU'];
-        const idxA = priority.indexOf(a);
-        const idxB = priority.indexOf(b);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.localeCompare(b);
-    }));
+    let isOpen = $state(false)
+    let label = $derived(getRegionLabel(regions) || 'Unknown Region')
 
-    function toggle(e) {
-        e.stopPropagation();
-        isOpen = !isOpen;
+    let sortedRegions = $derived(
+        [...regions].sort((a, b) => {
+            const priority = ['US', 'JP', 'GB', 'EU']
+            const idxA = priority.indexOf(a)
+            const idxB = priority.indexOf(b)
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB
+            if (idxA !== -1) return -1
+            if (idxB !== -1) return 1
+            return a.localeCompare(b)
+        }),
+    )
+
+    function toggle (e) {
+        e.stopPropagation()
+        isOpen = !isOpen
     }
 
-    function close() {
-        isOpen = false;
+    function close () {
+        isOpen = false
     }
 </script>
 
 <svelte:window onclick={close} />
 
 <div class="region-container">
-    <button 
-        class="region-trigger" 
-        onclick={toggle} 
+    <button
+        class="region-trigger"
+        onclick={toggle}
         aria-expanded={isOpen}
         aria-haspopup="true"
         title="View available countries"
@@ -45,15 +47,19 @@
     </button>
 
     {#if isOpen}
-        <div 
-            class="popover" 
+        <div
+            class="popover"
             transition:scale={{ duration: 150, start: 0.95 }}
             onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="Region availability"
+            tabindex="-1"
         >
             <div class="popover-header">Available In</div>
             <div class="flags-grid">
                 {#each sortedRegions as code}
-                    <div class="flag-item" title="{getCountryName(code)}">
+                    <div class="flag-item" title={getCountryName(code)}>
                         <Icon icon={getFlagIcon(code)} width="24" height="24" />
                         <span class="code">{code}</span>
                     </div>
@@ -88,12 +94,12 @@
         background: rgba(255, 255, 255, 0.2);
     }
 
-    .chevron {
+    .region-trigger :global(.chevron) {
         font-size: 1rem;
         opacity: 0.7;
         transition: transform 0.2s;
     }
-    .chevron.open {
+    .region-trigger :global(.chevron.open) {
         transform: rotate(180deg);
     }
 

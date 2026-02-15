@@ -1,5 +1,5 @@
 <script>
-	export let session;
+	export let session
 </script>
 
 {#if session?.user}

@@ -1,19 +1,22 @@
 <script>
-	let { links } = $props();
+	let { links } = $props()
 
 	/**
-     * @param {string} url
-     */
-	function getYouTubeID(url) {
-		const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-		const match = url.match(regex);
-		return match ? match[1] : null;
+	 * @param {string} url
+	 */
+	function getYouTubeID (url) {
+		const regex =
+			/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/ // eslint-disable-line no-useless-escape
+		const match = url.match(regex)
+		return match ? match[1] : null
 	}
 </script>
 
 <div class="section-container">
 	{#if links.length === 0}
-		<p class="notice-card">No videos have been submitted for this title yet</p>
+		<p class="notice-card">
+			No videos have been submitted for this title yet
+		</p>
 	{:else}
 		<div class="videos-grid">
 			{#each links as link}

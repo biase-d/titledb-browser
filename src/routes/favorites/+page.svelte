@@ -1,14 +1,15 @@
 <script>
-	import Icon from '@iconify/svelte';
+	import Icon from '@iconify/svelte'
 
 	/** @type {import('./$types').PageData} */
-	export let data;
+	export let data
 
-	$: favoritedGames = data.favoritedGames || [];
+	$: favoritedGames = data.favoritedGames || []
 </script>
 
 <svelte:head>
 	<title>My Favorites - Switch Performance</title>
+	<meta name="robots" content="noindex" />
 </svelte:head>
 
 <div class="page-container">
@@ -32,7 +33,10 @@
 	{:else}
 		<div class="empty-state">
 			<h3>No Favorites Yet</h3>
-			<p>You can add games to this list by clicking the star icon on any game's detail page.</p>
+			<p>
+				You can add games to this list by clicking the star icon on any
+				game's detail page.
+			</p>
 			<a href="/" class="cta-button">Start Browsing</a>
 		</div>
 	{/if}
@@ -79,7 +83,11 @@
 	}
 	.list-item:hover {
 		border-color: var(--primary-color);
-		background-color: color-mix(in srgb, var(--primary-color) 5%, transparent);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 5%,
+			transparent
+		);
 		text-decoration: none;
 	}
 
@@ -96,7 +104,6 @@
 		font-size: 0.8rem;
 		color: var(--text-secondary);
 	}
-
 
 	.empty-state {
 		text-align: center;

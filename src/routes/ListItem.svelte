@@ -17,7 +17,12 @@
 	let docked = $derived(performance.docked || {});
 	let handheld = $derived(performance.handheld || {});
 
-	let imageSet = $derived(createImageSet(iconUrl || titleData.bannerUrl));
+	let imageSet = $derived(
+		createImageSet(iconUrl || titleData.bannerUrl, {
+			highRes: $preferences.highResImages,
+			thumbnailWidth: 64,
+		}),
+	);
 
 	let preferredRegion = $state("US");
 	preferences.subscribe((p) => (preferredRegion = p.region));
@@ -52,7 +57,7 @@
 		<img
 			src={imageSet?.src || iconUrl || titleData.bannerUrl}
 			srcset={imageSet?.srcset}
-			alt={`Game icon for ${titleName}`}
+			alt={`Game icon for ${titleName}${titleData.publisher && titleData.publisher !== "N/A" ? ` by ${titleData.publisher}` : ""}`}
 			class:fallback-icon={!iconUrl && titleData.bannerUrl}
 			loading="lazy"
 			width="48"
@@ -260,6 +265,16 @@
 		transition: all 0.2s ease;
 	}
 
+	:global(.has-theme) .region-badge {
+		color: var(--primary-color);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 10%,
+			transparent
+		);
+		border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
+	}
+
 	.list-item:hover .perf-tag {
 		border-color: color-mix(
 			in srgb,
@@ -270,6 +285,15 @@
 			in srgb,
 			var(--primary-color) 5%,
 			var(--input-bg)
+		);
+	}
+
+	:global(.has-theme) .list-item:hover .perf-tag {
+		border-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 15%,
+			transparent
 		);
 	}
 
