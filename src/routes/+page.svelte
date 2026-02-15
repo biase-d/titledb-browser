@@ -546,40 +546,6 @@
 		margin: 0 auto;
 	}
 
-	.search-input-container {
-		position: relative;
-		background: var(--surface-color);
-		border: 1px solid var(--border-color);
-		border-radius: 16px;
-		display: flex;
-		align-items: center;
-		padding: 0 1.25rem;
-		box-shadow: var(--shadow-xl);
-		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	}
-
-	.search-input-container:focus-within {
-		border-color: var(--primary-color);
-		transform: translateY(-2px);
-		box-shadow: 0 12px 24px -8px color-mix(in srgb, var(--primary-color) 25%, transparent);
-	}
-
-	.search-input-container :global(.search-icon) {
-		font-size: 1.5rem;
-		color: var(--text-secondary);
-		margin-right: 1rem;
-	}
-
-	.search-input-container input {
-		width: 100%;
-		padding: 1.25rem 0;
-		background: transparent;
-		border: none;
-		font-size: 1.1rem;
-		color: var(--text-primary);
-		outline: none;
-	}
-
 	/* --- Common Themed Elements --- */
 	:global(.has-theme) .perf-badge {
 		background: color-mix(

@@ -83,15 +83,15 @@
 		{#if games.length > 0}
 			<div class="results-container">
 				{#each games as game (game.id)}
+					{@const iconSet = createImageSet(game.iconUrl, {
+						highRes: $preferences.highResImages,
+						thumbnailWidth: 80,
+					})}
 					<a
 						href={`/contribute/${game.id}`}
 						class="list-item"
 						aria-label={`Contribute data for ${game.names[0]}`}
 					>
-						{@const iconSet = createImageSet(game.iconUrl, {
-							highRes: $preferences.highResImages,
-							thumbnailWidth: 80,
-						})}
 						{#if iconSet}
 							<img
 								src={iconSet.src}
