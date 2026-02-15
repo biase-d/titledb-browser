@@ -54,7 +54,7 @@
 					<a
 						href="https://github.com/biase-d/titledb-browser/blob/main/LICENSE"
 						target="_blank"
-						rel="noopener noreferrer">MIT License</a
+						rel="noopener noreferrer">AGPL v3 License</a
 					>
 				</nav>
 			</div>
