@@ -1,6 +1,6 @@
 <script>
-	import '@fontsource-variable/caveat'
-	const currentYear = new Date().getFullYear()
+	import "@fontsource-variable/caveat";
+	const currentYear = new Date().getFullYear();
 </script>
 
 <footer class="site-footer">
@@ -45,6 +45,19 @@
 					>
 				</nav>
 			</div>
+
+			<div class="footer-group">
+				<h4>Legal</h4>
+				<nav>
+					<a href="/privacy">Privacy Policy</a>
+					<a href="/legal">Legal & Disclaimers</a>
+					<a
+						href="https://github.com/biase-d/titledb-browser/blob/main/LICENSE"
+						target="_blank"
+						rel="noopener noreferrer">MIT License</a
+					>
+				</nav>
+			</div>
 		</div>
 
 		<div class="footer-bottom">
@@ -62,6 +75,11 @@
 					a biase-d project
 				</a>
 			</div>
+		</div>
+
+		<div class="footer-disclaimer">
+			Nintendo Switch is a trademark of Nintendo. Switch Performance is
+			not affiliated with Nintendo.
 		</div>
 	</div>
 </footer>
@@ -89,7 +107,7 @@
 
 	@media (min-width: 1024px) {
 		.footer-sections {
-			grid-template-columns: 2fr 1fr 1fr;
+			grid-template-columns: 2fr 1fr 1fr 1fr;
 			gap: 4rem;
 		}
 	}
@@ -166,5 +184,17 @@
 
 	.self-plug:hover {
 		color: var(--text-primary);
+	}
+
+	.footer-disclaimer {
+		margin-top: 2rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid rgba(255, 255, 255, 0.05);
+		text-align: center;
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		opacity: 0.6;
+		letter-spacing: 0.02em;
+		line-height: 1.4;
 	}
 </style>
