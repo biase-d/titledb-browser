@@ -50,7 +50,7 @@
 	href={`/title/${id}`}
 	class="list-item"
 	transition:slide|local
-	data-sveltekit-preload-data="hover"
+	data-sveltekit-preload-data="tap"
 	aria-label={ariaLabel}
 >
 	<div class="icon-wrapper">

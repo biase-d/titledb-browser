@@ -42,10 +42,18 @@ export function createImageSet(src, options = {}) {
 
 	// For icons/thumbnails, we want 1x and 2x (for Retina displays)
 	const x1 = proxyImage(src, baseWidth)
-	const x2 = proxyImage(src, baseWidth * 2)
+
+	// Only generate srcset if it's likely to be beneficial (high res requested or large banner)
+	if (highRes || baseWidth > 300) {
+		const x2 = proxyImage(src, baseWidth * 2)
+		return {
+			src: x1,
+			srcset: `${x1} ${baseWidth}w, ${x2} ${baseWidth * 2}w`
+		}
+	}
 
 	return {
 		src: x1,
-		srcset: `${x1} ${baseWidth}w, ${x2} ${baseWidth * 2}w`
+		srcset: ''
 	}
 }

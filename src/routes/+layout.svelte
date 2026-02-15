@@ -1,6 +1,6 @@
 <script>
     import "../app.css";
-    import { page } from "$app/stores";
+    import { page, navigating } from "$app/stores";
     import Header from "./Header.svelte";
     import Footer from "./Footer.svelte";
     import OnboardingModal from "./OnboardingModal.svelte";
@@ -49,6 +49,12 @@
 </script>
 
 <AnnouncementBanner />
+
+{#if $navigating}
+    <div class="nav-progress-bar">
+        <div class="nav-progress-inner"></div>
+    </div>
+{/if}
 
 {#if $preferences.adaptiveTheme && themeStore.backgroundImage}
     <div class="theme-background-wrapper" transition:fade={{ duration: 600 }}>
@@ -150,5 +156,38 @@
             var(--color-border-dark)
         );
         --input-bg: rgba(0, 0, 0, 0.2);
+    }
+
+    .nav-progress-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        z-index: 9999;
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-progress-inner {
+        height: 100%;
+        background: var(--primary-color);
+        width: 0%;
+        animation: progress 2s ease-in-out infinite;
+        box-shadow: 0 0 10px var(--primary-color);
+    }
+
+    @keyframes progress {
+        0% {
+            width: 0%;
+            margin-left: 0%;
+        }
+        50% {
+            width: 50%;
+            margin-left: 25%;
+        }
+        100% {
+            width: 100%;
+            margin-left: 100%;
+        }
     }
 </style>

@@ -51,7 +51,7 @@
 	href={`/title/${id}`}
 	class="game-card"
 	transition:slide|local
-	data-sveltekit-preload-data="hover"
+	data-sveltekit-preload-data="tap"
 	aria-label={ariaLabel}
 >
 	<div class="image-container">
