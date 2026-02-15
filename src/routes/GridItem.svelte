@@ -5,8 +5,9 @@
 	import { getRegionLabel } from "$lib/regions";
 	import { preferences } from "$lib/stores/preferences";
 	import { getLocalizedName } from "$lib/i18n";
+	import TextHighlight from "$lib/components/TextHighlight.svelte";
 
-	let { titleData } = $props();
+	let { titleData, query = "" } = $props();
 
 	let id = $derived(titleData.id);
 	let iconUrl = $derived(titleData.iconUrl);
@@ -99,7 +100,7 @@
 					? "ko"
 					: "en"}
 		>
-			{titleName}
+			<TextHighlight text={titleName} {query} />
 		</p>
 
 		<div class="card-meta">

@@ -26,26 +26,52 @@
 
 	function handleInput() {
 		clearTimeout(searchDebounce);
-		if (searchValue.length < 2) {
-			searchResults = [];
-			return;
-		}
 
-		isSearching = true;
-		searchDebounce = setTimeout(async () => {
-			try {
-				const res = await fetch(
-					`/api/v1/games/search?q=${encodeURIComponent(searchValue)}`,
-				);
-				if (res.ok) {
-					searchResults = await res.json();
+		// Always update the dropdown results
+		if (searchValue.length >= 2) {
+			isSearching = true;
+			searchDebounce = setTimeout(async () => {
+				try {
+					const res = await fetch(
+						`/api/v1/games/search?q=${encodeURIComponent(searchValue)}`,
+					);
+					if (res.ok) {
+						searchResults = await res.json();
+					}
+
+					// If we are on the homepage, update the URL immediately (debounced)
+					// to trigger the main results update
+					if (page.url.pathname === "/") {
+						const url = new URL(window.location.href);
+						if (searchValue) url.searchParams.set("q", searchValue);
+						else url.searchParams.delete("q");
+						url.searchParams.delete("page");
+						goto(url.toString(), {
+							replaceState: true,
+							noScroll: true,
+							keepFocus: true,
+						});
+					}
+				} catch (e) {
+					console.error(e);
+				} finally {
+					isSearching = false;
 				}
-			} catch (e) {
-				console.error(e);
-			} finally {
-				isSearching = false;
+			}, 300);
+		} else {
+			searchResults = [];
+			// Still update URL if clearing search on homepage
+			if (page.url.pathname === "/" && searchValue === "") {
+				const url = new URL(window.location.href);
+				url.searchParams.delete("q");
+				url.searchParams.delete("page");
+				goto(url.toString(), {
+					replaceState: true,
+					noScroll: true,
+					keepFocus: true,
+				});
 			}
-		}, 300);
+		}
 	}
 
 	function handleSearchSubmit(e) {

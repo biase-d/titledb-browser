@@ -329,6 +329,7 @@
 
 <svelte:head>
 	<title>{name} - Switch Performance</title>
+	<link rel="icon" href={iconImages?.src || "/favicon.svg"} />
 	<meta
 		name="description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
