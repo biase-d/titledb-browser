@@ -14,6 +14,8 @@
 	import SkeletonCard from "$lib/components/SkeletonCard.svelte";
 	import { navigating } from "$app/stores";
 
+	import { isFeatureEnabled } from "$lib/services/versionService";
+
 	let { data } = $props();
 	let { randomGames = [] } = $derived(data);
 
@@ -351,7 +353,7 @@
 		{/if}
 
 		<!-- Discovery Section -->
-		{#if randomGames.length > 0}
+		{#if isFeatureEnabled("discoverSection") && randomGames.length > 0}
 			<section class="discover-section">
 				<div class="section-title">
 					<Icon icon="mdi:auto-fix" />

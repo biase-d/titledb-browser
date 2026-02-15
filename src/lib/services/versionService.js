@@ -34,7 +34,8 @@ export function getVersionInfo() {
 			newContributionFlow: true,
 			gamification: false, // Planned feature
 			cloudStorage: true,
-			betaFlow: false // New multi-stage flow (User-controlled via Settings)
+			betaFlow: false, // New multi-stage flow (User-controlled via Settings)
+			discoverSection: false // Disabled for now as it lacks purpose
 		},
 		announcements: [
 			{

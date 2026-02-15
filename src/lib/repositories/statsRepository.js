@@ -24,7 +24,11 @@ export async function getStats(db, searchParams) {
 
 	if (sizeBucket) {
 		const sizeRanges = {
-			'<500MB': { max: '524288000' },
+			'<100MB': { max: '104857600' },
+			'100-200MB': { min: '104857600', max: '209715200' },
+			'200-300MB': { min: '209715200', max: '314572800' },
+			'300-400MB': { min: '314572800', max: '419430400' },
+			'400-500MB': { min: '419430400', max: '524288000' },
 			'500MB-1GB': { min: '524288000', max: '1073741824' },
 			'1-2GB': { min: '1073741824', max: '2147483648' },
 			'2-3GB': { min: '2147483648', max: '3221225472' },
@@ -88,7 +92,11 @@ export async function getStats(db, searchParams) {
 
 	const sizeBucketCase = sql`
         CASE
-            WHEN "size_in_bytes" < 524288000 THEN '<500MB'
+            WHEN "size_in_bytes" < 104857600 THEN '<100MB'
+            WHEN "size_in_bytes" >= 104857600 AND "size_in_bytes" < 209715200 THEN '100-200MB'
+            WHEN "size_in_bytes" >= 209715200 AND "size_in_bytes" < 314572800 THEN '200-300MB'
+            WHEN "size_in_bytes" >= 314572800 AND "size_in_bytes" < 419430400 THEN '300-400MB'
+            WHEN "size_in_bytes" >= 419430400 AND "size_in_bytes" < 524288000 THEN '400-500MB'
             WHEN "size_in_bytes" >= 524288000 AND "size_in_bytes" < 1073741824 THEN '500MB-1GB'
             WHEN "size_in_bytes" >= 1073741824 AND "size_in_bytes" < 2147483648 THEN '1-2GB'
             WHEN "size_in_bytes" >= 2147483648 AND "size_in_bytes" < 3221225472 THEN '2-3GB'
@@ -110,16 +118,20 @@ export async function getStats(db, searchParams) {
 		.groupBy(sizeBucketCase)
 		.orderBy(sql`
             CASE (${sizeBucketCase})
-                WHEN '<500MB' THEN 1
-                WHEN '500MB-1GB' THEN 2
-                WHEN '1-2GB' THEN 3
-                WHEN '2-3GB' THEN 4
-                WHEN '3-4GB' THEN 5
-                WHEN '4-5GB' THEN 6
-                WHEN '5-10GB' THEN 7
-                WHEN '10-15GB' THEN 8
-                WHEN '15-20GB' THEN 9
-                WHEN '>20GB' THEN 10
+                WHEN '<100MB' THEN 1
+                WHEN '100-200MB' THEN 2
+                WHEN '200-300MB' THEN 3
+                WHEN '300-400MB' THEN 4
+                WHEN '400-500MB' THEN 5
+                WHEN '500MB-1GB' THEN 6
+                WHEN '1-2GB' THEN 7
+                WHEN '2-3GB' THEN 8
+                WHEN '3-4GB' THEN 9
+                WHEN '4-5GB' THEN 10
+                WHEN '5-10GB' THEN 11
+                WHEN '10-15GB' THEN 12
+                WHEN '15-20GB' THEN 13
+                WHEN '>20GB' THEN 14
             END
         `)
 
@@ -160,6 +172,19 @@ export async function getStats(db, searchParams) {
         SELECT submitted_by as contributor_name FROM ${youtubeLinks}
     ) as subquery`).where(sql`contributor_name IS NOT NULL AND contributor_name != ''`)
 
+	// Filtered games list (top 50)
+	const filteredGamesQuery = db
+		.select({
+			id: games.id,
+			name: sql`${games.names}[1]`.as('name'),
+			publisher: games.publisher,
+			sizeInBytes: games.sizeInBytes
+		})
+		.from(games)
+		.where(combinedWheres)
+		.orderBy(desc(games.id))
+		.limit(50)
+
 	const [
 		basicKpis,
 		releasesByYear,
@@ -173,7 +198,8 @@ export async function getStats(db, searchParams) {
 		totalFavorites,
 		topRequested,
 		topFavorited,
-		contributorsResult
+		contributorsResult,
+		filteredGames
 	] = await Promise.all([
 		basicKpisQuery,
 		releasesByYearQuery,
@@ -187,7 +213,8 @@ export async function getStats(db, searchParams) {
 		db.select({ count: count() }).from(favorites).then((/** @type {any} */ r) => r[0].count),
 		topRequestedQuery,
 		topFavoritedQuery,
-		totalContributorsQuery.then((/** @type {any} */ r) => r[0])
+		totalContributorsQuery.then((/** @type {any} */ r) => r[0]),
+		filteredGamesQuery
 	])
 
 	return {
@@ -206,6 +233,7 @@ export async function getStats(db, searchParams) {
 		sizeDistribution,
 		topRequested,
 		topFavorited,
+		filteredGames,
 		activeFilters: { publisher, year, sizeBucket }
 	}
 }

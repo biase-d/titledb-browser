@@ -230,7 +230,11 @@
 		}
 		if (filters.sizeBucket) {
 			const ranges = {
-				"<500MB": [0, 512],
+				"<100MB": [0, 100],
+				"100-200MB": [100, 200],
+				"200-300MB": [200, 300],
+				"300-400MB": [300, 400],
+				"400-500MB": [400, 500],
 				"500MB-1GB": [512, 1024],
 				"1-2GB": [1024, 2048],
 				"2-3GB": [2048, 3072],
@@ -528,6 +532,46 @@
 								)}
 						/>
 					{/if}
+				</div>
+			</section>
+
+			<section class="chart-card glass-panel col-span-full">
+				<div class="chart-header">
+					<h3 class="chart-title">Filtered Game Data</h3>
+					<div class="chart-subtitle">Direct listing (Top 50)</div>
+				</div>
+				<div class="table-container">
+					<table class="data-table">
+						<thead>
+							<tr>
+								<th class="text-left">ID</th>
+								<th class="text-left">Name</th>
+								<th class="text-left">Publisher</th>
+								<th class="text-right">Size</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each stats.filteredGames as game}
+								<tr>
+									<td class="mono">{game.id}</td>
+									<td class="name">{game.name}</td>
+									<td>{game.publisher || "N/A"}</td>
+									<td class="mono text-right"
+										>{formatSize(game.sizeInBytes)}</td
+									>
+								</tr>
+							{:else}
+								<tr>
+									<td
+										colspan="4"
+										class="empty-state text-center"
+									>
+										No games found matching these filters.
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 				</div>
 			</section>
 		</div>
@@ -855,6 +899,69 @@
 		.col-span-full {
 			grid-column: span 2 / span 2;
 		}
+	}
+
+	.table-container {
+		width: 100%;
+		overflow-x: auto;
+		margin-top: 1rem;
+		padding: 0 1.5rem 1.5rem;
+	}
+
+	.data-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.85rem;
+		color: #e5e7eb;
+	}
+
+	.data-table th {
+		padding: 0.75rem 1rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+		color: #9ca3af;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		font-size: 0.75rem;
+	}
+
+	.data-table td {
+		padding: 0.75rem 1rem;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+	}
+
+	.data-table tr:last-child td {
+		border-bottom: none;
+	}
+
+	.data-table tr:hover td {
+		background: rgba(255, 255, 255, 0.02);
+	}
+
+	.data-table .mono {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+			monospace;
+		font-size: 0.75rem;
+		color: #9ca3af;
+	}
+
+	.data-table .name {
+		font-weight: 600;
+		color: white;
+	}
+
+	.data-table .text-right {
+		text-align: right;
+	}
+
+	.data-table .text-left {
+		text-align: left;
+	}
+
+	.empty-state {
+		padding: 3rem !important;
+		color: #6b7280;
+		font-style: italic;
 	}
 
 	.chart-card {
