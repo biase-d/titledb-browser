@@ -1,5 +1,5 @@
 import { games, performanceProfiles, graphicsSettings, gameGroups, youtubeLinks, dataRequests } from '$lib/db/schema'
-import { desc, eq, sql, inArray, or, and, count, countDistinct, notExists } from 'drizzle-orm'
+import { desc, eq, sql, inArray, or, and, count, countDistinct, notExists, exists, isNotNull } from 'drizzle-orm'
 
 const PAGE_SIZE = 50
 
@@ -9,7 +9,7 @@ const PAGE_SIZE = 50
  * @param {string} titleId - Game title ID
  * @returns {Promise<Object|null>}
  */
-export async function findGameById (db, titleId) {
+export async function findGameById(db, titleId) {
 	const result = await db.query.games.findFirst({
 		where: eq(games.id, titleId)
 	})
@@ -23,7 +23,7 @@ export async function findGameById (db, titleId) {
  * @param {string} groupId - Group ID
  * @returns {Promise<Array>}
  */
-export async function getGamesByGroup (db, groupId) {
+export async function getGamesByGroup(db, groupId) {
 	return await db.query.games.findMany({
 		where: eq(games.groupId, groupId),
 		columns: { id: true, names: true, regions: true }
@@ -36,7 +36,7 @@ export async function getGamesByGroup (db, groupId) {
  * @param {URLSearchParams} searchParams - Search parameters
  * @returns {Promise<Object>} Search results with pagination
  */
-export async function searchGames (db, searchParams) {
+export async function searchGames(db, searchParams) {
 	const page = parseInt(searchParams.get('page') || '1', 10)
 	const q = searchParams.get('q') || ''
 	const publisher = searchParams.get('publisher')
@@ -219,7 +219,7 @@ export async function searchGames (db, searchParams) {
  * @param {string[]} ids - Array of game IDs
  * @returns {Promise<Array>}
  */
-export async function findGamesByIds (db, ids) {
+export async function findGamesByIds(db, ids) {
 	if (!ids || ids.length === 0) {
 		return []
 	}
@@ -238,7 +238,7 @@ export async function findGamesByIds (db, ids) {
  * @param {string} titleId - Game title ID
  * @returns {Promise<Object|null>}
  */
-export async function getGameDetails (db, titleId) {
+export async function getGameDetails(db, titleId) {
 	const game = await db.query.games.findFirst({
 		where: eq(games.id, titleId)
 	})
@@ -318,7 +318,7 @@ export async function getGameDetails (db, titleId) {
  * @param {number} [limit=15] - Number of results
  * @returns {Promise<Array>}
  */
-export async function getRecentUpdates (db, limit = 15) {
+export async function getRecentUpdates(db, limit = 15) {
 	return await db.query.games.findMany({
 		orderBy: desc(games.lastUpdated),
 		limit
@@ -331,7 +331,7 @@ export async function getRecentUpdates (db, limit = 15) {
  * @param {number} [limit=45000] - Maximum number of games
  * @returns {Promise<Array<{id: string, lastUpdated: Date|null}>>}
  */
-export async function getGameIdsForSitemap (db, limit = 45000) {
+export async function getGameIdsForSitemap(db, limit = 45000) {
 	return await db.select({
 		id: games.id,
 		lastUpdated: games.lastUpdated
@@ -347,7 +347,7 @@ export async function getGameIdsForSitemap (db, limit = 45000) {
  * @param {string} gameId - Game ID
  * @returns {Promise<{game: Object, performance: Object|null, graphics: Object|null}|null>}
  */
-export async function getGameWithPerformanceForOg (db, gameId) {
+export async function getGameWithPerformanceForOg(db, gameId) {
 	const game = await db.query.games.findFirst({ where: eq(games.id, gameId) })
 	if (!game) return null
 
@@ -371,7 +371,7 @@ export async function getGameWithPerformanceForOg (db, gameId) {
  * @param {string[]} gameIds - Array of game IDs
  * @returns {Promise<Array>}
  */
-export async function getFavoriteGamesWithPerformance (db, gameIds) {
+export async function getFavoriteGamesWithPerformance(db, gameIds) {
 	if (!gameIds || gameIds.length === 0) return []
 
 	const latestProfileSubquery = db.$with('latest_profile').as(
@@ -427,7 +427,7 @@ const CONTRIBUTE_PAGE_SIZE = 50
  * @param {string} options.preferredRegion
  * @returns {Promise<{games: Array, sortBy: string, pagination: Object}>}
  */
-export async function getMissingDataGroups (db, { page, sortBy, preferredRegion }) {
+export async function getMissingDataGroups(db, { page, sortBy, preferredRegion }) {
 	const subqueryPerformance = db
 		.select({ groupId: performanceProfiles.groupId })
 		.from(performanceProfiles)
@@ -521,7 +521,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
  * @param {string} username
  * @returns {Promise<{perfContribs: Array<any>, graphicsContribs: Array<any>, videoContribs: Array<any>}>}
  */
-export async function getUserContributionStats (db, username) {
+export async function getUserContributionStats(db, username) {
 	const [perfContribs, graphicsContribs, videoContribs] = await Promise.all([
 		db.select({
 			groupId: performanceProfiles.groupId,
@@ -565,7 +565,7 @@ export async function getUserContributionStats (db, username) {
  * @param {string[]} groupIds
  * @returns {Promise<Array>}
  */
-export async function getGamesForGroups (db, groupIds) {
+export async function getGamesForGroups(db, groupIds) {
 	if (!groupIds || groupIds.length === 0) return []
 
 	return await db.selectDistinctOn([games.groupId], {
@@ -582,7 +582,7 @@ export async function getGamesForGroups (db, groupIds) {
  * @param {Object} contribution
  * @returns {Promise<void>}
  */
-export async function savePendingContribution (db, contribution) {
+export async function savePendingContribution(db, contribution) {
 	const { groupId, performance, graphics, youtube, prNumber } = contribution
 
 	const inserts = []
@@ -641,7 +641,7 @@ export async function savePendingContribution (db, contribution) {
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @returns {Promise<Object>}
  */
-export async function getPendingContributions (db) {
+export async function getPendingContributions(db) {
 	const [perf, graphs, vids] = await Promise.all([
 		db.query.performanceProfiles.findMany({ where: eq(performanceProfiles.status, 'pending') }),
 		db.query.graphicsSettings.findMany({ where: eq(graphicsSettings.status, 'pending') }),
@@ -661,7 +661,7 @@ export async function getPendingContributions (db) {
  * @param {number} prNumber
  * @returns {Promise<void>}
  */
-export async function approveContribution (db, prNumber) {
+export async function approveContribution(db, prNumber) {
 	await Promise.all([
 		db.update(performanceProfiles).set({ status: 'approved' }).where(eq(performanceProfiles.prNumber, prNumber)),
 		db.update(graphicsSettings).set({ status: 'approved' }).where(eq(graphicsSettings.prNumber, prNumber)),
@@ -674,7 +674,7 @@ export async function approveContribution (db, prNumber) {
  * @param {number} prNumber
  * @returns {Promise<void>}
  */
-export async function rejectContribution (db, prNumber) {
+export async function rejectContribution(db, prNumber) {
 	await Promise.all([
 		db.update(performanceProfiles).set({ status: 'rejected' }).where(eq(performanceProfiles.prNumber, prNumber)),
 		db.update(graphicsSettings).set({ status: 'rejected' }).where(eq(graphicsSettings.prNumber, prNumber)),
@@ -687,15 +687,7 @@ export async function rejectContribution (db, prNumber) {
  * @param {number} [limit=12] - Number of random games to fetch
  * @returns {Promise<Array>}
  */
-export async function getRandomGames (db, limit = 12) {
-	const subqueryPerformance = db
-		.select({ groupId: performanceProfiles.groupId })
-		.from(performanceProfiles)
-
-	const subqueryGraphics = db
-		.select({ groupId: graphicsSettings.groupId })
-		.from(graphicsSettings)
-
+export async function getRandomGames(db, limit = 12) {
 	return await db.select({
 		id: games.id,
 		names: games.names,
@@ -705,10 +697,18 @@ export async function getRandomGames (db, limit = 12) {
 		.from(games)
 		.where(
 			and(
-				sql`${games.iconUrl} IS NOT NULL`,
+				isNotNull(games.iconUrl),
 				or(
-					inArray(games.groupId, subqueryPerformance),
-					inArray(games.groupId, subqueryGraphics)
+					exists(
+						db.select({ one: sql`1` })
+							.from(performanceProfiles)
+							.where(eq(performanceProfiles.groupId, games.groupId))
+					),
+					exists(
+						db.select({ one: sql`1` })
+							.from(graphicsSettings)
+							.where(eq(graphicsSettings.groupId, games.groupId))
+					)
 				)
 			)
 		)
