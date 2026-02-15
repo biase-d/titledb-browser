@@ -3,7 +3,7 @@
  * @description Business logic for the contribute page - games missing performance/graphics data
  */
 
-import * as gameRepo from '$lib/repositories/gameRepository';
+import * as gameRepo from '$lib/repositories/gameRepository'
 
 /**
  * Get games missing performance/graphics data with pagination
@@ -14,6 +14,6 @@ import * as gameRepo from '$lib/repositories/gameRepository';
  * @param {string} options.preferredRegion
  * @returns {Promise<{games: Array, pagination: Object}>}
  */
-export async function getMissingDataGames(db, { page, sortBy, preferredRegion }) {
-    return gameRepo.getMissingDataGroups(db, { page, sortBy, preferredRegion });
+export async function getMissingDataGames (db, { page, sortBy, preferredRegion }) {
+	return gameRepo.getMissingDataGroups(db, { page, sortBy, preferredRegion })
 }

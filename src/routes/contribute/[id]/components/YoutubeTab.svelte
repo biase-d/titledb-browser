@@ -1,6 +1,6 @@
 <script>
-	import Icon from '@iconify/svelte';
-	let { youtubeLinks = $bindable(), addYoutubeLink, removeYoutubeLink } = $props();
+	import Icon from '@iconify/svelte'
+	let { youtubeLinks = $bindable(), addYoutubeLink, removeYoutubeLink } = $props()
 </script>
 
 <section class="form-section">

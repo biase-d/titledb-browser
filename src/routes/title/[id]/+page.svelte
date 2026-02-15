@@ -8,7 +8,7 @@
 
 	import { favorites } from "$lib/stores";
 	import { preferences } from "$lib/stores/preferences";
-	import { createImageSet } from "$lib/image";
+	import { createImageSet, proxyImage } from "$lib/image";
 	import { getRegionLabel } from "$lib/regions";
 	import { getLocalizedName } from "$lib/i18n";
 	import PlayabilityBadge from "$lib/components/PlayabilityBadge.svelte";
@@ -18,6 +18,7 @@
 	import PerformanceDetail from "./PerformanceDetail.svelte";
 	import PerformanceComparisonModal from "./PerformanceComparisonModal.svelte";
 	import RegionPopover from "./RegionPopover.svelte";
+	import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
 
 	let { data } = $props();
 
@@ -38,24 +39,10 @@
 		}
 	}
 
-	let isDetailsCollapsed = $state(true);
-	onMount(() => {
-		if (browser && window.innerWidth >= 1024) {
-			isDetailsCollapsed = false;
-		}
-	});
-
 	let game = $derived(data.game);
 	let session = $derived(data.session);
 	let allTitlesInGroup = $derived(game.allTitlesInGroup || []);
 	let youtubeLinks = $derived(game.youtubeLinks || []);
-	let youtubeContributors = $derived.by(() => {
-		const contributors = new Set();
-		youtubeLinks.forEach((link) => {
-			if (link.submittedBy) contributors.add(link.submittedBy);
-		});
-		return [...contributors];
-	});
 
 	let selectedVersionIndex = $state(0);
 	let performanceHistory = $derived(game.performanceHistory || []);
@@ -171,11 +158,6 @@
 
 	let allContributors = $derived(game.allContributors);
 
-	let isSingleContributor = $derived(allContributors.length === 1);
-	let singleContributorName = $derived(
-		isSingleContributor ? allContributors[0] : null,
-	);
-
 	let id = $derived(game?.id);
 	let otherTitlesInGroup = $derived(
 		allTitlesInGroup.filter((t) => t.id !== id),
@@ -202,9 +184,104 @@
 		game.names ? game.names.filter((n) => n !== name) : [],
 	);
 
+	let isDetailsCollapsed = $state(true);
+	/** @type {{label: string, href?: string}[]} */
+	let breadcrumbItems = $state([{ label: "" }]);
+
+	onMount(() => {
+		if (browser) {
+			if (window.innerWidth >= 1024) {
+				isDetailsCollapsed = false;
+			}
+
+			// Smart breadcrumbs
+			const referrer = document.referrer;
+			if (referrer && referrer.includes(window.location.origin)) {
+				const refUrl = new URL(referrer);
+				const path = refUrl.pathname;
+				const search = refUrl.search;
+
+				if (path === "/" && search) {
+					breadcrumbItems = [
+						{ label: "Search Results", href: `/${search}` },
+						{ label: name },
+					];
+				} else if (path.startsWith("/publisher/")) {
+					const publisherName = decodeURIComponent(
+						path.split("/publisher/")[1],
+					).split("?")[0]; // Handle case where there might be query params
+					breadcrumbItems = [
+						{ label: publisherName, href: path + search },
+						{ label: name },
+					];
+				} else if (path === "/favorites") {
+					breadcrumbItems = [
+						{ label: "Favorites", href: "/favorites" },
+						{ label: name },
+					];
+				} else if (path === "/stats") {
+					breadcrumbItems = [
+						{ label: "Insights", href: "/stats" },
+						{ label: name },
+					];
+				} else if (path === "/pending-verification") {
+					breadcrumbItems = [
+						{
+							label: "Pending Verification",
+							href: "/pending-verification",
+						},
+						{ label: name },
+					];
+				} else if (path.startsWith("/profile/")) {
+					const username = path.split("/profile/")[1];
+					breadcrumbItems = [
+						{ label: username, href: path },
+						{ label: name },
+					];
+				} else {
+					// Fallback to standard check if no specific match
+					if (game.publisher && game.publisher !== "N/A") {
+						breadcrumbItems = [
+							{
+								label: game.publisher,
+								href: `/publisher/${encodeURIComponent(game.publisher)}`,
+							},
+							{ label: name },
+						];
+					} else {
+						breadcrumbItems = [{ label: name }];
+					}
+				}
+			} else {
+				// No referrer or external referrer
+				if (game.publisher && game.publisher !== "N/A") {
+					breadcrumbItems = [
+						{
+							label: game.publisher,
+							href: `/publisher/${encodeURIComponent(game.publisher)}`,
+						},
+						{ label: name },
+					];
+				} else {
+					breadcrumbItems = [{ label: name }];
+				}
+			}
+		}
+	});
+
 	let lightboxImage = $state("");
-	let bannerImages = $derived(createImageSet(game.bannerUrl));
-	let iconImages = $derived(createImageSet(game.iconUrl || game.bannerUrl));
+	let bannerImages = $derived(
+		createImageSet(game.bannerUrl, {
+			highRes: $preferences.highResImages,
+			bannerWidth: 800,
+		}),
+	);
+	let iconImages = $derived(
+		createImageSet(game.iconUrl || game.bannerUrl, {
+			highRes: $preferences.highResImages,
+			thumbnailWidth: 200,
+		}),
+	);
 
 	let isUnreleased = $derived(game.isUnreleased);
 
@@ -256,7 +333,8 @@
 		name="description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="og:type" content="website" />
+	<link rel="canonical" href="{url.origin}/title/{id}" />
+	<meta property="og:type" content="product" />
 	<meta property="og:url" content={url.href} />
 	<meta property="og:title" content="{name} - Switch Performance" />
 	<meta
@@ -264,6 +342,7 @@
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
 	<meta property="og:image" content="{url.origin}/api/og/{id}.png" />
+	<meta property="og:site_name" content="Switch Performance" />
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={url.href} />
 	<meta property="twitter:title" content="{name} - Switch Performance" />
@@ -272,10 +351,38 @@
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
 	<meta property="twitter:image" content="{url.origin}/api/og/{id}.png" />
+
+	{#if game}
+		{@html `<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "VideoGame",
+			"name": "${name.replace(/"/g, '\\"')}",
+			"gamePlatform": "Nintendo Switch",
+			"applicationCategory": "Game",
+			"operatingSystem": "Nintendo Switch OS",
+			"image": "${game.iconUrl || game.bannerUrl}",
+			"url": "${url.href}",
+			${
+				game.publisher && game.publisher !== "N/A"
+					? `"publisher": {
+				"@type": "Organization",
+				"name": "${game.publisher.replace(/"/g, '\\"')}"
+			},`
+					: ""
+			}
+			${game.releaseDate ? `"datePublished": "${game.releaseDate.toString().substring(0, 4)}-${game.releaseDate.toString().substring(4, 6)}-${game.releaseDate.toString().substring(6, 8)}",` : ""}
+			"genre": "Action, Adventure",
+			"description": "View performance profiles and graphics settings for ${name.replace(/"/g, '\\"')} on Switch Performance"
+		}
+		${"<"}/script>`}
+	{/if}
 </svelte:head>
 
 {#if game}
 	<div class="page-container" in:fade={{ duration: 200 }}>
+		<Breadcrumbs items={breadcrumbItems} />
+
 		<div class="banner-header">
 			<div class="banner-bg-wrapper">
 				{#if bannerImages}
@@ -419,6 +526,10 @@
 									<div
 										class="detail-value interactive"
 										onclick={handleCopy}
+										onkeydown={(e) =>
+											(e.key === "Enter" ||
+												e.key === " ") &&
+											handleCopy(e)}
 										role="button"
 										tabindex="0"
 									>
@@ -629,7 +740,7 @@
 									onclick={() => (lightboxImage = screenshot)}
 								>
 									<img
-										src={screenshot}
+										src={proxyImage(screenshot)}
 										alt="{name} screenshot"
 										loading="lazy"
 									/>
@@ -680,6 +791,10 @@
 									<div
 										class="detail-value interactive"
 										onclick={handleCopy}
+										onkeydown={(e) =>
+											(e.key === "Enter" ||
+												e.key === " ") &&
+											handleCopy(e)}
 										role="button"
 										tabindex="0"
 									>
@@ -762,14 +877,15 @@
 	<div
 		class="lightbox"
 		onclick={() => (lightboxImage = "")}
+		onkeydown={(e) => e.key === "Escape" && (lightboxImage = "")}
 		transition:fade={{ duration: 150 }}
-		role="button"
-		tabindex="0"
+		role="presentation"
 	>
 		<img
 			src={lightboxImage}
 			alt="{name} screenshot"
 			onclick={(e) => e.stopPropagation()}
+			role="presentation"
 		/>
 	</div>
 {/if}
@@ -1108,11 +1224,11 @@
 		margin: 0;
 	}
 
-	.info-card-title.collapsible .chevron {
+	.info-card-title.collapsible :global(.chevron) {
 		transition: transform 0.2s ease-in-out;
 		color: var(--text-secondary);
 	}
-	.info-card-title.collapsible .chevron.rotated {
+	.info-card-title.collapsible :global(.chevron.rotated) {
 		transform: rotate(180deg);
 	}
 
@@ -1149,7 +1265,7 @@
 	.detail-value.interactive:hover {
 		background-color: var(--input-bg);
 	}
-	.copy-icon {
+	.detail-value :global(.copy-icon) {
 		color: var(--text-secondary);
 	}
 	.copy-feedback {
@@ -1238,7 +1354,7 @@
 		color: #b45309;
 		border-color: #fde68a;
 	}
-	.dark .notice-card.unreleased {
+	:global(.dark) .notice-card.unreleased {
 		background-color: #451a03;
 		color: #fcd34d;
 		border-color: #78350f;

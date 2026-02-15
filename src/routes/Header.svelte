@@ -3,10 +3,8 @@
 	import AuthButton from "./AuthButton.svelte";
 	import SettingsModal from "./SettingsModal.svelte";
 	import { uiStore } from "$lib/stores/ui.svelte";
-	import { browser } from "$app/environment";
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
-	import { tick } from "svelte";
 	import { fade, fly } from "svelte/transition";
 	import { cubicOut } from "svelte/easing";
 
@@ -215,14 +213,16 @@
 		class="drawer-overlay"
 		transition:fade={{ duration: 200 }}
 		onclick={closeMenu}
-		role="button"
-		tabindex="0"
+		onkeydown={(e) => e.key === "Escape" && closeMenu()}
+		role="presentation"
 	>
 		<div
 			class="drawer"
 			transition:fly={{ x: 300, duration: 300, easing: cubicOut }}
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
 			role="dialog"
+			tabindex="-1"
 		>
 			<div class="drawer-header">
 				<span class="drawer-title">Navigation</span>
@@ -341,11 +341,7 @@
 		font-weight: 900;
 		letter-spacing: -0.02em;
 		color: var(--text-primary);
-		background: linear-gradient(
-			135deg,
-			var(--text-primary) 0%,
-			var(--text-secondary) 100%
-		);
+		background: var(--text-primary);
 		background-clip: text;
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
@@ -456,7 +452,7 @@
 		font-size: 0.7rem;
 		font-family: monospace;
 	}
-	.item-arrow {
+	.dropdown-item :global(.item-arrow) {
 		color: var(--text-secondary);
 		opacity: 0.3;
 	}

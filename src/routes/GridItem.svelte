@@ -18,7 +18,12 @@
 	let docked = $derived(performance.docked || {});
 	let handheld = $derived(performance.handheld || {});
 
-	let imageSet = $derived(createImageSet(iconUrl || titleData.bannerUrl));
+	let imageSet = $derived(
+		createImageSet(iconUrl || titleData.bannerUrl, {
+			highRes: $preferences.highResImages,
+			thumbnailWidth: 200,
+		}),
+	);
 
 	let preferredRegion = $state("US");
 	preferences.subscribe((p) => (preferredRegion = p.region));
@@ -56,7 +61,7 @@
 			src={imageSet?.src || iconUrl || titleData.bannerUrl}
 			srcset={imageSet?.srcset}
 			sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
-			alt={`Game icon for ${titleName}`}
+			alt={`Game icon for ${titleName}${publisher !== "N/A" ? ` by ${publisher}` : ""}`}
 			loading="lazy"
 			width="200"
 			height="200"
@@ -231,6 +236,16 @@
 		color: var(--primary-color);
 	}
 
+	:global(.has-theme) .region-badge {
+		color: var(--primary-color);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 10%,
+			transparent
+		);
+		border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
+	}
+
 	.card-perf-badge {
 		position: absolute;
 		bottom: 8px;
@@ -241,17 +256,26 @@
 		padding: 4px 8px;
 		font-size: 0.75rem;
 		font-weight: 600;
-		background-color: color-mix(
-			in srgb,
-			var(--primary-color, black) 80%,
-			black
-		);
+		background-color: rgba(0, 0, 0, 0.7);
 		color: white;
 		border-radius: 6px;
 		backdrop-filter: blur(4px);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 		z-index: 2;
+	}
+
+	:global(.has-theme) .card-perf-badge {
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 40%,
+			rgba(0, 0, 0, 0.4)
+		);
+		border-color: color-mix(
+			in srgb,
+			var(--primary-color) 20%,
+			rgba(255, 255, 255, 0.1)
+		);
 	}
 
 	.card-perf-badge span {

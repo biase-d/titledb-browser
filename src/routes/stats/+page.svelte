@@ -12,68 +12,68 @@
 		PointElement,
 		LineController,
 		Filler,
-	} from "chart.js";
-	import BarChart from "./BarChart.svelte";
-	import LineChart from "./LineChart.svelte";
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { browser } from "$app/environment";
-	import Icon from "@iconify/svelte";
+	} from 'chart.js'
+	import BarChart from './BarChart.svelte'
+	import LineChart from './LineChart.svelte'
+	import { goto } from '$app/navigation'
+	import { page } from '$app/state'
+	import { browser } from '$app/environment'
+	import Icon from '@iconify/svelte'
 
 	/** @type {{ data: { stats: any } }} */
-	let { data } = $props();
+	let { data } = $props()
 
 	/** @type {any} */
-	let stats = $derived(data.stats);
+	let stats = $derived(data.stats)
 
 	/**
 	 * @param {number | string | null} bytes
 	 * @returns {string}
 	 */
-	function formatSize(bytes) {
-		if (!bytes) return "0.00 GB";
-		const val = typeof bytes === "string" ? parseFloat(bytes) : bytes;
-		const gb = val / (1024 * 1024 * 1024);
-		return `${gb.toFixed(2)} GB`;
+	function formatSize (bytes) {
+		if (!bytes) return '0.00 GB'
+		const val = typeof bytes === 'string' ? parseFloat(bytes) : bytes
+		const gb = val / (1024 * 1024 * 1024)
+		return `${gb.toFixed(2)} GB`
 	}
 
 	let filters = $state({
 		publisher: null,
 		year: null,
 		sizeBucket: null,
-	});
+	})
 
 	$effect(() => {
 		if (stats?.activeFilters) {
-			filters.publisher = stats.activeFilters.publisher;
-			filters.year = stats.activeFilters.year;
-			filters.sizeBucket = stats.activeFilters.sizeBucket;
+			filters.publisher = stats.activeFilters.publisher
+			filters.year = stats.activeFilters.year
+			filters.sizeBucket = stats.activeFilters.sizeBucket
 		}
-	});
+	})
 
 	$effect(() => {
-		const url = new URL(page.url);
+		const url = new URL(page.url)
 
 		/**
 		 * @param {string} key
 		 * @param {string | null} value
 		 */
 		const updateParam = (key, value) => {
-			if (value) url.searchParams.set(key, value);
-			else url.searchParams.delete(key);
-		};
+			if (value) url.searchParams.set(key, value)
+			else url.searchParams.delete(key)
+		}
 
-		updateParam("publisher", filters.publisher);
-		updateParam("year", filters.year);
-		updateParam("sizeBucket", filters.sizeBucket);
+		updateParam('publisher', filters.publisher)
+		updateParam('year', filters.year)
+		updateParam('sizeBucket', filters.sizeBucket)
 
 		if (url.href !== page.url.href) {
 			goto(url.href, {
 				noScroll: true,
 				replaceState: true,
-			});
+			})
 		}
-	});
+	})
 
 	const chartData = $derived(
 		stats
@@ -84,17 +84,17 @@
 						),
 						datasets: [
 							{
-								label: "Games Released",
+								label: 'Games Released',
 								data: stats.releasesByYear.map(
 									(/** @type {any} */ item) => item.count,
 								),
-								borderColor: "#3b82f6",
-								backgroundColor: "rgba(59, 130, 246, 0.1)",
+								borderColor: '#3b82f6',
+								backgroundColor: 'rgba(59, 130, 246, 0.1)',
 								borderWidth: 3,
 								fill: true,
 								tension: 0.4,
-								pointBackgroundColor: "#3b82f6",
-								pointBorderColor: "#fff",
+								pointBackgroundColor: '#3b82f6',
+								pointBorderColor: '#fff',
 								pointHoverRadius: 6,
 							},
 						],
@@ -105,12 +105,12 @@
 						),
 						datasets: [
 							{
-								label: "Games Published",
+								label: 'Games Published',
 								data: stats.topPublishers.map(
 									(/** @type {any} */ p) => p.count,
 								),
-								backgroundColor: "rgba(59, 130, 246, 0.5)",
-								borderColor: "#3b82f6",
+								backgroundColor: 'rgba(59, 130, 246, 0.5)',
+								borderColor: '#3b82f6',
 								borderWidth: 1,
 								borderRadius: 8,
 							},
@@ -122,12 +122,12 @@
 						),
 						datasets: [
 							{
-								label: "Number of Games",
+								label: 'Number of Games',
 								data: stats.sizeDistribution.map(
 									(/** @type {any} */ b) => b.count,
 								),
-								backgroundColor: "rgba(167, 139, 250, 0.5)",
-								borderColor: "#a78bfa",
+								backgroundColor: 'rgba(167, 139, 250, 0.5)',
+								borderColor: '#a78bfa',
 								borderWidth: 1,
 								borderRadius: 8,
 							},
@@ -135,7 +135,7 @@
 					},
 				}
 			: null,
-	);
+	)
 
 	if (browser) {
 		ChartJS.register(
@@ -150,7 +150,7 @@
 			PointElement,
 			LineController,
 			Filler,
-		);
+		)
 	}
 
 	const chartOptions = {
@@ -159,94 +159,102 @@
 		plugins: {
 			legend: { display: false },
 			tooltip: {
-				backgroundColor: "rgba(23, 23, 23, 0.95)",
-				titleFont: { size: 13, weight: "bold" },
+				backgroundColor: 'rgba(23, 23, 23, 0.95)',
+				titleFont: { size: 13, weight: 'bold' },
 				padding: 12,
 				cornerRadius: 12,
-				borderColor: "rgba(255, 255, 255, 0.1)",
+				borderColor: 'rgba(255, 255, 255, 0.1)',
 				borderWidth: 1,
 			},
 		},
 		scales: {
 			y: {
-				grid: { color: "rgba(255, 255, 255, 0.05)" },
-				ticks: { color: "rgba(255, 255, 255, 0.5)" },
+				grid: { color: 'rgba(255, 255, 255, 0.05)' },
+				ticks: { color: 'rgba(255, 255, 255, 0.5)' },
 			},
 			x: {
 				grid: { display: false },
-				ticks: { color: "rgba(255, 255, 255, 0.5)" },
+				ticks: { color: 'rgba(255, 255, 255, 0.5)' },
 			},
 		},
-	};
+	}
 
 	const horizontalBarOptions = {
 		...chartOptions,
-		indexAxis: "y",
+		indexAxis: 'y',
 		scales: {
 			x: {
-				grid: { color: "rgba(255, 255, 255, 0.05)" },
-				ticks: { color: "rgba(255, 255, 255, 0.5)" },
+				grid: { color: 'rgba(255, 255, 255, 0.05)' },
+				ticks: { color: 'rgba(255, 255, 255, 0.5)' },
 			},
 			y: {
 				grid: { display: false },
-				ticks: { color: "rgba(255, 255, 255, 0.5)" },
+				ticks: { color: 'rgba(255, 255, 255, 0.5)' },
 			},
 		},
-	};
+	}
 
 	/**
 	 * @param {any} chart
 	 * @param {any} event
 	 * @param {'publisher' | 'year' | 'sizeBucket'} filterType
 	 */
-	function handleChartClick(chart, event, filterType) {
-		if (!chart) return;
+	function handleChartClick (chart, event, filterType) {
+		if (!chart) return
 		const elements = chart.getElementsAtEventForMode(
 			event,
-			"nearest",
+			'nearest',
 			{ intersect: true },
 			true,
-		);
+		)
 		if (elements.length > 0) {
-			const index = elements[0].index;
-			const label = chart.data.labels[index];
-			filters[filterType] = filters[filterType] === label ? null : label;
+			const index = elements[0].index
+			const label = chart.data.labels[index]
+			filters[filterType] = filters[filterType] === label ? null : label
 		}
 	}
 
 	/**
 	 * @param {'publisher' | 'year' | 'sizeBucket'} filterType
 	 */
-	function clearFilter(filterType) {
-		filters[filterType] = null;
+	function clearFilter (filterType) {
+		filters[filterType] = null
 	}
 
-	function createHomeUrl() {
-		const params = new URLSearchParams();
-		if (filters.publisher) params.set("publisher", filters.publisher);
+	function createHomeUrl () {
+		const params = new URLSearchParams()
+		if (filters.publisher) params.set('publisher', filters.publisher)
 		if (filters.year) {
-			params.set("minYear", filters.year);
-			params.set("maxYear", filters.year);
+			params.set('minYear', filters.year)
+			params.set('maxYear', filters.year)
 		}
 		if (filters.sizeBucket) {
 			const ranges = {
-				"<5GB": [0, 5120],
-				"5-10GB": [5120, 10240],
-				"10-15GB": [10240, 15360],
-				"15-20GB": [15360, 20480],
-				">20GB": [20480, ""],
-			};
+				'<1GB': [0, 1024],
+				'1-2GB': [1024, 2048],
+				'2-3GB': [2048, 3072],
+				'3-4GB': [3072, 4096],
+				'4-5GB': [4096, 5120],
+				'5-10GB': [5120, 10240],
+				'10-15GB': [10240, 15360],
+				'15-20GB': [15360, 20480],
+				'>20GB': [20480, ''],
+			}
 			if (ranges[filters.sizeBucket]) {
-				params.set("minSizeMB", ranges[filters.sizeBucket][0]);
-				params.set("maxSizeMB", ranges[filters.sizeBucket][1]);
+				params.set('minSizeMB', ranges[filters.sizeBucket][0])
+				params.set('maxSizeMB', ranges[filters.sizeBucket][1])
 			}
 		}
-		return `/?${params.toString()}`;
+		return `/?${params.toString()}`
 	}
 </script>
 
 <svelte:head>
-	<title>Data Insights | TitleDB</title>
+	<title>Data Insights - Switch Performance</title>
+	<meta
+		name="description"
+		content="Explore comprehensive statistics and insights about the Nintendo Switch game library — release timelines, top publishers, storage distribution, and community trends."
+	/>
 </svelte:head>
 
 <div class="stats-dashboard">
@@ -254,7 +262,7 @@
 		<div class="header-title">
 			<h1 class="title-main">Data Insights</h1>
 			<p class="title-sub">
-				Comprehensive overview of the TitleDB ecosystem.
+				Comprehensive overview of the Switch Performance ecosystem.
 			</p>
 		</div>
 
@@ -265,7 +273,7 @@
 						<span class="filter-pill">
 							{filters.publisher}
 							<button
-								onclick={() => clearFilter("publisher")}
+								onclick={() => clearFilter('publisher')}
 								aria-label="Remove publisher filter"
 								><Icon icon="mdi:close" /></button
 							>
@@ -275,7 +283,7 @@
 						<span class="filter-pill">
 							{filters.year}
 							<button
-								onclick={() => clearFilter("year")}
+								onclick={() => clearFilter('year')}
 								aria-label="Remove year filter"
 								><Icon icon="mdi:close" /></button
 							>
@@ -285,7 +293,7 @@
 						<span class="filter-pill">
 							{filters.sizeBucket}
 							<button
-								onclick={() => clearFilter("sizeBucket")}
+								onclick={() => clearFilter('sizeBucket')}
 								aria-label="Remove size filter"
 								><Icon icon="mdi:close" /></button
 							>
@@ -473,7 +481,7 @@
 								handleChartClick(
 									detail.chart,
 									detail.event,
-									"year",
+									'year',
 								)}
 						/>
 					{/if}
@@ -494,7 +502,7 @@
 								handleChartClick(
 									detail.chart,
 									detail.event,
-									"publisher",
+									'publisher',
 								)}
 						/>
 					{/if}
@@ -515,7 +523,7 @@
 								handleChartClick(
 									detail.chart,
 									detail.event,
-									"sizeBucket",
+									'sizeBucket',
 								)}
 						/>
 					{/if}
@@ -784,13 +792,13 @@
 		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 	}
 
-	.trend-icon {
+	.trend-header :global(.trend-icon) {
 		font-size: 1.25rem;
 	}
-	.trend-icon.red-text {
+	.trend-header :global(.trend-icon.red-text) {
 		color: #f87171;
 	}
-	.trend-icon.purple-text {
+	.trend-header :global(.trend-icon.purple-text) {
 		color: #a78bfa;
 	}
 
@@ -898,7 +906,7 @@
 		gap: 1rem;
 	}
 
-	.loading-icon {
+	.loading-content :global(.loading-icon) {
 		color: #374151;
 		animation: pulse-op 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 	}

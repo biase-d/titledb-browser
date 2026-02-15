@@ -1,36 +1,36 @@
 <script>
-  import { onDestroy } from "svelte";
-  import { draftsStore } from "$lib/stores";
-  import { onMount } from "svelte";
-  import Icon from "@iconify/svelte";
+  import { onDestroy } from 'svelte'
+  import { draftsStore } from '$lib/stores'
+  import { onMount } from 'svelte'
+  import Icon from '@iconify/svelte'
 
-  let drafts = $state([]);
+  let drafts = $state([])
 
   /**
      * @type {import("svelte/store").Unsubscriber}
      */
-  let unsubscribe;
+  let unsubscribe
 
   onMount(() => {
-    unsubscribe = draftsStore.subscribe((d) => {
-      drafts = d;
-    });
-  });
+  	unsubscribe = draftsStore.subscribe((d) => {
+  		drafts = d
+  	})
+  })
 
   onDestroy(() => {
-    unsubscribe?.();
-  });
+  	unsubscribe?.()
+  })
 
-  function deleteAllDrafts() {
-    const confirmDelete = confirm(
-      "Are you sure you want to delete all drafts? This action cannot be undone."
-    );
+  function deleteAllDrafts () {
+  	const confirmDelete = confirm(
+  		'Are you sure you want to delete all drafts? This action cannot be undone.'
+  	)
 
-    if (confirmDelete) {
-      for (const draft of drafts) {
-        draftsStore.delete(draft.id);
-      }
-    }
+  	if (confirmDelete) {
+  		for (const draft of drafts) {
+  			draftsStore.delete(draft.id)
+  		}
+  	}
   }
 </script>
 
@@ -53,10 +53,10 @@
           <a
             href={`/contribute/${draft.id}?from_draft=true`}
             class="draft-link"
-            aria-label={`Continue editing ${draft.data.name || "Untitled Draft"}`}
+            aria-label={`Continue editing ${draft.data.name || 'Untitled Draft'}`}
           >
             <div>
-              <span class="title-name">{draft.data.name || "Untitled Draft"}</span>
+              <span class="title-name">{draft.data.name || 'Untitled Draft'}</span>
               <span class="title-id">({draft.id})</span>
             </div>
 

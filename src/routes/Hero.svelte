@@ -1,116 +1,116 @@
 <script>
-    import { browser } from "$app/environment";
-    import { onMount, onDestroy } from "svelte";
-    import { fade, fly } from "svelte/transition";
-    import Icon from "@iconify/svelte";
-    import { createImageSet } from "$lib/image";
-    import { getLocalizedName } from "$lib/i18n";
+    import { browser } from '$app/environment'
+    import { onMount, onDestroy } from 'svelte'
+    import { fade, fly } from 'svelte/transition'
+    import Icon from '@iconify/svelte'
+    import { createImageSet } from '$lib/image'
+    import { getLocalizedName } from '$lib/i18n'
 
-    let { recentUpdates = [], preferredRegion = "US" } = $props();
+    let { recentUpdates = [], preferredRegion = 'US' } = $props()
 
     // --- Hero Carousel Logic ---
-    let heroIndex = $state(0);
-    let carouselTimer;
-    let isPaused = $state(false);
+    let heroIndex = $state(0)
+    let carouselTimer
+    let isPaused = $state(false)
 
     // Derived hero data based on current index
     let featuredGame = $derived(
-        recentUpdates.length > 0 ? recentUpdates[heroIndex] : null,
-    );
+    	recentUpdates.length > 0 ? recentUpdates[heroIndex] : null,
+    )
     let heroBanner = $derived(
-        featuredGame ? createImageSet(featuredGame.bannerUrl) : null,
-    );
+    	featuredGame ? createImageSet(featuredGame.bannerUrl) : null,
+    )
     let featuredName = $derived(
-        featuredGame
-            ? getLocalizedName(featuredGame.names, preferredRegion)
-            : "",
-    );
+    	featuredGame
+    		? getLocalizedName(featuredGame.names, preferredRegion)
+    		: '',
+    )
 
     // --- Swipe Logic ---
-    let touchStartX = 0;
-    let touchEndX = 0;
+    let touchStartX = 0
+    let touchEndX = 0
 
-    function handleTouchStart(e) {
-        touchStartX = e.changedTouches[0].screenX;
+    function handleTouchStart (e) {
+    	touchStartX = e.changedTouches[0].screenX
     }
 
-    function handleTouchEnd(e) {
-        touchEndX = e.changedTouches[0].screenX;
-        handleSwipe();
+    function handleTouchEnd (e) {
+    	touchEndX = e.changedTouches[0].screenX
+    	handleSwipe()
     }
 
-    function handleSwipe() {
-        const threshold = 50;
-        if (touchEndX < touchStartX - threshold) {
-            nextHero();
-        }
-        if (touchEndX > touchStartX + threshold) {
-            prevHero();
-        }
+    function handleSwipe () {
+    	const threshold = 50
+    	if (touchEndX < touchStartX - threshold) {
+    		nextHero()
+    	}
+    	if (touchEndX > touchStartX + threshold) {
+    		prevHero()
+    	}
     }
 
     // --- Smart Dots Logic ---
     let visibleDots = $derived(
-        (() => {
-            const total = recentUpdates.length;
-            if (total <= 5) return recentUpdates.map((_, i) => i);
+    	(() => {
+    		const total = recentUpdates.length
+    		if (total <= 5) return recentUpdates.map((_, i) => i)
 
-            let start = heroIndex - 2;
-            if (start < 0) start = 0;
-            if (start > total - 5) start = total - 5;
+    		let start = heroIndex - 2
+    		if (start < 0) start = 0
+    		if (start > total - 5) start = total - 5
 
-            return Array.from({ length: 5 }, (_, i) => start + i);
-        })(),
-    );
+    		return Array.from({ length: 5 }, (_, i) => start + i)
+    	})(),
+    )
 
-    function startCarousel() {
-        if (!browser) return;
-        clearInterval(carouselTimer);
-        carouselTimer = setInterval(() => {
-            if (!isPaused && recentUpdates.length > 0) {
-                nextHero();
-            }
-        }, 6000);
+    function startCarousel () {
+    	if (!browser) return
+    	clearInterval(carouselTimer)
+    	carouselTimer = setInterval(() => {
+    		if (!isPaused && recentUpdates.length > 0) {
+    			nextHero()
+    		}
+    	}, 6000)
     }
 
-    function nextHero() {
-        heroIndex = (heroIndex + 1) % recentUpdates.length;
+    function nextHero () {
+    	heroIndex = (heroIndex + 1) % recentUpdates.length
     }
 
-    function prevHero() {
-        heroIndex =
-            (heroIndex - 1 + recentUpdates.length) % recentUpdates.length;
+    function prevHero () {
+    	heroIndex =
+            (heroIndex - 1 + recentUpdates.length) % recentUpdates.length
     }
 
-    function setHero(index) {
-        heroIndex = index;
-        startCarousel();
+    function setHero (index) {
+    	heroIndex = index
+    	startCarousel()
     }
 
-    function formatHeroPerf(modeData) {
-        if (!modeData) return "No Data";
+    function formatHeroPerf (modeData) {
+    	if (!modeData) return 'No Data'
 
-        const resType = modeData.resolution_type || "Unknown";
-        let resText = resType;
+    	const resType = modeData.resolution_type || 'Unknown'
+    	let resText = resType
 
-        if (resType === "Fixed" && modeData.resolution)
-            resText = modeData.resolution;
-        else if (resType === "Dynamic") resText = "Dynamic";
-        else if (resType === "Multiple Fixed") resText = "Multiple";
+    	if (resType === 'Fixed' && modeData.resolution)
+    		resText = modeData.resolution
+    	else if (resType === 'Dynamic') resText = 'Dynamic'
+    	else if (resType === 'Multiple Fixed') resText = 'Multiple'
 
-        const fps = modeData.target_fps
-            ? `${modeData.target_fps} FPS`
-            : modeData.fps_behavior || "Unknown";
-        return `${resText} • ${fps}`;
+    	const fps = modeData.target_fps
+    		? `${modeData.target_fps} FPS`
+    		: modeData.fps_behavior || 'Unknown'
+    	return `${resText} • ${fps}`
     }
 
     onMount(() => {
-        if (recentUpdates.length > 0) startCarousel();
-    });
+    	if (recentUpdates.length > 0) startCarousel()
+    })
 
     onDestroy(() => {
-        if (browser) clearInterval(carouselTimer);
-    });
+    	if (browser) clearInterval(carouselTimer)
+    })
 </script>
 
 {#if featuredGame}
@@ -162,7 +162,7 @@
                             </div>
                             <div class="stat-value">
                                 {formatHeroPerf(
-                                    featuredGame.performance?.docked,
+                                	featuredGame.performance?.docked,
                                 )}
                             </div>
                         </div>
@@ -172,7 +172,7 @@
                             </div>
                             <div class="stat-value">
                                 {formatHeroPerf(
-                                    featuredGame.performance?.handheld,
+                                	featuredGame.performance?.handheld,
                                 )}
                             </div>
                         </div>

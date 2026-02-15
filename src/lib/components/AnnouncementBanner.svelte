@@ -5,6 +5,9 @@
     import { getVersionInfo } from "$lib/services/versionService";
     import { uiStore } from "$lib/stores/ui.svelte";
 
+    /** @typedef {import('$lib/services/versionService').Announcement} Announcement */
+
+    /** @type {Announcement | null} */
     let activeAnnouncement = $state(null);
     let isVisible = $state(false);
 
@@ -21,7 +24,10 @@
         // Find latest active announcement
         const latest = announcements
             .filter((a) => a.active)
-            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+            .sort(
+                (a, b) =>
+                    new Date(b.date).getTime() - new Date(a.date).getTime(),
+            )[0];
 
         if (latest) {
             const dismissed = localStorage.getItem(
@@ -43,6 +49,7 @@
         isVisible = false;
     }
 
+    /** @param {string} type */
     function getIcon(type) {
         switch (type) {
             case "warning":
@@ -95,6 +102,7 @@
                             : ""}
                         class="link"
                         onclick={(e) =>
+                            activeAnnouncement?.link &&
                             handleLinkClick(e, activeAnnouncement.link)}
                     >
                         {activeAnnouncement.link.startsWith("http")
@@ -132,7 +140,7 @@
         font-size: 0.9rem;
         color: white;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        z-index: 90;
+        z-index: 1;
         gap: 1rem;
     }
 

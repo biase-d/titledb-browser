@@ -1,44 +1,44 @@
 <script>
-	import { onMount } from 'svelte';
-	import Icon from '@iconify/svelte';
-	import { fade } from 'svelte/transition';
+	import { onMount } from 'svelte'
+	import Icon from '@iconify/svelte'
+	import { fade } from 'svelte/transition'
 
 	let { 
-		stats, 
-		heroImage, 
-		searchValue = $bindable(), 
-		onSearch, 
-		onFilter 
-	} = $props();
+	  stats, 
+	  heroImage, 
+	  searchValue = $bindable(), 
+	  onSearch, 
+	  onFilter 
+	} = $props()
 
 	const fixedPills = [
-        { label: '30 FPS', type: 'fps', value: '30', icon: 'mdi:speedometer-slow' },
-		{ label: '60 FPS', type: 'fps', value: '60', icon: 'line-md:speedometer-loop' }
-	];
+	  { label: '30 FPS', type: 'fps', value: '30', icon: 'mdi:speedometer-slow' },
+	  { label: '60 FPS', type: 'fps', value: '60', icon: 'line-md:speedometer-loop' }
+	]
 
 	const pillPool = [
-		{ label: 'Zelda', type: 'q', value: 'Zelda', icon: 'mdi:triforce' },
-		{ label: 'Mario', type: 'q', value: 'Mario', icon: 'mdi:mushroom' },
-		{ label: 'Pokémon', type: 'q', value: 'Pokemon', icon: 'mdi:pokeball' },
-		{ label: 'Xenoblade', type: 'q', value: 'Xenoblade', icon: 'mdi:sword' },
-		{ label: 'Metroid', type: 'q', value: 'Metroid', icon: 'mdi:alien' },
-	];
+	  { label: 'Zelda', type: 'q', value: 'Zelda', icon: 'mdi:triforce' },
+	  { label: 'Mario', type: 'q', value: 'Mario', icon: 'mdi:mushroom' },
+	  { label: 'Pokémon', type: 'q', value: 'Pokemon', icon: 'mdi:pokeball' },
+	  { label: 'Xenoblade', type: 'q', value: 'Xenoblade', icon: 'mdi:sword' },
+	  { label: 'Metroid', type: 'q', value: 'Metroid', icon: 'mdi:alien' },
+	]
 
-	let activePills = $state([...fixedPills]);
+	let activePills = $state([...fixedPills])
 
 	onMount(() => {
-		const shuffled = [...pillPool].sort(() => 0.5 - Math.random());
-		const selected = shuffled.slice(0, 3);
-		activePills = [...fixedPills, ...selected];
-	});
+	  const shuffled = [...pillPool].sort(() => 0.5 - Math.random())
+	  const selected = shuffled.slice(0, 3)
+	  activePills = [...fixedPills, ...selected]
+	})
 
-	function handlePillClick(filter) {
-		onFilter(filter);
+	function handlePillClick (filter) {
+	  onFilter(filter)
 	}
 
-	function handleClear() {
-		searchValue = '';
-		onSearch();
+	function handleClear () {
+	  searchValue = ''
+	  onSearch()
 	}
 </script>
 

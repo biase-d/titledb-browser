@@ -1,10 +1,6 @@
-/**
- * @file Game Service
- * @description Business logic for game management and interaction
- */
-
-import * as gameRepo from '$lib/repositories/gameRepository';
-import * as requestRepo from '$lib/repositories/requestRepository';
+import * as gameRepo from '$lib/repositories/gameRepository'
+import * as requestRepo from '$lib/repositories/requestRepository'
+import { calculatePlayabilityScore } from '$lib/playability'
 
 /**
  * Get detailed game info with user context (e.g. requests status)
@@ -13,25 +9,25 @@ import * as requestRepo from '$lib/repositories/requestRepository';
  * @param {string} [userId] - Optional User ID
  * @returns {Promise<Object|null>}
  */
-export async function getGameContext(db, titleId, userId) {
-    const details = await gameRepo.getGameDetails(db, titleId);
+export async function getGameContext (db, titleId, userId) {
+	const details = await gameRepo.getGameDetails(db, titleId)
 
-    if (!details) {
-        return null;
-    }
+	if (!details) {
+		return null
+	}
 
-    let hasRequested = false;
+	let hasRequested = false
 
-    if (userId) {
-        hasRequested = await requestRepo.hasUserRequestedData(db, userId, titleId);
-    }
+	if (userId) {
+		hasRequested = await requestRepo.hasUserRequestedData(db, userId, titleId)
+	}
 
-    return {
-        ...details,
-        userContext: {
-            hasRequested
-        }
-    };
+	return {
+		...details,
+		userContext: {
+			hasRequested
+		}
+	}
 }
 
 /**
@@ -40,9 +36,8 @@ export async function getGameContext(db, titleId, userId) {
  * @param {URLSearchParams} searchParams
  * @returns {Promise<Object>}
  */
-export async function searchGames(db, searchParams) {
-    // Business logic: Logging, modifying search params, etc. could go here
-    return await gameRepo.searchGames(db, searchParams);
+export async function searchGames (db, searchParams) {
+	return await gameRepo.searchGames(db, searchParams)
 }
 
 /**
@@ -52,26 +47,25 @@ export async function searchGames(db, searchParams) {
  * @param {string} gameId - Game ID
  * @returns {Promise<{success: boolean, message: string}>}
  */
-export async function requestGameData(db, userId, gameId) {
-    if (!userId) {
-        throw new Error('User must be logged in to request data');
-    }
+export async function requestGameData (db, userId, gameId) {
+	if (!userId) {
+		throw new Error('User must be logged in to request data')
+	}
 
-    const game = await gameRepo.findGameById(db, gameId);
-    if (!game) {
-        throw new Error('Game not found');
-    }
+	const game = await gameRepo.findGameById(db, gameId)
+	if (!game) {
+		throw new Error('Game not found')
+	}
 
-    const exists = await requestRepo.hasUserRequestedData(db, userId, gameId);
-    if (exists) {
-        await requestRepo.removeDataRequest(db, userId, gameId);
-        return { requested: false };
-    }
+	const exists = await requestRepo.hasUserRequestedData(db, userId, gameId)
+	if (exists) {
+		await requestRepo.removeDataRequest(db, userId, gameId)
+		return { requested: false }
+	}
 
-    await requestRepo.createDataRequest(db, userId, gameId);
-    return { requested: true };
+	await requestRepo.createDataRequest(db, userId, gameId)
+	return { requested: true }
 }
-import { calculatePlayabilityScore } from '$lib/playability';
 
 /**
  * Get publisher statistics
@@ -79,38 +73,45 @@ import { calculatePlayabilityScore } from '$lib/playability';
  * @param {string} publisherName
  * @returns {Promise<Object>}
  */
-export async function getPublisherStats(db, publisherName) {
-    // Re-use search functionality to get all games for this publisher
-    // We need a high limit to get accurate stats
-    const searchParams = new URLSearchParams();
-    searchParams.set('publisher', publisherName);
-    searchParams.set('limit', '1000'); // Assuming no publisher has > 1000 games for now
+export async function getPublisherStats (db, publisherName) {
+	// We need a high limit to get accurate stats
+	const searchParams = new URLSearchParams()
+	searchParams.set('publisher', publisherName)
+	searchParams.set('limit', '1000') // Assuming no publisher has > 1000 games for now
 
-    const { results } = await gameRepo.searchGames(db, searchParams);
+	const { results } = await gameRepo.searchGames(db, searchParams)
 
-    const stats = {
-        totalGames: results.length,
-        tiers: {
-            Perfect: 0,
-            Great: 0,
-            Playable: 0,
-            Rough: 0,
-            Unknown: 0
-        }
-    };
+	const stats = {
+		totalGames: results.length,
+		tiers: {
+			Perfect: 0,
+			Great: 0,
+			Playable: 0,
+			Rough: 0,
+			Unknown: 0
+		}
+	}
 
-    results.forEach(game => {
-        // Use the aggregated performance object from the search result
-        // Logic here mimics what PlayabilityBadge does
-        const profile = game.performance || {};
-        const scoreObj = calculatePlayabilityScore(profile);
-        const score = scoreObj.score;
-        if (score && stats.tiers[score] !== undefined) {
-            stats.tiers[score]++;
-        } else {
-            stats.tiers.Unknown++;
-        }
-    });
+	results.forEach(game => {
+		// Logic here mimics what PlayabilityBadge does
+		const profile = game.performance || {}
+		const scoreObj = calculatePlayabilityScore(profile)
+		const score = scoreObj.score
+		if (score && stats.tiers[score] !== undefined) {
+			stats.tiers[score]++
+		} else {
+			stats.tiers.Unknown++
+		}
+	})
 
-    return stats;
+	return stats
+}
+/**
+ * Get random games for discovery with optional limit
+ * @param {import('$lib/database/types').DatabaseAdapter} db
+ * @param {number} [limit=12]
+ * @returns {Promise<Array>}
+ */
+export async function getRandomGames (db, limit = 12) {
+	return await gameRepo.getRandomGames(db, limit)
 }

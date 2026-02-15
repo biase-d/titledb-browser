@@ -1,7 +1,7 @@
 {
-	"name": "Titledb Browser",
-	"short_name": "Titledb",
-	"description": "A fast browser for the Titledb database.",
+	"name": "Switch Performance",
+	"short_name": "SwitchPerf",
+	"description": "Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles.",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#1a1a1a",

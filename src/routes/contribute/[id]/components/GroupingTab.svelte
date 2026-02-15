@@ -1,6 +1,6 @@
 <script>
-	import Icon from '@iconify/svelte';
-	let { updatedGroup = $bindable(), groupingSearchInput = $bindable(), groupingSearchResults = $bindable(), groupingSearchLoading = $bindable(), handleGroupingSearchInput, addToGroup, removeFromGroup, isAlreadyInGroup, id } = $props();
+	import Icon from '@iconify/svelte'
+	let { updatedGroup = $bindable(), groupingSearchInput = $bindable(), groupingSearchResults = $bindable(), groupingSearchLoading = $bindable(), handleGroupingSearchInput, addToGroup, removeFromGroup, isAlreadyInGroup, id } = $props()
 </script>
 
 <section class="form-section">

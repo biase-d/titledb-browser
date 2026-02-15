@@ -1,6 +1,6 @@
 <script>
-	import Icon from '@iconify/svelte';
-	let { performanceProfiles = $bindable(), addNewVersion, removeVersion } = $props();
+	import Icon from '@iconify/svelte'
+	let { performanceProfiles = $bindable(), addNewVersion, removeVersion } = $props()
 </script>
 
 <section class="form-section">
@@ -15,7 +15,7 @@
 					</div>
 					<div class="form-field">
 						<label for="version_suffix_{i}">Region / Suffix</label>
-						<input id="version_suffix_{i}" type="text" bind:value={profile.suffix} placeholder="e.g. 'jp'" oninput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9_-]/g, ''); }} />
+						<input id="version_suffix_{i}" type="text" bind:value={profile.suffix} placeholder="e.g. 'jp'" oninput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^a-zA-Z0-9_-]/g, '') }} />
 					</div>
 				</div>
 				{#if performanceProfiles.length > 1}

@@ -1,41 +1,40 @@
 <script>
-    import { getVersionInfo } from "$lib/services/versionService";
-    import Icon from "@iconify/svelte";
-    import { uiStore } from "$lib/stores/ui.svelte";
-    import { goto } from "$app/navigation";
+    import { getVersionInfo } from '$lib/services/versionService'
+    import Icon from '@iconify/svelte'
+    import { uiStore } from '$lib/stores/ui.svelte'
 
-    const { announcements } = getVersionInfo();
+    const { announcements } = getVersionInfo()
     const sortedAnnouncements = announcements.sort(
         (a, b) => new Date(b.date) - new Date(a.date),
-    );
+    )
 
-    function getIcon(type) {
+    function getIcon (type) {
         switch (type) {
-            case "warning":
-                return "mdi:alert-circle";
-            case "success":
-                return "mdi:check-circle";
-            case "feature":
-                return "mdi:star-four-points";
-            case "critical":
-                return "mdi:alert-decagram";
+            case 'warning':
+                return 'mdi:alert-circle'
+            case 'success':
+                return 'mdi:check-circle'
+            case 'feature':
+                return 'mdi:star-four-points'
+            case 'critical':
+                return 'mdi:alert-decagram'
             default:
-                return "mdi:information";
+                return 'mdi:information'
         }
     }
 
-    function getColor(type) {
+    function getColor (type) {
         switch (type) {
-            case "warning":
-                return "var(--warning-color, #f59e0b)";
-            case "success":
-                return "var(--success-color, #10b981)";
-            case "feature":
-                return "var(--primary-color, #6366f1)";
-            case "critical":
-                return "var(--error-color, #ef4444)";
+            case 'warning':
+                return 'var(--warning-color, #f59e0b)'
+            case 'success':
+                return 'var(--success-color, #10b981)'
+            case 'feature':
+                return 'var(--primary-color, #6366f1)'
+            case 'critical':
+                return 'var(--error-color, #ef4444)'
             default:
-                return "var(--text-secondary, #6b7280)";
+                return 'var(--text-secondary, #6b7280)'
         }
     }
 
@@ -43,17 +42,21 @@
      * @param {MouseEvent} e
      * @param {string} link
      */
-    function handleLinkClick(e, link) {
-        if (link.startsWith("/settings")) {
-            e.preventDefault();
-            const section = link.split("#")[1] || undefined;
-            uiStore.openSettings(section);
+    function handleLinkClick (e, link) {
+        if (link.startsWith('/settings')) {
+            e.preventDefault()
+            const section = link.split('#')[1] || undefined
+            uiStore.openSettings(section)
         }
     }
 </script>
 
 <svelte:head>
-    <title>Announcements & Updates</title>
+    <title>Announcements & Updates - Switch Performance</title>
+    <meta
+        name="description"
+        content="Latest updates, new features, and maintenance notices for Switch Performance."
+    />
 </svelte:head>
 
 <div class="page-container">
@@ -92,22 +95,22 @@
                         {#if item.link}
                             <a
                                 href={item.link}
-                                target={item.link.startsWith("http")
-                                    ? "_blank"
-                                    : "_self"}
-                                rel={item.link.startsWith("http")
-                                    ? "noopener noreferrer"
-                                    : ""}
+                                target={item.link.startsWith('http')
+                                    ? '_blank'
+                                    : '_self'}
+                                rel={item.link.startsWith('http')
+                                    ? 'noopener noreferrer'
+                                    : ''}
                                 class="read-more"
                                 onclick={(e) => handleLinkClick(e, item.link)}
                             >
-                                {item.link.startsWith("http")
-                                    ? "View details on GitHub"
-                                    : "Learn more"}
+                                {item.link.startsWith('http')
+                                    ? 'View details on GitHub'
+                                    : 'Learn more'}
                                 <Icon
-                                    icon={item.link.startsWith("http")
-                                        ? "mdi:open-in-new"
-                                        : "mdi:chevron-right"}
+                                    icon={item.link.startsWith('http')
+                                        ? 'mdi:open-in-new'
+                                        : 'mdi:chevron-right'}
                                     width="14"
                                 />
                             </a>

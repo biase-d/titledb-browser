@@ -7,12 +7,12 @@ const DRAFTS_STORE_NAME = 'performance-drafts'
 
 async function getDB () {
   return await openDB(DB_NAME, DB_VERSION, {
-    upgrade (db, oldVersion) {
+    upgrade (db, _oldVersion) {
       if (!db.objectStoreNames.contains(FAVORITES_STORE_NAME)) {
         db.createObjectStore(FAVORITES_STORE_NAME)
       }
       if (!db.objectStoreNames.contains(DRAFTS_STORE_NAME)) {
-        db.createObjectStore(DRAFTS_STORE_NAME) 
+        db.createObjectStore(DRAFTS_STORE_NAME)
       }
     }
   })

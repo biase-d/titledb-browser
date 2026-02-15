@@ -1,4 +1,4 @@
-import { Game } from '$lib/models/Game.js';
+import { Game } from '$lib/models/Game.js'
 
 /**
  * Teaches SvelteKit how to serialize/deserialize our Game class
@@ -7,11 +7,10 @@ import { Game } from '$lib/models/Game.js';
 export const transport = {
 	Game: {
 		encode: (value) => {
-			return value instanceof Game ? [{ ...value }] : undefined;
+			return value instanceof Game ? [{ ...value }] : undefined
 		},
 		decode: ([data]) => {
-			return new Game(data);
+			return new Game(data)
 		}
 	}
-};
-
+}

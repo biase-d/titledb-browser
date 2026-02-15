@@ -1,10 +1,10 @@
-import * as gameRepo from '$lib/repositories/gameRepository';
+import * as gameRepo from '$lib/repositories/gameRepository'
 
 /** @type {import('./$types').RequestHandler} */
 export const GET = async ({ url, locals }) => {
-    const allGames = await gameRepo.getGameIdsForSitemap(locals.db);
+    const allGames = await gameRepo.getGameIdsForSitemap(locals.db)
 
-    const origin = url.origin;
+    const origin = url.origin
 
     const xml = `<?xml version="1.0" encoding="UTF-8" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -23,26 +23,35 @@ export const GET = async ({ url, locals }) => {
         <priority>0.7</priority>
         <changefreq>weekly</changefreq>
     </url>
+    <url>
+        <loc>${origin}/announcements</loc>
+        <priority>0.5</priority>
+        <changefreq>weekly</changefreq>
+    </url>
+    <url>
+        <loc>${origin}/pending-verification</loc>
+        <priority>0.4</priority>
+        <changefreq>daily</changefreq>
+    </url>
     ${allGames
             .map((game) => {
                 const lastMod = game.lastUpdated
                     ? new Date(game.lastUpdated).toISOString()
-                    : new Date().toISOString();
+                    : new Date().toISOString()
                 return `<url>
         <loc>${origin}/title/${game.id}</loc>
         <lastmod>${lastMod}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
-    </url>`;
+    </url>`
             })
             .join('')}
-</urlset>`;
+</urlset>`
 
     return new Response(xml.trim(), {
         headers: {
             'Content-Type': 'application/xml',
-            'Cache-Control': 'max-age=3600',
-            'X-Robots-Tag': 'noindex'
+            'Cache-Control': 'max-age=3600'
         }
-    });
-};
+    })
+}
