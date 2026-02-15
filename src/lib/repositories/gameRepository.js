@@ -443,6 +443,7 @@ export async function getMissingDataGroups(db, { page, sortBy, preferredRegion }
 		.select({ id: gameGroups.id })
 		.from(gameGroups)
 		.where(and(notExists(subqueryPerformance), notExists(subqueryGraphics)))
+		.orderBy(desc(gameGroups.id)) // Consistent default order (newest groups first)
 
 	// Get total count for pagination
 	const totalCountResult = await db.select({ count: count() }).from(groupsQuery.as('missing_groups'))

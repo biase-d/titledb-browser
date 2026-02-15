@@ -4,8 +4,10 @@ import * as contributeService from '$lib/services/contributeService'
 export const load = async ({ parent, url, cookies, locals }) => {
 	const { session } = await parent()
 
+	const impactStats = await contributeService.getImpactStats(locals.db)
+
 	if (!session?.user) {
-		return { session, games: [], pagination: null }
+		return { session, games: [], pagination: null, impactStats }
 	}
 
 	const page = parseInt(url.searchParams.get('page') || '1', 10)
@@ -22,6 +24,7 @@ export const load = async ({ parent, url, cookies, locals }) => {
 		session,
 		games: result.games,
 		sortBy: result.sortBy,
-		pagination: result.pagination
+		pagination: result.pagination,
+		impactStats
 	}
 }
