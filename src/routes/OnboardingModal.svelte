@@ -2,6 +2,7 @@
     import { fade, scale } from "svelte/transition";
     import Icon from "@iconify/svelte";
     import { preferences, COUNTRY_GROUPS } from "$lib/stores/preferences";
+    import { getFlagIcon } from "$lib/flags";
     import { onMount } from "svelte";
     import { isBot } from "$lib/utils/bot";
 

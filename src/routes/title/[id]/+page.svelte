@@ -329,7 +329,6 @@
 
 <svelte:head>
 	<title>{name} - Switch Performance</title>
-	<link rel="icon" href={iconImages?.src || "/favicon.svg"} />
 	<meta
 		name="description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
@@ -362,7 +361,7 @@
 			"gamePlatform": "Nintendo Switch",
 			"applicationCategory": "Game",
 			"operatingSystem": "Nintendo Switch OS",
-			"image": "${game.iconUrl || game.bannerUrl}",
+			"image": "${url.origin}${proxyImage(game.iconUrl || game.bannerUrl, 300)}",
 			"url": "${url.href}",
 			${
 				game.publisher && game.publisher !== "N/A"

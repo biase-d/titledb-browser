@@ -8,7 +8,7 @@
 	import ListItem from "./ListItem.svelte";
 	import GridItem from "./GridItem.svelte";
 	import Drafts from "./Drafts.svelte";
-	import { createImageSet } from "$lib/image";
+	import { createImageSet, proxyImage } from "$lib/image";
 	import { getLocalizedName } from "$lib/i18n";
 	import { preferences } from "$lib/stores/preferences";
 	import SkeletonCard from "$lib/components/SkeletonCard.svelte";
@@ -193,7 +193,11 @@
 	<meta property="og:site_name" content="Switch Performance" />
 	<link rel="canonical" href={page.url.origin + page.url.pathname} />
 	{#if recentUpdates?.[0]?.bannerUrl}
-		<link rel="preload" as="image" href={recentUpdates[0].bannerUrl} />
+		<link
+			rel="preload"
+			as="image"
+			href={proxyImage(recentUpdates[0].bannerUrl, 1000)}
+		/>
 	{/if}
 	{@html `<script type="application/ld+json">
 	{
