@@ -9,7 +9,7 @@ import * as contributionRepo from '$lib/repositories/contributionRepository'
  * Target: /api/v1/internal/github/webhook
  */
 
-export async function POST({ request, locals }) {
+export async function POST ({ request, locals }) {
 	const signature = request.headers.get('x-hub-signature-256')
 	if (!signature) {
 		return json({ error: 'Missing signature' }, { status: 401 })

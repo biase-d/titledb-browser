@@ -6,7 +6,7 @@ import { generateOgImage } from '$lib/server/og-generator'
  * @param {Object} modeData
  * @returns {string|null}
  */
-function formatPerf(modeData) {
+function formatPerf (modeData) {
 	if (!modeData) return null
 
 	// Filter out placeholder values
@@ -30,7 +30,7 @@ function formatPerf(modeData) {
  * @param {Object} modeData
  * @returns {string|null}
  */
-function formatGraphics(modeData) {
+function formatGraphics (modeData) {
 	if (!modeData) return null
 
 	if (!modeData.resolution && !modeData.framerate) return null
@@ -50,7 +50,7 @@ function formatGraphics(modeData) {
 }
 
 /** @type {import('./$types').RequestHandler} */
-export async function GET({ params, locals }) {
+export async function GET ({ params, locals }) {
 	try {
 		const gameId = params.id
 
