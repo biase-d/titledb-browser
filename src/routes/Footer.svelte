@@ -1,7 +1,41 @@
 <script>
 	import '@fontsource-variable/caveat'
+	import { onMount } from 'svelte'
+
 	const currentYear = new Date().getFullYear()
+
+	let isBuilding = $state(false)
+	let buildPhase = $state('')
+
+	async function checkBuildStatus () {
+		try {
+			const res = await fetch('/api/v1/status')
+			const health = await res.json()
+			const build = health.services?.build
+			isBuilding = build?.isBuilding || false
+			buildPhase = build?.phase || ''
+		} catch {
+			// Silently ignore — don't block the footer
+		}
+	}
+
+	onMount(() => {
+		checkBuildStatus()
+		const interval = setInterval(checkBuildStatus, 30_000)
+		return () => clearInterval(interval)
+	})
 </script>
+
+{#if isBuilding}
+	<div class="build-banner">
+		<div class="build-banner-inner">
+			<span class="build-dot"></span>
+			<span
+				>Database syncing{buildPhase ? ` (${buildPhase})` : ''}...</span
+			>
+		</div>
+	</div>
+{/if}
 
 <footer class="site-footer">
 	<div class="footer-inner">
@@ -197,5 +231,47 @@
 		opacity: 0.6;
 		letter-spacing: 0.02em;
 		line-height: 1.4;
+	}
+
+	.build-banner {
+		background: rgba(245, 158, 11, 0.08);
+		border: 1px solid rgba(245, 158, 11, 0.2);
+		border-radius: var(--radius-md);
+		margin: 0 1.5rem 1rem;
+		max-width: 1400px;
+	}
+
+	@media (min-width: 1024px) {
+		.build-banner {
+			margin: 0 auto 1rem;
+		}
+	}
+
+	.build-banner-inner {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		font-size: 0.85rem;
+		color: #f59e0b;
+	}
+
+	.build-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: #f59e0b;
+		animation: build-pulse 1.5s ease-in-out infinite;
+	}
+
+	@keyframes build-pulse {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.3;
+		}
 	}
 </style>

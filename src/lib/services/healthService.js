@@ -6,6 +6,7 @@
 import { sql } from 'drizzle-orm'
 import { getPlatformInfo } from '$lib/platform/adapter'
 import logger from '$lib/services/loggerService'
+import { getBuildStatus } from '$lib/repositories/buildStatusRepository'
 
 /**
  * Check health of all system components
@@ -15,15 +16,13 @@ import logger from '$lib/services/loggerService'
  * @returns {Promise<Object>}
  */
 export async function checkHealth (db, storage, platform) {
-	const start = globalThis.performance.now() // Use globalThis for platform compatibility
+	const start = globalThis.performance.now()
 
 	// Check Database
 	let dbStatus = 'unknown'
 	let dbLatency = 0
 	try {
 		const dbStart = globalThis.performance.now()
-		// Execute simple query to verify connection
-		// Using drizzle's execute for raw SQL if available, or a simple select
 		await db.execute(sql`SELECT 1`)
 		dbLatency = globalThis.performance.now() - dbStart
 		dbStatus = 'healthy'
@@ -37,9 +36,10 @@ export async function checkHealth (db, storage, platform) {
 	let storageStatus = 'not-configured'
 	if (storage) {
 		storageStatus = 'configured'
-		// We assume configured means mostly healthy to avoid high latency/cost on health check
-		// Could verify environment vars here
 	}
+
+	// Check Build Status
+	const buildStatus = await getBuildStatus(db)
 
 	const info = getPlatformInfo(platform)
 
@@ -49,8 +49,10 @@ export async function checkHealth (db, storage, platform) {
 		services: {
 			database: { status: dbStatus, latency: Math.round(dbLatency) + 'ms' },
 			storage: { status: storageStatus },
-			platform: info
+			platform: info,
+			build: buildStatus || { isBuilding: false, phase: null }
 		},
 		timestamp: new Date().toISOString()
 	}
 }
+

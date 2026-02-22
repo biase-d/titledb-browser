@@ -3,41 +3,32 @@
  * @description Wraps Drizzle ORM with PostgreSQL-specific connection logic
  */
 
-import { dev } from '$app/environment'
 import * as schema from '$lib/db/schema'
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http'
 import { neon } from '@neondatabase/serverless'
 
 /**
- * Create PostgreSQL database adapter
+ * Create PostgreSQL database adapter with schema-aware search path
  * @param {Object} env - Environment variables
+ * @param {string} [searchPath] - PostgreSQL search_path (e.g. 'layer_a, public')
  * @returns {import('../types').DatabaseAdapter}
  */
-export function createPostgresAdapter (env) {
+export function createPostgresAdapter (env, searchPath) {
 	const connectionString = env.POSTGRES_URL
 
 	if (!connectionString) {
 		throw new Error('POSTGRES_URL environment variable is required for PostgreSQL adapter')
 	}
 
-	let dbInstance
-
-	if (!dev) {
-		// Production: Use Neon serverless HTTP
-		const client = neon(connectionString)
-		dbInstance = drizzleNeon(client, { schema })
-	} else {
-		// Development: Use standard postgres.js (async import to avoid bundling issues)
-
-		// Return promise-based instance for dev
-		dbInstance = dev ? null : null // Will be created on first use
-
-		// For sync access, we'll use the production client even in dev if needed
-		const client = neon(connectionString)
-		dbInstance = drizzleNeon(client, { schema })
+	// Append search_path to connection string if provided
+	let connStr = connectionString
+	if (searchPath) {
+		const separator = connStr.includes('?') ? '&' : '?'
+		connStr = `${connStr}${separator}options=-csearch_path%3D${encodeURIComponent(searchPath)}`
 	}
 
-	return dbInstance
+	const client = neon(connStr)
+	return drizzleNeon(client, { schema })
 }
 
 /**

@@ -18,15 +18,33 @@
 			{#await healthPromise}
 				<div class="status-loading">Checking system status...</div>
 			{:then health}
-				{@const dbDown = health.services.database.status === 'down'}
-				<div class="status-item" class:is-down={dbDown}>
-					<span class="dot"></span>
-					<span class="label">
-						{dbDown
-							? 'Database is currently offline'
-							: 'Systems are operational'}
-					</span>
-				</div>
+				{@const dbDown =
+					health.services?.database?.status !== 'healthy'}
+				{@const isBuilding = health.services?.build?.isBuilding}
+
+				{#if isBuilding}
+					<div class="status-item is-building">
+						<span class="dot"></span>
+						<span class="label"
+							>Database is currently being rebuilt. This page will
+							work again shortly.</span
+						>
+					</div>
+					<p class="rebuild-hint">
+						The page will automatically refresh when the rebuild
+						completes.
+					</p>
+				{:else if dbDown}
+					<div class="status-item is-down">
+						<span class="dot"></span>
+						<span class="label">Database is currently offline</span>
+					</div>
+				{:else}
+					<div class="status-item">
+						<span class="dot"></span>
+						<span class="label">Systems are operational</span>
+					</div>
+				{/if}
 			{:catch}
 				<div class="status-item is-down">
 					<span class="dot"></span>
@@ -127,5 +145,21 @@
 		color: var(--text-secondary);
 		text-decoration: underline;
 		font-size: 0.9rem;
+	}
+
+	.status-item.is-building {
+		color: #f59e0b;
+	}
+
+	.rebuild-hint {
+		margin: 0.75rem 0 0;
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		font-style: italic;
+	}
+
+	.status-loading {
+		color: var(--text-secondary);
+		font-size: 0.85rem;
 	}
 </style>
