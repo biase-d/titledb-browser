@@ -6,18 +6,23 @@ import { generateOgImage } from '$lib/server/og-generator'
  * @param {Object} modeData
  * @returns {string|null}
  */
-function formatPerf (modeData) {
+function formatPerf(modeData) {
 	if (!modeData) return null
 
-	if (!modeData.resolution_type && !modeData.target_fps && !modeData.fps_behavior) return null
+	// Filter out placeholder values
+	const fps = modeData.target_fps
+	const hasMeaningfulFps = fps && (typeof fps === 'number' || fps === 'Unlocked' || !isNaN(parseInt(fps, 10)))
+	const hasMeaningfulRes = !!modeData.resolution_type
+
+	if (!hasMeaningfulRes && !hasMeaningfulFps && !modeData.fps_behavior) return null
 
 	let res = 'Unknown'
 	if (modeData.resolution_type === 'Fixed') res = modeData.resolution || 'Fixed'
 	else if (modeData.resolution_type === 'Dynamic') res = 'Dynamic'
 	else if (modeData.resolution_type === 'Multiple Fixed') res = 'Multiple'
 
-	const fps = modeData.target_fps ? `${modeData.target_fps} FPS` : (modeData.fps_behavior || 'Unknown')
-	return `${res} • ${fps}`
+	const fpsText = hasMeaningfulFps ? `${fps} FPS` : (modeData.fps_behavior || 'Unknown')
+	return `${res} • ${fpsText}`
 }
 
 /**
@@ -25,7 +30,7 @@ function formatPerf (modeData) {
  * @param {Object} modeData
  * @returns {string|null}
  */
-function formatGraphics (modeData) {
+function formatGraphics(modeData) {
 	if (!modeData) return null
 
 	if (!modeData.resolution && !modeData.framerate) return null
@@ -33,15 +38,19 @@ function formatGraphics (modeData) {
 	let res = modeData.resolution?.resolutionType || 'Unknown'
 	if (res === 'Fixed' && modeData.resolution?.fixedResolution) res = modeData.resolution.fixedResolution
 
+	// Filter out placeholder FPS values
+	const targetFps = modeData.framerate?.targetFps
+	const hasMeaningfulFps = targetFps && (typeof targetFps === 'number' || targetFps === 'Unlocked' || !isNaN(parseInt(targetFps, 10)))
+
 	let fps = 'Unknown'
-	if (modeData.framerate?.targetFps) fps = `${modeData.framerate.targetFps} FPS`
-	else if (modeData.framerate?.lockType) fps = modeData.framerate.lockType
+	if (hasMeaningfulFps) fps = `${targetFps} FPS`
+	else if (modeData.framerate?.lockType && modeData.framerate.lockType !== 'Unknown') fps = modeData.framerate.lockType
 
 	return `${res} • ${fps}`
 }
 
 /** @type {import('./$types').RequestHandler} */
-export async function GET ({ params, locals }) {
+export async function GET({ params, locals }) {
 	try {
 		const gameId = params.id
 
