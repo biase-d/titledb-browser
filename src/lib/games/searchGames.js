@@ -144,7 +144,9 @@ export async function searchGames (searchParams) {
 			iconUrl: games.iconUrl,
 			bannerUrl: games.bannerUrl,
 			publisher: games.publisher,
+			releaseDate: games.releaseDate,
 			lastUpdated: games.lastUpdated,
+			groupLastUpdated: sql`MAX(${games.lastUpdated}) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
 			sizeInBytes: games.sizeInBytes,
 			dockedFps: sql`COALESCE(
 				(${latestProfileSubquery.profiles}->'docked'->>'target_fps'), 
@@ -174,7 +176,10 @@ export async function searchGames (searchParams) {
 		iconUrl: innerQuery.iconUrl,
 		bannerUrl: innerQuery.bannerUrl,
 		publisher: innerQuery.publisher,
+		releaseDate: innerQuery.releaseDate,
 		lastUpdated: innerQuery.lastUpdated,
+		groupLastUpdated: innerQuery.groupLastUpdated,
+		sizeInBytes: innerQuery.sizeInBytes,
 		performance: innerQuery.performance,
 		graphics: innerQuery.graphics,
 		performanceSummary: sql`jsonb_build_object(
@@ -193,7 +198,7 @@ export async function searchGames (searchParams) {
 			case 'name-asc': finalQuery.orderBy(sql`${innerQuery.names}[1] ASC`); break
 			case 'size-desc': finalQuery.orderBy(desc(innerQuery.sizeInBytes)); break
 			case 'date-desc':
-			default: finalQuery.orderBy(desc(innerQuery.lastUpdated)); break
+			default: finalQuery.orderBy(desc(innerQuery.groupLastUpdated)); break
 		}
 	}
 
@@ -215,6 +220,7 @@ export async function searchGames (searchParams) {
 		return {
 			...r,
 			performance: finalPerformance,
+			releaseDate: r.releaseDate,
 			graphics: undefined,
 			performanceSummary: undefined
 		}

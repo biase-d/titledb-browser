@@ -14,26 +14,28 @@
     let score = $derived(calculatePlayabilityScore(profile))
 
     const icons = {
-    	Perfect: 'mdi:star-circle',
-    	Great: 'mdi:check-circle',
-    	Playable: 'mdi:check',
-    	Rough: 'mdi:alert-circle',
-    	Unknown: 'mdi:help-circle',
+        Perfect: 'mdi:star-circle',
+        Great: 'mdi:check-circle',
+        Playable: 'mdi:check',
+        Rough: 'mdi:alert-circle',
+        Unknown: 'mdi:help-circle',
     }
 </script>
 
-<div
-    class="badge {score.score.toLowerCase()}"
-    class:large
-    title={score.description}
->
-    <Icon
-        icon={icons[score.score]}
-        width={large ? 20 : 14}
-        height={large ? 20 : 14}
-    />
-    <span>{score.label}</span>
-</div>
+{#if score && score.score !== 'Unknown'}
+    <div
+        class="badge {score.score.toLowerCase()}"
+        class:large
+        title={score.description}
+    >
+        <Icon
+            icon={icons[score.score]}
+            width={large ? 20 : 14}
+            height={large ? 20 : 14}
+        />
+        <span>{score.label}</span>
+    </div>
+{/if}
 
 <style>
     .badge {

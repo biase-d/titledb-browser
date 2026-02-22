@@ -24,6 +24,13 @@ export function calculatePlayabilityScore (profile) {
 	// but for our purposes we'll treat it as a high performance target if behavior is stable)
 	const isHighPerformance = targetFps === 60 || targetFps === 'Unlocked'
 
+	// If the targetFps is missing, or is a placeholder text (TBD, Unknown, etc.)
+	const parsedFps = parseInt(targetFps, 10)
+	const isPlaceholder = !targetFps || (isNaN(parsedFps) && targetFps !== 'Unlocked')
+	if (isPlaceholder) {
+		return { score: 'Unknown', label: 'Unknown', color: 'text-gray-500', description: 'Performance details are unknown or pending.' }
+	}
+
 	// Check for "Perfect"
 	// Criteria: 60FPS (or Unlocked) AND Locked behavior
 	if (isHighPerformance && fpsBehavior === 'Locked') {
