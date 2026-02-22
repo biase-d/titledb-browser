@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit'
 import { env } from '$env/dynamic/private'
-import * as gameRepo from '$lib/repositories/gameRepository'
+import * as contributionRepo from '$lib/repositories/contributionRepository'
 
 /**
  * @file GitHub Webhook Handler
@@ -9,7 +9,7 @@ import * as gameRepo from '$lib/repositories/gameRepository'
  * Target: /api/v1/internal/github/webhook
  */
 
-export async function POST ({ request, locals }) {
+export async function POST({ request, locals }) {
 	const signature = request.headers.get('x-hub-signature-256')
 	if (!signature) {
 		return json({ error: 'Missing signature' }, { status: 401 })
@@ -50,10 +50,10 @@ export async function POST ({ request, locals }) {
 
 		try {
 			if (isMerged) {
-				await gameRepo.approveContribution(locals.db, prNumber)
+				await contributionRepo.approveContribution(locals.db, prNumber)
 				return json({ success: true, message: `Contribution PR #${prNumber} approved and live.` })
 			} else {
-				await gameRepo.rejectContribution(locals.db, prNumber)
+				await contributionRepo.rejectContribution(locals.db, prNumber)
 				return json({ success: true, message: `Contribution PR #${prNumber} rejected and cleaned up.` })
 			}
 		} catch (err) {
