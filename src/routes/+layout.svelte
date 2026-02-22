@@ -29,9 +29,14 @@
                 '--theme-overlay',
                 themeStore.colors.overlay,
             )
+
+            const isDark = window.matchMedia(
+                '(prefers-color-scheme: dark)',
+            ).matches
+            const mixTarget = isDark ? 'white' : 'black'
             root.style.setProperty(
                 '--primary-color-hover',
-                `color-mix(in srgb, ${themeStore.colors.primary} 80%, white)`,
+                `color-mix(in srgb, ${themeStore.colors.primary} 80%, ${mixTarget})`,
             )
         } else {
             root.style.setProperty(
@@ -126,6 +131,13 @@
         opacity: 0.8;
     }
 
+    @media (prefers-color-scheme: light) {
+        .theme-background-image {
+            opacity: 0.12;
+            filter: blur(80px) saturate(1.2);
+        }
+    }
+
     .app-container {
         width: 100%;
         max-width: 1100px;
@@ -134,28 +146,49 @@
     }
 
     :global(.has-theme) {
-        /* When theme is active, use a dark-primary hybrid background for immersion */
-        --background-color: color-mix(
-            in srgb,
-            var(--theme-overlay, #0d1117) 80%,
-            #000000
-        );
         --surface-color: color-mix(
             in srgb,
             var(--background-color) 90%,
             var(--primary-color)
         );
-
-        /* Force light-mode variants of text when theme is active */
-        --text-primary: var(--color-text-header-dark);
-        --text-secondary: var(--color-text-muted-dark);
-        --text-body: var(--color-text-body-dark);
         --border-color: color-mix(
             in srgb,
             var(--primary-color) 20%,
-            var(--color-border-dark)
+            var(--color-border-light)
         );
-        --input-bg: rgba(0, 0, 0, 0.2);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :global(.has-theme) {
+            --background-color: color-mix(
+                in srgb,
+                var(--theme-overlay, #0d1117) 80%,
+                #000000
+            );
+            --text-primary: var(--color-text-header-dark);
+            --text-secondary: var(--color-text-muted-dark);
+            --text-body: var(--color-text-body-dark);
+            --border-color: color-mix(
+                in srgb,
+                var(--primary-color) 20%,
+                var(--color-border-dark)
+            );
+            --input-bg: rgba(0, 0, 0, 0.2);
+        }
+    }
+
+    @media (prefers-color-scheme: light) {
+        :global(.has-theme) {
+            --background-color: color-mix(
+                in srgb,
+                var(--theme-overlay, #f6f8fa) 90%,
+                var(--primary-color)
+            );
+            --text-primary: var(--color-text-header-light);
+            --text-secondary: var(--color-text-muted-light);
+            --text-body: var(--color-text-body-light);
+            --input-bg: rgba(255, 255, 255, 0.6);
+        }
     }
 
     .nav-progress-bar {
