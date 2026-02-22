@@ -10,13 +10,13 @@ import { sql } from 'drizzle-orm'
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @returns {Promise<Object>}
  */
-export async function getSystemHealth(db) {
+export async function getSystemHealth (db) {
     const start = Date.now()
 
     const results = await Promise.allSettled([
         checkDatabase(db),
-        checkExternalService('https://img-eshop.cdn.nintendo.net/i/333917865768565a5078502a514d50514a51475734504a5746413954564c483149595232', 'Nintendo CDN'),
-        checkExternalService('https://raw.githubusercontent.com/titledb/titledb.github.io/master/VERSION', 'GitHub TitleDB')
+        checkExternalService('https://img-eshop.cdn.nintendo.net/i/ad1726955ae2cbddaaa0c531c836fd368c175f7302f9efab2c0f99118a53f2c4.jpg', 'eshop cdn'),
+        checkExternalService('https://github.com/biase-d/nx-performance/blob/38851298169a5b691fc1e62b977ea6955833c5f6/scripts/validate-data.sh', 'nx-performance-repo')
     ])
 
     const [database, nintendoCdn, github] = results.map(r => r.status === 'fulfilled' ? r.value : {
@@ -45,7 +45,7 @@ export async function getSystemHealth(db) {
  * Check database connectivity
  * @param {import('$lib/database/types').DatabaseAdapter} db
  */
-async function checkDatabase(db) {
+async function checkDatabase (db) {
     const start = Date.now()
     try {
         await db.execute(sql`SELECT 1`)
@@ -60,7 +60,7 @@ async function checkDatabase(db) {
  * @param {string} url
  * @param {string} name
  */
-async function checkExternalService(url, name) {
+async function checkExternalService (url, _name) {
     const start = Date.now()
     try {
         const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) })

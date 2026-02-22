@@ -3,7 +3,7 @@ import { games } from '$lib/db/schema'
 import { proxyImage } from '$lib/image'
 
 /** @param {import('./$types').RequestEvent} event */
-export async function GET({ url }) {
+export async function GET ({ url }) {
     const allGames = await db.select({
         iconUrl: games.iconUrl,
         bannerUrl: games.bannerUrl

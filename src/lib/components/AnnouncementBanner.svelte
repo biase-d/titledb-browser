@@ -1,25 +1,25 @@
 <script>
-    import { onMount } from "svelte";
-    import { slide } from "svelte/transition";
-    import Icon from "@iconify/svelte";
-    import { getVersionInfo } from "$lib/services/versionService";
-    import { uiStore } from "$lib/stores/ui.svelte";
+    import { onMount } from 'svelte'
+    import { slide } from 'svelte/transition'
+    import Icon from '@iconify/svelte'
+    import { getVersionInfo } from '$lib/services/versionService'
+    import { uiStore } from '$lib/stores/ui.svelte'
 
     /** @typedef {import('$lib/services/versionService').Announcement} Announcement */
 
     /** @type {Announcement | null} */
-    let activeAnnouncement = $state(null);
-    let isVisible = $state(false);
+    let activeAnnouncement = $state(null)
+    let isVisible = $state(false)
 
     onMount(() => {
         // Hide banner for first-time visitors
-        const hasVisited = localStorage.getItem("has_visited");
+        const hasVisited = localStorage.getItem('has_visited')
         if (!hasVisited) {
-            localStorage.setItem("has_visited", "true");
-            return;
+            localStorage.setItem('has_visited', 'true')
+            return
         }
 
-        const { announcements } = getVersionInfo();
+        const { announcements } = getVersionInfo()
 
         // Find latest active announcement
         const latest = announcements
@@ -27,41 +27,41 @@
             .sort(
                 (a, b) =>
                     new Date(b.date).getTime() - new Date(a.date).getTime(),
-            )[0];
+            )[0]
 
         if (latest) {
             const dismissed = localStorage.getItem(
                 `dismissed_announcement_${latest.id}`,
-            );
+            )
             if (!dismissed) {
-                activeAnnouncement = latest;
-                isVisible = true;
+                activeAnnouncement = latest
+                isVisible = true
             }
         }
-    });
+    })
 
-    function dismiss() {
-        if (!activeAnnouncement) return;
+    function dismiss () {
+        if (!activeAnnouncement) return
         localStorage.setItem(
             `dismissed_announcement_${activeAnnouncement.id}`,
-            "true",
-        );
-        isVisible = false;
+            'true',
+        )
+        isVisible = false
     }
 
     /** @param {string} type */
-    function getIcon(type) {
+    function getIcon (type) {
         switch (type) {
-            case "warning":
-                return "mdi:alert-circle";
-            case "success":
-                return "mdi:check-circle";
-            case "feature":
-                return "mdi:star-four-points";
-            case "critical":
-                return "mdi:alert-decagram";
+            case 'warning':
+                return 'mdi:alert-circle'
+            case 'success':
+                return 'mdi:check-circle'
+            case 'feature':
+                return 'mdi:star-four-points'
+            case 'critical':
+                return 'mdi:alert-decagram'
             default:
-                return "mdi:information";
+                return 'mdi:information'
         }
     }
 
@@ -69,11 +69,11 @@
      * @param {MouseEvent} e
      * @param {string} link
      */
-    function handleLinkClick(e, link) {
-        if (link.startsWith("/settings")) {
-            e.preventDefault();
-            const section = link.split("#")[1] || undefined;
-            uiStore.openSettings(section);
+    function handleLinkClick (e, link) {
+        if (link.startsWith('/settings')) {
+            e.preventDefault()
+            const section = link.split('#')[1] || undefined
+            uiStore.openSettings(section)
         }
     }
 </script>
@@ -94,24 +94,24 @@
                 {#if activeAnnouncement.link}
                     <a
                         href={activeAnnouncement.link}
-                        target={activeAnnouncement.link.startsWith("http")
-                            ? "_blank"
-                            : "_self"}
-                        rel={activeAnnouncement.link.startsWith("http")
-                            ? "noopener noreferrer"
-                            : ""}
+                        target={activeAnnouncement.link.startsWith('http')
+                            ? '_blank'
+                            : '_self'}
+                        rel={activeAnnouncement.link.startsWith('http')
+                            ? 'noopener noreferrer'
+                            : ''}
                         class="link"
                         onclick={(e) =>
                             activeAnnouncement?.link &&
                             handleLinkClick(e, activeAnnouncement.link)}
                     >
-                        {activeAnnouncement.link.startsWith("http")
-                            ? "Learn More"
-                            : "Check it out"}
+                        {activeAnnouncement.link.startsWith('http')
+                            ? 'Learn More'
+                            : 'Check it out'}
                         <Icon
-                            icon={activeAnnouncement.link.startsWith("http")
-                                ? "mdi:open-in-new"
-                                : "mdi:chevron-right"}
+                            icon={activeAnnouncement.link.startsWith('http')
+                                ? 'mdi:open-in-new'
+                                : 'mdi:chevron-right'}
                             width="14"
                         />
                     </a>

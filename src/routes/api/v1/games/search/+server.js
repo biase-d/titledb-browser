@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit'
-import * as gameRepo from '$lib/repositories/gameRepository'
+import * as searchRepo from '$lib/repositories/searchRepository'
 
 export const GET = async ({ url, locals }) => {
 	try {
@@ -9,7 +9,7 @@ export const GET = async ({ url, locals }) => {
 		}
 
 		const db = locals.db
-		const { results } = await gameRepo.searchGames(db, url.searchParams)
+		const { results } = await searchRepo.searchGames(db, url.searchParams)
 
 		const searchResults = results.map(game => ({
 			id: game.id,

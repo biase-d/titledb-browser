@@ -13,7 +13,7 @@ const DEFAULT_BRANCH = 'v3'
  */
 export class GitConflictError extends Error {
 	/** @param {string} message */
-	constructor(message) {
+	constructor (message) {
 		super(message)
 		this.name = 'GitConflictError'
 	}
@@ -24,7 +24,7 @@ export class GitConflictError extends Error {
  * @param {string} path - The full path to the file from the repo root
  * @returns {Promise<string|null>} The SHA of the file, or null if not found
  */
-export async function getFileSha(path) {
+export async function getFileSha (path) {
 	try {
 		const { data } = await octokit.repos.getContent({
 			owner: REPO_OWNER,
@@ -59,7 +59,7 @@ export async function getFileSha(path) {
  * @param {string} prBody - The body content for the new pull request
  * @returns {Promise<string|null>} The URL of the created pull request, or null on failure
  */
-export async function createOrUpdateFilesAndDraftPR(branchName, commitMessage, filesToCommit, prTitle, prBody) {
+export async function createOrUpdateFilesAndDraftPR (branchName, commitMessage, filesToCommit, prTitle, prBody) {
 	const owner = REPO_OWNER
 	const repo = REPO_NAME
 

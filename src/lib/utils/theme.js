@@ -3,7 +3,7 @@
  * @param {string} imageUrl
  * @returns {Promise<{ primary: string, accent: string, overlay: string } | null>}
  */
-export async function extractTheme(imageUrl) {
+export async function extractTheme (imageUrl) {
 	if (!imageUrl) return null
 
 	// Use internal proxy to bypass CORS for external assets

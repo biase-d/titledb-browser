@@ -15,7 +15,7 @@ import logger from '$lib/services/loggerService'
  * @param {any} [platform] - Platform context (SvelteKit platform object)
  * @returns {import('./types').StorageAdapter | null}
  */
-export function createStorage(env, platform) {
+export function createStorage (env, platform) {
 	// Priority 1: Cloudflare Workers with R2 binding (preferred)
 	if (platform?.env?.STORAGE || platform?.env?.R2_BUCKET) {
 		const bucket = platform.env.STORAGE || platform.env.R2_BUCKET
@@ -50,7 +50,7 @@ export function createStorage(env, platform) {
  * @param {any} [platform] - Platform context
  * @returns {import('./types').StorageProvider}
  */
-export function detectStorageProvider(env, platform) {
+export function detectStorageProvider (env, platform) {
 	if (platform?.env?.STORAGE || platform?.env?.R2_BUCKET) {
 		return 'r2'
 	}

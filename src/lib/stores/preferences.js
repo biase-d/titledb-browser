@@ -62,7 +62,7 @@ export const COUNTRY_GROUPS = [
 	}
 ]
 
-function createPreferencesStore() {
+function createPreferencesStore () {
 	const initialRegion = browser
 		? (localStorage.getItem('preferred_region') || 'US')
 		: 'US'

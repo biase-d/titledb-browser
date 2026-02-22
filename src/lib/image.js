@@ -5,7 +5,7 @@
  * @param {number} [height]
  * @returns {string}
  */
-export function proxyImage(src, width = 0, height = 0) {
+export function proxyImage (src, width = 0, height = 0) {
 	if (!src) return src
 
 	// Proxy external images for caching and CORS
@@ -28,7 +28,7 @@ export function proxyImage(src, width = 0, height = 0) {
  * @param {number} [options.bannerWidth]
  * @returns {{src: string, srcset: string} | null}
  */
-export function createImageSet(src, options = {}) {
+export function createImageSet (src, options = {}) {
 	if (!src) return null
 
 	const {

@@ -5,7 +5,7 @@ import sharp from 'sharp'
 import logger from '$lib/services/loggerService'
 
 /** @type {import('./$types').RequestHandler} */
-export async function GET({ url }) {
+export async function GET ({ url }) {
 	const imageUrl = url.searchParams.get('url')
 	const width = parseInt(url.searchParams.get('w') || '0')
 	const height = parseInt(url.searchParams.get('h') || '0')

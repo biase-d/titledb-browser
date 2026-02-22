@@ -7,7 +7,7 @@ import { and, count, countDistinct, desc, eq, gte, lt, sql, sum } from 'drizzle-
  * @param {URLSearchParams} searchParams - Filter parameters
  * @returns {Promise<Object>}
  */
-export async function getStats(db, searchParams) {
+export async function getStats (db, searchParams) {
 	const publisher = searchParams.get('publisher')
 	const year = searchParams.get('year')
 	const sizeBucket = searchParams.get('sizeBucket')

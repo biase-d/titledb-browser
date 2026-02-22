@@ -123,7 +123,7 @@ describe('GitHub Service', () => {
         it('should create a PR successfully', async () => {
             const url = await GitHubService.createPullRequest(prParams);
 
-            expect(url).toBe('http://pr-url');
+            expect(url).toEqual({ number: undefined, url: 'http://pr-url' });
             expect(mockOctokit.git.createRef).toHaveBeenCalled();
             expect(mockOctokit.git.updateRef).toHaveBeenCalled();
             expect(mockOctokit.pulls.create).toHaveBeenCalled();

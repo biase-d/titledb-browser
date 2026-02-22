@@ -14,7 +14,7 @@ const DEFAULT_BRANCH = 'v3'
  */
 export class GitConflictError extends Error {
 	/** @param {string} message */
-	constructor(message) {
+	constructor (message) {
 		super(message)
 		this.name = 'GitConflictError'
 	}
@@ -26,7 +26,7 @@ export class GitHubService {
    * @param {string} path - The full path to the file
    * @returns {Promise<string|null>} The SHA or null if not found
    */
-	static async getFileSha(path) {
+	static async getFileSha (path) {
 		try {
 			const { data } = await octokit.repos.getContent({
 				owner: REPO_OWNER,
@@ -52,7 +52,7 @@ export class GitHubService {
    * @param {string} path - The file path
    * @returns {Promise<any|null>} The parsed JSON or null
    */
-	static async getJsonContent(path) {
+	static async getJsonContent (path) {
 		try {
 			const { data } = await octokit.repos.getContent({
 				owner: REPO_OWNER,
@@ -74,6 +74,26 @@ export class GitHubService {
 	}
 
 	/**
+	 * Retrieves open pull requests
+	 * @returns {Promise<any[]>}
+	 */
+	static async getOpenPullRequests () {
+		try {
+			const { data: pulls } = await octokit.pulls.list({
+				owner: REPO_OWNER,
+				repo: REPO_NAME,
+				state: 'open',
+				per_page: 50
+			})
+			return pulls
+		} catch (error) {
+			const err = error instanceof Error ? error : new Error(String(error))
+			logger.error('Error fetching open pull requests', err)
+			return []
+		}
+	}
+
+	/**
    * Creates a new branch, commits files, and opens a draft PR
    * @param {object} params
    * @param {string} params.branchName
@@ -83,7 +103,7 @@ export class GitHubService {
    * @param {Array<{path: string, content: string|null, encoding?: string}>} params.files - Files to create/update
    * @returns {Promise<{url: string, number: number}|null>}
    */
-	static async createPullRequest({ branchName, commitMessage, prTitle, prBody, files }) {
+	static async createPullRequest ({ branchName, commitMessage, prTitle, prBody, files }) {
 		try {
 			const { data: mainBranch } = await octokit.repos.getBranch({
 				owner: REPO_OWNER,

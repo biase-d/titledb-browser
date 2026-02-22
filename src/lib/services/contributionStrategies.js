@@ -1,5 +1,5 @@
 import * as githubRepo from '$lib/repositories/githubRepository'
-import * as gameRepo from '$lib/repositories/gameRepository'
+import * as contributionRepo from '$lib/repositories/contributionRepository'
 
 /**
  * @typedef {Object} ContributionDetails
@@ -83,7 +83,7 @@ export class DatabaseAndGitHubStrategy extends ContributionStrategy {
 		}
 
 		// 2. Persistent pending status in DB
-		await gameRepo.savePendingContribution(dbConnection, {
+		await contributionRepo.savePendingContribution(dbConnection, {
 			groupId: details.groupId,
 			performance: details.rawPerformance,
 			graphics: details.rawGraphics,

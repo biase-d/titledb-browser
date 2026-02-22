@@ -1,27 +1,27 @@
 <script>
     /** @type {{ text: string, query: string }} */
-    let { text, query } = $props();
+    let { text, query } = $props()
 
     /**
      * @param {string} fullText
      * @param {string} searchTerm
      */
-    function getHighlightedParts(fullText, searchTerm) {
+    function getHighlightedParts (fullText, searchTerm) {
         if (!searchTerm || !searchTerm.trim()) {
-            return [{ text: fullText, highlight: false }];
+            return [{ text: fullText, highlight: false }]
         }
 
-        const escapedQuery = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(`(${escapedQuery})`, "gi");
-        const parts = fullText.split(regex);
+        const escapedQuery = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const regex = new RegExp(`(${escapedQuery})`, 'gi')
+        const parts = fullText.split(regex)
 
         return parts.map((part) => ({
             text: part,
             highlight: part.toLowerCase() === searchTerm.toLowerCase(),
-        }));
+        }))
     }
 
-    let parts = $derived(getHighlightedParts(text, query));
+    let parts = $derived(getHighlightedParts(text, query))
 </script>
 
 {#each parts as part}

@@ -3,7 +3,7 @@
  * @description Business logic for the contribute page - games missing performance/graphics data
  */
 
-import * as gameRepo from '$lib/repositories/gameRepository'
+import * as contributionRepo from '$lib/repositories/contributionRepository'
 import { getStats } from '$lib/repositories/statsRepository'
 
 /**
@@ -11,7 +11,7 @@ import { getStats } from '$lib/repositories/statsRepository'
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @returns {Promise<Object>}
  */
-export async function getImpactStats(db) {
+export async function getImpactStats (db) {
 	const stats = await getStats(db, new URLSearchParams())
 	return {
 		totalContributors: stats.kpis.total_contributors,
@@ -29,6 +29,6 @@ export async function getImpactStats(db) {
  * @param {string} options.preferredRegion
  * @returns {Promise<{games: Array, pagination: Object}>}
  */
-export async function getMissingDataGames(db, { page, sortBy, preferredRegion }) {
-	return gameRepo.getMissingDataGroups(db, { page, sortBy, preferredRegion })
+export async function getMissingDataGames (db, { page, sortBy, preferredRegion }) {
+	return contributionRepo.getMissingDataGroups(db, { page, sortBy, preferredRegion })
 }

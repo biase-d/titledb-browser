@@ -1,4 +1,5 @@
 import * as gameRepo from '$lib/repositories/gameRepository'
+import * as contributionRepo from '$lib/repositories/contributionRepository'
 import * as prefRepo from '$lib/repositories/preferencesRepository'
 
 const BADGES = [
@@ -35,7 +36,7 @@ export async function getUserContributions (db, username, page) {
 
 	/** @type {[any, any]} */
 	const [data, preferences] = await Promise.all([
-		gameRepo.getUserContributionStats(db, username),
+		contributionRepo.getUserContributionStats(db, username),
 		prefRepo.getUserPreferences(db, username)
 	])
 
@@ -105,19 +106,31 @@ export async function getUserContributions (db, username, page) {
 
 	for (const game of gamesInvolved) {
 		contributionsByGroup.set(game.groupId, {
-			game: { name: game.names[0], id: game.id, iconUrl: game.iconUrl },
+			game: { name: game.names[0], id: game.id, iconUrl: game.iconUrl, regions: game.regions },
 			versions: [],
 			hasGraphics: false,
-			hasYoutube: false
+			hasYoutube: false,
+			performance: { docked: null, handheld: null }
 		})
 	}
 
 	for (const profile of data.perfContribs) {
 		if (contributionsByGroup.has(profile.groupId)) {
-			contributionsByGroup.get(profile.groupId).versions.push({
+			const group = contributionsByGroup.get(profile.groupId)
+			group.versions.push({
 				version: profile.gameVersion,
 				sourcePrUrl: profile.sourcePrUrl
 			})
+
+			// Capture latest performance metrics
+			if (profile.profiles) {
+				if (profile.profiles.docked?.target_fps && !group.performance.docked) {
+					group.performance.docked = profile.profiles.docked.target_fps
+				}
+				if (profile.profiles.handheld?.target_fps && !group.performance.handheld) {
+					group.performance.handheld = profile.profiles.handheld.target_fps
+				}
+			}
 		}
 	}
 	for (const graphic of data.graphicsContribs) {

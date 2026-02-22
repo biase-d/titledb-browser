@@ -14,7 +14,7 @@ import logger from '$lib/services/loggerService'
  * @param {Object} platform
  * @returns {Promise<Object>}
  */
-export async function checkHealth(db, storage, platform) {
+export async function checkHealth (db, storage, platform) {
 	const start = globalThis.performance.now() // Use globalThis for platform compatibility
 
 	// Check Database

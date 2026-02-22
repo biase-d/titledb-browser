@@ -2,7 +2,7 @@ import { ImageResponse } from 'workers-og-custom'
 import { html as toVdom } from 'satori-html'
 import logger from '$lib/services/loggerService'
 
-async function fetchBuffer(url: string, timeout = 5000) {
+async function fetchBuffer (url: string, timeout = 5000) {
 	const controller = new AbortController()
 	const id = setTimeout(() => controller.abort(), timeout)
 
@@ -24,7 +24,7 @@ async function fetchBuffer(url: string, timeout = 5000) {
 	}
 }
 
-async function fetchDynamicFont(family: string, text: string) {
+async function fetchDynamicFont (family: string, text: string) {
 	try {
 		const API = `https://fonts.googleapis.com/css2?family=${family}:wght@700&text=${encodeURIComponent(text)}`
 		const cssReq = await fetch(API, {
@@ -44,7 +44,7 @@ async function fetchDynamicFont(family: string, text: string) {
 	}
 }
 
-async function getTitleFont(text: string, fallbackBuffer: ArrayBuffer) {
+async function getTitleFont (text: string, fallbackBuffer: ArrayBuffer) {
 	const isKorean = /[\uAC00-\uD7AF\u1100-\u11FF]/.test(text)
 	const isJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(text)
 	const isChinese = /[\u4E00-\u9FFF]/.test(text)
@@ -78,7 +78,7 @@ export interface OgData {
 	handheldText: string;
 }
 
-export async function generateOgImage(data: OgData): Promise<Response> {
+export async function generateOgImage (data: OgData): Promise<Response> {
 	logger.info('Starting OG image generation', { title: data.title })
 
 	const [interRegular, interBold] = await Promise.all([

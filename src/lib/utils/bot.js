@@ -4,7 +4,7 @@
  * 
  * @returns {boolean}
  */
-export function isBot() {
+export function isBot () {
     if (typeof navigator === 'undefined') return false
 
     const botPatterns = [

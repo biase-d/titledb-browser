@@ -1,4 +1,5 @@
 import * as gameRepo from '$lib/repositories/gameRepository'
+import * as searchRepo from '$lib/repositories/searchRepository'
 import * as requestRepo from '$lib/repositories/requestRepository'
 import { calculatePlayabilityScore } from '$lib/playability'
 
@@ -37,7 +38,7 @@ export async function getGameContext (db, titleId, userId) {
  * @returns {Promise<Object>}
  */
 export async function searchGames (db, searchParams) {
-	return await gameRepo.searchGames(db, searchParams)
+	return await searchRepo.searchGames(db, searchParams)
 }
 
 /**
@@ -79,7 +80,7 @@ export async function getPublisherStats (db, publisherName) {
 	searchParams.set('publisher', publisherName)
 	searchParams.set('limit', '1000') // Assuming no publisher has > 1000 games for now
 
-	const { results } = await gameRepo.searchGames(db, searchParams)
+	const { results } = await searchRepo.searchGames(db, searchParams)
 
 	const stats = {
 		totalGames: results.length,
@@ -113,5 +114,5 @@ export async function getPublisherStats (db, publisherName) {
  * @returns {Promise<Array>}
  */
 export async function getRandomGames (db, limit = 12) {
-	return await gameRepo.getRandomGames(db, limit)
+	return await searchRepo.getRandomGames(db, limit)
 }

@@ -27,7 +27,7 @@ import { version } from '$app/environment'
  * Get current version and feature flags
  * @returns {VersionInfo}
  */
-export function getVersionInfo() {
+export function getVersionInfo () {
 	return {
 		version: version || '3.0.0', // Fallback if not injected
 		features: {
@@ -94,7 +94,7 @@ export function getVersionInfo() {
  * @param {string} featureName
  * @returns {boolean}
  */
-export function isFeatureEnabled(featureName) {
+export function isFeatureEnabled (featureName) {
 	const info = getVersionInfo()
 	return info.features[featureName] || false
 }
@@ -105,7 +105,7 @@ export function isFeatureEnabled(featureName) {
  * @param {string} v2
  * @returns {number} 1 if v1 > v2, -1 if v1 < v2, 0 if equal
  */
-export function compareVersions(v1, v2) {
+export function compareVersions (v1, v2) {
 	const parts1 = v1.split('.').map(p => parseInt(p, 10))
 	const parts2 = v2.split('.').map(p => parseInt(p, 10))
 	const len = Math.max(parts1.length, parts2.length)
@@ -124,7 +124,7 @@ export function compareVersions(v1, v2) {
  * @param {string} requiredVersion
  * @returns {boolean}
  */
-export function isVersionAtLeast(requiredVersion) {
+export function isVersionAtLeast (requiredVersion) {
 	const { version: currentVersion } = getVersionInfo()
 	return compareVersions(currentVersion, requiredVersion) >= 0
 }
