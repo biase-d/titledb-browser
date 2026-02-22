@@ -1,65 +1,64 @@
 import * as gameRepo from '$lib/repositories/gameRepository'
 import { Game } from '$lib/models/Game'
+import { GitHubService } from '$lib/services/GitHubService'
 
 /**
  * @type {import('./$types').PageServerLoad}
  */
 export async function load ({ locals }) {
-	/** @type {{ performance: any[], graphics: any[], youtube: any[] }} */
-	const pendingData = await gameRepo.getPendingContributions(locals.db)
+	const pulls = await GitHubService.getOpenPullRequests()
 
-	// Extract unique groupIds to fetch game info
-	const groupIds = new Set([
-		...pendingData.performance.map((/** @type {any} */ p) => p.groupId),
-		...pendingData.graphics.map((/** @type {any} */ g) => g.groupId),
-		...pendingData.youtube.map((/** @type {any} */ y) => y.groupId)
-	])
+	/** @type {Array<{prNumber: number, groupId: string|null, title: string, prUrl: string, submittedAt: string, contributors: string[], changeSummary: string[], game?: any}>} */
+	const prGroups = []
+	const groupIdsToFetch = new Set()
 
-	const rawGames = await gameRepo.getGamesForGroups(locals.db, Array.from(groupIds))
-	const games = rawGames.map(g => new Game({ game: g }))
+	for (const pr of pulls) {
+		const groupIdMatch = pr.body?.match(/\*\*Group ID:\*\*\s*`([A-F0-9]+)`/i)
+		const groupId = groupIdMatch ? groupIdMatch[1] : null
 
-	// Group everything by prNumber
-	const prGroups = new Map()
-
-	const addToGroup = (item, type) => {
-		if (!item.prNumber) return
-		if (!prGroups.has(item.prNumber)) {
-			prGroups.set(item.prNumber, {
-				prNumber: item.prNumber,
-				groupId: item.groupId,
-				game: games.find(g => g.groupId === item.groupId),
-				contributions: { performance: [], graphics: [], youtube: [] },
-				contributors: new Set(),
-				submittedAt: item.lastUpdated || item.createdAt // Fallback
-			})
+		if (groupId) {
+			groupIdsToFetch.add(groupId)
 		}
 
-		const group = prGroups.get(item.prNumber)
-		group.contributions[type].push(item)
-
-		// Add contributors
-		if (item.contributor) {
-			if (Array.isArray(item.contributor)) {
-				item.contributor.forEach(c => group.contributors.add(c))
-			} else {
-				group.contributors.add(item.contributor)
-			}
+		const summaryMatch = pr.body?.match(/### Summary of Changes\n([\s\S]*)/)
+		/** @type {string[]} */
+		let changeSummary = []
+		if (summaryMatch) {
+			changeSummary = summaryMatch[1]
+				.split('\n')
+				.map(/** @param {string} line */ line => line.trim())
+				.filter(/** @param {string} line */ line => line.startsWith('*'))
+				.map(/** @param {string} line */ line => line.replace(/^\*\s*/, ''))
 		}
-		if (item.submittedBy) {
-			group.contributors.add(item.submittedBy)
+
+		prGroups.push({
+			prNumber: pr.number,
+			groupId,
+			title: pr.title,
+			prUrl: pr.html_url,
+			submittedAt: pr.created_at,
+			contributors: pr.user?.login ? [pr.user.login] : [],
+			changeSummary,
+			// Keep contributions object dummy since the frontend still expects it initially,
+			// or we can remove it entirely if we refactor the Svelte side correctly.
+		})
+	}
+
+	/** @type {any[]} */
+	let games = []
+	if (groupIdsToFetch.size > 0) {
+		const rawGames = await gameRepo.getGamesForGroups(locals.db, Array.from(groupIdsToFetch))
+		games = rawGames.map(g => new Game({ game: g }))
+	}
+
+	for (const group of prGroups) {
+		if (group.groupId) {
+			// @ts-ignore
+			group.game = games.find(g => g.groupId === group.groupId) || null
 		}
 	}
 
-	pendingData.performance.forEach((/** @type {any} */ p) => addToGroup(p, 'performance'))
-	pendingData.graphics.forEach((/** @type {any} */ g) => addToGroup(g, 'graphics'))
-	pendingData.youtube.forEach((/** @type {any} */ y) => addToGroup(y, 'youtube'))
-
 	return {
-		groups: Array.from(prGroups.values())
-			.map(group => ({
-				...group,
-				contributors: Array.from(group.contributors).sort()
-			}))
-			.sort((a, b) => b.prNumber - a.prNumber)
+		groups: prGroups.sort((a, b) => b.prNumber - a.prNumber)
 	}
 }

@@ -1,103 +1,104 @@
 <script>
-	import Icon from "@iconify/svelte";
-	import AuthButton from "./AuthButton.svelte";
-	import SettingsModal from "./SettingsModal.svelte";
-	import { uiStore } from "$lib/stores/ui.svelte";
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { fade, fly } from "svelte/transition";
-	import { cubicOut } from "svelte/easing";
+	import Icon from '@iconify/svelte'
+	import AuthButton from './AuthButton.svelte'
+	import SettingsModal from './SettingsModal.svelte'
+	import { uiStore } from '$lib/stores/ui.svelte'
+	import { goto } from '$app/navigation'
+	import { page } from '$app/state'
+	import { fade, fly } from 'svelte/transition'
+	import { cubicOut } from 'svelte/easing'
 
-	let { data } = $props();
+	let { data } = $props()
 
-	let isMobileMenuOpen = $state(false);
+	let isMobileMenuOpen = $state(false)
 
 	// Search State
-	let searchValue = $state("");
-	let searchResults = $state([]);
-	let isSearchFocused = $state(false);
-	let isSearching = $state(false);
-	let searchDebounce;
+	let searchValue = $state('')
+	let searchResults = $state([])
+	let isSearchFocused = $state(false)
+	let isSearching = $state(false)
+	let searchDebounce
+	let searchInput = $state()
 
 	$effect(() => {
-		const q = page.url.searchParams.get("q");
-		if (q && !isSearchFocused && !searchValue) searchValue = q;
-	});
+		const q = page.url.searchParams.get('q')
+		if (q && !isSearchFocused && !searchValue) searchValue = q
+	})
 
-	function handleInput() {
-		clearTimeout(searchDebounce);
+	function handleInput () {
+		clearTimeout(searchDebounce)
+		const isHomepage = page.url.pathname === '/'
 
-		// Always update the dropdown results
-		if (searchValue.length >= 2) {
-			isSearching = true;
+		if (searchValue.length >= 2 || (isHomepage && searchValue === '')) {
+			isSearching = !isHomepage
 			searchDebounce = setTimeout(async () => {
+				if (isHomepage) {
+					const url = new URL(window.location.href)
+					if (searchValue) url.searchParams.set('q', searchValue)
+					else url.searchParams.delete('q')
+					url.searchParams.delete('page')
+					goto(url.toString(), {
+						replaceState: true,
+						noScroll: true,
+						keepFocus: true,
+					})
+					searchResults = []
+					return
+				}
+
 				try {
 					const res = await fetch(
 						`/api/v1/games/search?q=${encodeURIComponent(searchValue)}`,
-					);
+					)
 					if (res.ok) {
-						searchResults = await res.json();
-					}
-
-					// If we are on the homepage, update the URL immediately (debounced)
-					// to trigger the main results update
-					if (page.url.pathname === "/") {
-						const url = new URL(window.location.href);
-						if (searchValue) url.searchParams.set("q", searchValue);
-						else url.searchParams.delete("q");
-						url.searchParams.delete("page");
-						goto(url.toString(), {
-							replaceState: true,
-							noScroll: true,
-							keepFocus: true,
-						});
+						searchResults = await res.json()
 					}
 				} catch (e) {
-					console.error(e);
+					console.error(e)
 				} finally {
-					isSearching = false;
+					isSearching = false
 				}
-			}, 300);
+			}, 300)
 		} else {
-			searchResults = [];
-			// Still update URL if clearing search on homepage
-			if (page.url.pathname === "/" && searchValue === "") {
-				const url = new URL(window.location.href);
-				url.searchParams.delete("q");
-				url.searchParams.delete("page");
-				goto(url.toString(), {
-					replaceState: true,
-					noScroll: true,
-					keepFocus: true,
-				});
-			}
+			searchResults = []
 		}
 	}
 
-	function handleSearchSubmit(e) {
-		e.preventDefault();
-		isSearchFocused = false;
-		isMobileMenuOpen = false;
+	function handleSearchSubmit (e) {
+		e.preventDefault()
+		isSearchFocused = false
+		isMobileMenuOpen = false
 
-		const url = new URL(window.location.href);
-		url.pathname = "/";
-		url.searchParams.set("q", searchValue);
-		url.searchParams.delete("page");
-		goto(url.toString());
+		const url = new URL(window.location.href)
+		url.pathname = '/'
+		url.searchParams.set('q', searchValue)
+		url.searchParams.delete('page')
+		goto(url.toString())
 	}
 
-	function closeMenu() {
-		isMobileMenuOpen = false;
+	function closeMenu () {
+		isMobileMenuOpen = false
 	}
 
-	function handleDocumentClick(e) {
-		if (isSearchFocused && !e.target.closest(".search-container")) {
-			isSearchFocused = false;
+	function handleDocumentClick (e) {
+		if (isSearchFocused && !e.target.closest('.search-container')) {
+			isSearchFocused = false
+		}
+	}
+
+	function handleKeydown (e) {
+		const isTyping =
+			['INPUT', 'TEXTAREA', 'SELECT'].includes(
+				document.activeElement.tagName,
+			) || document.activeElement.isContentEditable
+		if (e.key === '/' && !isTyping) {
+			e.preventDefault()
+			searchInput?.focus()
 		}
 	}
 </script>
 
-<svelte:window onclick={handleDocumentClick} />
+<svelte:window onclick={handleDocumentClick} onkeydown={handleKeydown} />
 
 <header class="app-header">
 	<div class="header-inner">
@@ -122,11 +123,19 @@
 					</div>
 
 					<input
+						bind:this={searchInput}
 						type="text"
 						placeholder="Search games..."
 						bind:value={searchValue}
 						oninput={handleInput}
 						onfocus={() => (isSearchFocused = true)}
+						role="combobox"
+						aria-autocomplete="list"
+						aria-expanded={isSearchFocused &&
+							searchResults.length > 0}
+						aria-haspopup="listbox"
+						aria-controls="search-results-listbox"
+						aria-label="Search across all games"
 					/>
 
 					{#if searchValue}
@@ -134,8 +143,9 @@
 							type="button"
 							class="icon-wrapper right clear-btn"
 							onclick={() => {
-								searchValue = "";
-								searchResults = [];
+								searchValue = ''
+								searchResults = []
+								handleInput()
 							}}
 						>
 							<Icon
@@ -148,10 +158,13 @@
 				</form>
 
 				<!-- Dropdown Results -->
-				{#if isSearchFocused && searchValue.length >= 2}
+				{#if isSearchFocused && searchValue.length >= 2 && page.url.pathname !== '/'}
 					<div
+						id="search-results-listbox"
 						class="search-dropdown"
 						transition:fade={{ duration: 100 }}
+						role="listbox"
+						aria-label="Search results"
 					>
 						{#if isSearching}
 							<div class="dropdown-status">Searching...</div>
@@ -199,7 +212,7 @@
 				<a
 					href="/"
 					class="quick-link desktop-only"
-					class:active={page.url.pathname === "/"}
+					class:active={page.url.pathname === '/'}
 				>
 					<Icon icon="mdi:home-outline" width="20" height="20" />
 					<span>Home</span>
@@ -207,7 +220,7 @@
 				<a
 					href="/contribute"
 					class="quick-link"
-					class:active={page.url.pathname === "/contribute"}
+					class:active={page.url.pathname === '/contribute'}
 				>
 					<Icon
 						icon="mdi:plus-circle-outline"
@@ -224,7 +237,7 @@
 				aria-label="Open Menu"
 			>
 				<Icon
-					icon={isMobileMenuOpen ? "mdi:close" : "mdi:menu"}
+					icon={isMobileMenuOpen ? 'mdi:close' : 'mdi:menu'}
 					width="24"
 					height="24"
 				/>
@@ -239,7 +252,7 @@
 		class="drawer-overlay"
 		transition:fade={{ duration: 200 }}
 		onclick={closeMenu}
-		onkeydown={(e) => e.key === "Escape" && closeMenu()}
+		onkeydown={(e) => e.key === 'Escape' && closeMenu()}
 		role="presentation"
 	>
 		<div
@@ -261,35 +274,35 @@
 				<a
 					href="/"
 					onclick={closeMenu}
-					class:active={page.url.pathname === "/"}
+					class:active={page.url.pathname === '/'}
 				>
 					<Icon icon="mdi:home-outline" /> Home
 				</a>
 				<a
 					href="/contribute"
 					onclick={closeMenu}
-					class:active={page.url.pathname === "/contribute"}
+					class:active={page.url.pathname === '/contribute'}
 				>
 					<Icon icon="mdi:plus-circle-outline" /> Contribute
 				</a>
 				<a
 					href="/favorites"
 					onclick={closeMenu}
-					class:active={page.url.pathname === "/favorites"}
+					class:active={page.url.pathname === '/favorites'}
 				>
 					<Icon icon="mdi:star-outline" /> Favorites
 				</a>
 				<a
 					href="/stats"
 					onclick={closeMenu}
-					class:active={page.url.pathname === "/stats"}
+					class:active={page.url.pathname === '/stats'}
 				>
 					<Icon icon="mdi:chart-bar" /> Insights
 				</a>
 				<a
 					href="/pending-verification"
 					onclick={closeMenu}
-					class:active={page.url.pathname === "/pending-verification"}
+					class:active={page.url.pathname === '/pending-verification'}
 				>
 					<Icon icon="mdi:clock-outline" /> Pending Verification
 				</a>
@@ -299,8 +312,8 @@
 				<button
 					class="drawer-btn"
 					onclick={() => {
-						closeMenu();
-						uiStore.openSettings();
+						closeMenu()
+						uiStore.openSettings()
 					}}
 				>
 					<Icon icon="mdi:cog-outline" /> Settings

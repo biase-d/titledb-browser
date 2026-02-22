@@ -1,51 +1,52 @@
 <script>
-	import Icon from "@iconify/svelte";
-	import { slide } from "svelte/transition";
-	import { createImageSet } from "$lib/image";
-	import { getRegionLabel } from "$lib/regions";
-	import { preferences } from "$lib/stores/preferences";
-	import { getLocalizedName } from "$lib/i18n";
-	import TextHighlight from "$lib/components/TextHighlight.svelte";
+	import Icon from '@iconify/svelte'
+	import { slide } from 'svelte/transition'
+	import { createImageSet } from '$lib/image'
+	import { getRegionLabel } from '$lib/regions'
+	import { preferences } from '$lib/stores/preferences'
+	import { getLocalizedName } from '$lib/i18n'
+	import TextHighlight from '$lib/components/TextHighlight.svelte'
 
-	let { titleData, query = "" } = $props();
+	let { titleData, query = '' } = $props()
 
-	let id = $derived(titleData.id);
-	let iconUrl = $derived(titleData.iconUrl);
-	let names = $derived(titleData.names || []);
-	let regions = $derived(titleData.regions || []);
-	let publisher = $derived(titleData.publisher || "N/A");
-	let performance = $derived(titleData.performance || {});
+	let id = $derived(titleData.id)
+	let iconUrl = $derived(titleData.iconUrl)
+	let names = $derived(titleData.names || [])
+	let regions = $derived(titleData.regions || [])
+	let publisher = $derived(titleData.publisher || 'N/A')
+	let performance = $derived(titleData.performance || {})
 
-	let docked = $derived(performance.docked || {});
-	let handheld = $derived(performance.handheld || {});
+	let docked = $derived(performance.docked || {})
+	let handheld = $derived(performance.handheld || {})
 
 	let imageSet = $derived(
 		createImageSet(iconUrl || titleData.bannerUrl, {
 			highRes: $preferences.highResImages,
 			thumbnailWidth: 200,
 		}),
-	);
+	)
 
-	let preferredRegion = $state("US");
-	preferences.subscribe((p) => (preferredRegion = p.region));
+	let preferredRegion = $state('US')
+	preferences.subscribe((p) => (preferredRegion = p.region))
 
-	let titleName = $derived(getLocalizedName(names, preferredRegion));
-	let regionLabel = $derived(getRegionLabel(regions));
-	let showRegionBadge = $derived(regionLabel && regionLabel !== "Worldwide");
+	let titleName = $derived(getLocalizedName(names, preferredRegion))
+	let regionLabel = $derived(getRegionLabel(regions))
+	let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide')
 
 	let performanceInfo = $derived(
 		[
-			docked.target_fps && `Docked mode runs at ${docked.target_fps} FPS`,
+			docked.target_fps &&
+				`Docked mode runs at ${docked.target_fps === 'Unlocked' ? '60' : docked.target_fps} FPS`,
 			handheld.target_fps &&
-				`Handheld mode runs at ${handheld.target_fps} FPS`,
+				`Handheld mode runs at ${handheld.target_fps === 'Unlocked' ? '60' : handheld.target_fps} FPS`,
 		]
 			.filter(Boolean)
-			.join(". "),
-	);
+			.join('. '),
+	)
 
 	let ariaLabel = $derived(
-		`View details for ${titleName} by ${publisher}.${performanceInfo ? ` ${performanceInfo}.` : ""}`,
-	);
+		`View details for ${titleName} by ${publisher}.${performanceInfo ? ` ${performanceInfo}.` : ''}`,
+	)
 </script>
 
 <a
@@ -62,7 +63,7 @@
 			src={imageSet?.src || iconUrl || titleData.bannerUrl}
 			srcset={imageSet?.srcset}
 			sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
-			alt={`Game icon for ${titleName}${publisher !== "N/A" ? ` by ${publisher}` : ""}`}
+			alt={`Game icon for ${titleName}${publisher !== 'N/A' ? ` by ${publisher}` : ''}`}
 			loading="lazy"
 			width="200"
 			height="200"
@@ -71,18 +72,22 @@
 		{#if docked.target_fps || handheld.target_fps}
 			<div class="card-perf-badge" aria-hidden="true">
 				{#if docked.target_fps}
-					<span title={`Docked: ${docked.target_fps} FPS`}>
+					<span
+						title={`Docked: ${docked.target_fps === 'Unlocked' ? '60' : docked.target_fps} FPS`}
+					>
 						<Icon icon="mdi:television" />
-						{docked.target_fps === "Unlocked"
-							? "60"
+						{docked.target_fps === 'Unlocked'
+							? '60'
 							: docked.target_fps}
 					</span>
 				{/if}
 				{#if handheld.target_fps}
-					<span title={`Handheld: ${handheld.target_fps} FPS`}>
+					<span
+						title={`Handheld: ${handheld.target_fps === 'Unlocked' ? '60' : handheld.target_fps} FPS`}
+					>
 						<Icon icon="mdi:nintendo-switch" />
-						{handheld.target_fps === "Unlocked"
-							? "60"
+						{handheld.target_fps === 'Unlocked'
+							? '60'
 							: handheld.target_fps}
 					</span>
 				{/if}
@@ -94,17 +99,20 @@
 		<p
 			class="card-title"
 			title={titleName}
-			lang={preferredRegion === "JP"
-				? "ja"
-				: preferredRegion === "KR"
-					? "ko"
-					: "en"}
+			lang={preferredRegion === 'JP'
+				? 'ja'
+				: preferredRegion === 'KR'
+					? 'ko'
+					: 'en'}
 		>
 			<TextHighlight text={titleName} {query} />
 		</p>
 
 		<div class="card-meta">
-			<p class="card-publisher">{publisher}</p>
+			<div class="meta-main">
+				<p class="card-publisher">{publisher}</p>
+				<span class="card-id">{id}</span>
+			</div>
 			{#if showRegionBadge}
 				<span class="region-badge" title={regionLabel}
 					>{regionLabel}</span
@@ -132,7 +140,6 @@
 			border-color 0.2s ease;
 		text-decoration: none;
 		color: inherit;
-		height: 100%;
 	}
 
 	.game-card:hover,
@@ -208,6 +215,12 @@
 		gap: 0.5rem;
 	}
 
+	.meta-main {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
 	.card-publisher {
 		margin: 0;
 		font-size: 0.75rem;
@@ -215,6 +228,13 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.card-id {
+		font-size: 0.65rem;
+		font-family: var(--font-mono);
+		color: var(--text-secondary);
+		opacity: 0.6;
 	}
 
 	.region-badge {

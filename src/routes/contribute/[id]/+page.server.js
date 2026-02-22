@@ -111,6 +111,8 @@ export const actions = {
 			const submittedProfilesMap = new Map(performanceData.map(p => [p.gameVersion + (p.suffix || ''), p]))
 			const originalProfilesMap = new Map(originalPerformanceData.map(p => [p.gameVersion + (p.suffix || ''), p]))
 
+			const changedPerformanceData = []
+
 			for (const [key, submittedProfile] of submittedProfilesMap.entries()) {
 				const originalProfile = originalProfilesMap.get(key)
 				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles))
@@ -132,6 +134,9 @@ export const actions = {
 
 					if (!isProfileEmpty(submittedProfile) || isNewEmptyPlaceholder) {
 						filesToCommit.push({ path: filePath, content: update.content, sha: finalSha })
+						if (!isProfileEmpty(submittedProfile)) {
+							changedPerformanceData.push(submittedProfile)
+						}
 					} else if (originalProfile && !isProfileEmpty(originalProfile) && !isGroupMove) {
 						filesToCommit.push({ path: filePath, content: null, sha: finalSha })
 					}
@@ -154,6 +159,7 @@ export const actions = {
 				}
 			}
 
+			let changedGraphicsData = null
 			if (changeSummary.some(s => s.includes('graphics')) || isGroupMove) {
 				const prunedGraphicsData = pruneEmptyValues(graphicsData)
 
@@ -166,6 +172,7 @@ export const actions = {
 				const newPath = `graphics/${newGroupId}.json`
 
 				if (prunedGraphicsData) {
+					changedGraphicsData = prunedGraphicsData
 					const update = await prepareFileUpdate(newPath, prunedGraphicsData, user.login, true)
 
 					let finalSha = update.sha
@@ -177,6 +184,7 @@ export const actions = {
 				}
 			}
 
+			let changedYoutubeLinks = []
 			if (changeSummary.some(s => s.includes('YouTube')) || isGroupMove) {
 				const validYoutubeLinks = youtubeLinks.filter(link => link.url && link.url.trim() !== '')
 
@@ -201,6 +209,7 @@ export const actions = {
 						if (contributor) allContributors.add(contributor)
 						return { url: link.url, notes: link.notes, submittedBy: contributor }
 					})
+					changedYoutubeLinks = youtubeFileContent
 					filesToCommit.push({ path: newPath, content: stringify(youtubeFileContent, { space: 2 }), sha: shaToUse ?? null })
 				} else if (!isGroupMove) {
 					filesToCommit.push({ path: newPath, content: null, sha: shaToUse ?? null })
@@ -246,9 +255,9 @@ export const actions = {
 				files: filesToCommit,
 				groupId: newGroupId,
 				commitMessage,
-				rawPerformance: performanceData,
-				rawGraphics: graphicsData ? { settings: graphicsData, contributor: [user.login] } : null,
-				rawYoutube: youtubeLinks
+				rawPerformance: changedPerformanceData,
+				rawGraphics: changedGraphicsData ? { settings: changedGraphicsData, contributor: [user.login] } : null,
+				rawYoutube: changedYoutubeLinks.length > 0 ? changedYoutubeLinks : null
 			}
 
 			const isBetaEnabled = cookies.get('beta_flow') === 'true'

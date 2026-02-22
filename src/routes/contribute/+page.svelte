@@ -1,43 +1,35 @@
 <script>
-	import Icon from "@iconify/svelte";
-	import { createImageSet } from "$lib/image";
-	import { preferences } from "$lib/stores/preferences";
-	import { goto } from "$app/navigation";
-	import { page } from "$app/state";
-	import { tick } from "svelte";
-	import { fade, fly, scale } from "svelte/transition";
-	import { cubicOut } from "svelte/easing";
+	import Icon from '@iconify/svelte'
+	import { createImageSet } from '$lib/image'
+	import { preferences } from '$lib/stores/preferences'
+	import { goto } from '$app/navigation'
+	import { page } from '$app/state'
+	import { tick } from 'svelte'
+	import { fade, fly, scale } from 'svelte/transition'
+	import { cubicOut } from 'svelte/easing'
 
-	let { data } = $props();
+	let { data } = $props()
 
-	let games = $derived(data.games || []);
-	let pagination = $derived(data.pagination);
-	let session = $derived(data.session);
-	let sortBy = $derived(data.sortBy);
-	let impactStats = $derived(data.impactStats || {});
+	let games = $derived(data.games || [])
+	let pagination = $derived(data.pagination)
+	let session = $derived(data.session)
+	let sortBy = $derived(data.sortBy)
+	let impactStats = $derived(data.impactStats || {})
 
-	let pageHeader;
+	let pageHeader
 
-	async function changePage(newPage) {
-		const url = new URL(page.url);
-		url.searchParams.set("page", newPage.toString());
-		await goto(url.toString(), { noScroll: true });
-		window.scrollTo({ top: 0, behavior: "smooth" });
-		await tick();
-		pageHeader?.focus();
+	async function changePage (newPage) {
+		const url = new URL(page.url)
+		url.searchParams.set('page', newPage.toString())
+		await goto(url.toString(), { noScroll: true })
+		window.scrollTo({ top: 0, behavior: 'smooth' })
+		await tick()
+		pageHeader?.focus()
 	}
 
-	function toggleSort() {
-		const url = new URL(page.url);
-		const newSort = sortBy === "requests" ? "default" : "requests";
-		url.searchParams.set("sort", newSort);
-		url.searchParams.set("page", "1");
-		goto(url.toString());
-	}
-
-	function formatNumber(num) {
-		if (num >= 1000) return (num / 1000).toFixed(1) + "k";
-		return num || 0;
+	function formatNumber (num) {
+		if (num >= 1000) return (num / 1000).toFixed(1) + 'k'
+		return num || 0
 	}
 </script>
 
@@ -163,12 +155,12 @@
 					<div class="sort-group">
 						<button
 							class="sort-pill"
-							class:active={sortBy !== "requests"}
+							class:active={sortBy !== 'requests'}
 							onclick={() => {
-								const url = new URL(page.url);
-								url.searchParams.set("sort", "default");
-								url.searchParams.set("page", "1");
-								goto(url.toString());
+								const url = new URL(page.url)
+								url.searchParams.set('sort', 'default')
+								url.searchParams.set('page', '1')
+								goto(url.toString())
 							}}
 						>
 							<Icon icon="mdi:sort-variant" />
@@ -176,12 +168,12 @@
 						</button>
 						<button
 							class="sort-pill"
-							class:active={sortBy === "requests"}
+							class:active={sortBy === 'requests'}
 							onclick={() => {
-								const url = new URL(page.url);
-								url.searchParams.set("sort", "requests");
-								url.searchParams.set("page", "1");
-								goto(url.toString());
+								const url = new URL(page.url)
+								url.searchParams.set('sort', 'requests')
+								url.searchParams.set('page', '1')
+								goto(url.toString())
 							}}
 						>
 							<Icon icon="mdi:fire" />

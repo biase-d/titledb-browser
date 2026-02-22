@@ -1,81 +1,81 @@
 <script>
-	import { fade } from "svelte/transition";
-	import { browser } from "$app/environment";
-	import { onMount } from "svelte";
-	import { goto } from "$app/navigation";
+	import { fade } from 'svelte/transition'
+	import { browser } from '$app/environment'
+	import { onMount } from 'svelte'
+	import { goto } from '$app/navigation'
 
-	import Icon from "@iconify/svelte";
+	import Icon from '@iconify/svelte'
 
-	import { favorites } from "$lib/stores";
-	import { preferences } from "$lib/stores/preferences";
-	import { createImageSet, proxyImage } from "$lib/image";
-	import { getRegionLabel } from "$lib/regions";
-	import { getLocalizedName } from "$lib/i18n";
-	import PlayabilityBadge from "$lib/components/PlayabilityBadge.svelte";
+	import { favorites } from '$lib/stores'
+	import { preferences } from '$lib/stores/preferences'
+	import { createImageSet, proxyImage } from '$lib/image'
+	import { getRegionLabel } from '$lib/regions'
+	import { getLocalizedName } from '$lib/i18n'
+	import PlayabilityBadge from '$lib/components/PlayabilityBadge.svelte'
 
-	import GraphicsDetail from "./GraphicsDetail.svelte";
-	import YoutubeEmbeds from "./YoutubeEmbeds.svelte";
-	import PerformanceDetail from "./PerformanceDetail.svelte";
-	import PerformanceComparisonModal from "./PerformanceComparisonModal.svelte";
-	import RegionPopover from "./RegionPopover.svelte";
-	import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
+	import GraphicsDetail from './GraphicsDetail.svelte'
+	import YoutubeEmbeds from './YoutubeEmbeds.svelte'
+	import PerformanceDetail from './PerformanceDetail.svelte'
+	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte'
+	import RegionPopover from './RegionPopover.svelte'
+	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
 
-	let { data } = $props();
+	let { data } = $props()
 
-	let url = $derived(data.url);
-	let showComparisonModal = $state(false);
+	let url = $derived(data.url)
+	let showComparisonModal = $state(false)
 
-	let isCopied = $state(false);
-	async function handleCopy() {
-		if (isCopied) return;
+	let isCopied = $state(false)
+	async function handleCopy () {
+		if (isCopied) return
 		try {
-			await navigator.clipboard.writeText(id);
-			isCopied = true;
+			await navigator.clipboard.writeText(id)
+			isCopied = true
 			setTimeout(() => {
-				isCopied = false;
-			}, 2000);
+				isCopied = false
+			}, 2000)
 		} catch (err) {
-			console.error("Failed to copy: ", err);
+			console.error('Failed to copy: ', err)
 		}
 	}
 
-	let game = $derived(data.game);
-	let session = $derived(data.session);
-	let allTitlesInGroup = $derived(game.allTitlesInGroup || []);
-	let youtubeLinks = $derived(game.youtubeLinks || []);
+	let game = $derived(data.game)
+	let session = $derived(data.session)
+	let allTitlesInGroup = $derived(game.allTitlesInGroup || [])
+	let youtubeLinks = $derived(game.youtubeLinks || [])
 
-	let selectedVersionIndex = $state(0);
-	let performanceHistory = $derived(game.performanceHistory || []);
-	let performance = $derived(performanceHistory[selectedVersionIndex]);
+	let selectedVersionIndex = $state(0)
+	let performanceHistory = $derived(game.performanceHistory || [])
+	let performance = $derived(performanceHistory[selectedVersionIndex])
 
-	function hasPerformanceData(modeData) {
-		if (!modeData) return false;
+	function hasPerformanceData (modeData) {
+		if (!modeData) return false
 		const hasResolution = !!(
 			modeData.resolution ||
 			(modeData.resolutions &&
-				modeData.resolutions.split(",").filter(Boolean).length > 0) ||
+				modeData.resolutions.split(',').filter(Boolean).length > 0) ||
 			modeData.min_res ||
 			modeData.max_res
-		);
-		const hasFps = !!modeData.target_fps;
-		return hasResolution || hasFps;
+		)
+		const hasFps = !!modeData.target_fps
+		return hasResolution || hasFps
 	}
 
 	let currentProfileHasData = $derived(
 		performance?.profiles &&
 			(hasPerformanceData(performance.profiles.docked) ||
 				hasPerformanceData(performance.profiles.handheld)),
-	);
+	)
 
-	function hasGraphicsData(graphicsSettings) {
+	function hasGraphicsData (graphicsSettings) {
 		if (!graphicsSettings || Object.keys(graphicsSettings).length === 0)
-			return false;
-		const graphics = graphicsSettings;
+			return false
+		const graphics = graphicsSettings
 
 		const checkModeData = (modeData) => {
-			if (!modeData) return false;
+			if (!modeData) return false
 
-			const res = modeData.resolution;
+			const res = modeData.resolution
 			if (
 				res &&
 				(res.resolutionType ||
@@ -85,46 +85,46 @@
 					(res.multipleResolutions?.length > 0 &&
 						res.multipleResolutions[0]))
 			) {
-				return true;
+				return true
 			}
 
-			const fps = modeData.framerate;
+			const fps = modeData.framerate
 			if (fps && fps.targetFps) {
-				return true;
+				return true
 			}
 
-			const custom = modeData.custom;
+			const custom = modeData.custom
 			if (
 				custom &&
 				Object.entries(custom).some(([key, data]) => key && data.value)
 			) {
-				return true;
+				return true
 			}
 
-			return false;
-		};
+			return false
+		}
 
 		if (
 			checkModeData(graphics.docked) ||
 			checkModeData(graphics.handheld)
 		) {
-			return true;
+			return true
 		}
 
-		const shared = graphics.shared;
+		const shared = graphics.shared
 		if (
 			shared &&
 			Object.entries(shared).some(([key, data]) => key && data.value)
 		) {
-			return true;
+			return true
 		}
 
-		return false;
+		return false
 	}
 
 	let gameGraphicsHasData = $derived(
 		hasGraphicsData(game?.graphics?.settings),
-	);
+	)
 
 	/**
 	 * Check if a performance profile has actual performance data (FPS, resolution)
@@ -132,199 +132,199 @@
 	 * @param {Object} profile
 	 * @returns {boolean}
 	 */
-	function hasActualPerformanceData(profile) {
-		if (!profile) return false;
+	function hasActualPerformanceData (profile) {
+		if (!profile) return false
 
-		const { docked, handheld } = profile;
+		const { docked, handheld } = profile
 
 		// Check if either mode has FPS data
 		if (docked?.target_fps || handheld?.target_fps) {
-			return true;
+			return true
 		}
 
 		// Check if either mode has resolution data
 		if (docked?.resolution_type || handheld?.resolution_type) {
-			return true;
+			return true
 		}
 
-		return false;
+		return false
 	}
 
 	let gameHasPerformanceData = $derived(
 		performance?.profiles
 			? hasActualPerformanceData(performance.profiles)
 			: false,
-	);
+	)
 
-	let allContributors = $derived(game.allContributors);
+	let allContributors = $derived(game.allContributors)
 
-	let id = $derived(game?.id);
+	let id = $derived(game?.id)
 	let otherTitlesInGroup = $derived(
 		allTitlesInGroup.filter((t) => t.id !== id),
-	);
+	)
 
-	let isFavorited = $state(false);
+	let isFavorited = $state(false)
 	$effect(() => {
 		if (id) {
 			favorites.subscribe((favs) => {
-				isFavorited = favs.has(id);
-			});
+				isFavorited = favs.has(id)
+			})
 		}
-	});
+	})
 
-	let preferredRegion = $state(data.preferredRegion || "US");
+	let preferredRegion = $state(data.preferredRegion || 'US')
 
 	// Sync with client-side store
 	preferences.subscribe((p) => {
-		if (p.region) preferredRegion = p.region;
-	});
+		if (p.region) preferredRegion = p.region
+	})
 
-	let name = $derived(getLocalizedName(game.names, preferredRegion));
+	let name = $derived(getLocalizedName(game.names, preferredRegion))
 	let altNames = $derived(
 		game.names ? game.names.filter((n) => n !== name) : [],
-	);
+	)
 
-	let isDetailsCollapsed = $state(true);
+	let isDetailsCollapsed = $state(true)
 	/** @type {{label: string, href?: string}[]} */
-	let breadcrumbItems = $state([{ label: "" }]);
+	let breadcrumbItems = $state([{ label: '' }])
 
 	onMount(() => {
 		if (browser) {
 			if (window.innerWidth >= 1024) {
-				isDetailsCollapsed = false;
+				isDetailsCollapsed = false
 			}
 
 			// Smart breadcrumbs
-			const referrer = document.referrer;
+			const referrer = document.referrer
 			if (referrer && referrer.includes(window.location.origin)) {
-				const refUrl = new URL(referrer);
-				const path = refUrl.pathname;
-				const search = refUrl.search;
+				const refUrl = new URL(referrer)
+				const path = refUrl.pathname
+				const search = refUrl.search
 
-				if (path === "/" && search) {
+				if (path === '/' && search) {
 					breadcrumbItems = [
-						{ label: "Search Results", href: `/${search}` },
+						{ label: 'Search Results', href: `/${search}` },
 						{ label: name },
-					];
-				} else if (path.startsWith("/publisher/")) {
+					]
+				} else if (path.startsWith('/publisher/')) {
 					const publisherName = decodeURIComponent(
-						path.split("/publisher/")[1],
-					).split("?")[0]; // Handle case where there might be query params
+						path.split('/publisher/')[1],
+					).split('?')[0] // Handle case where there might be query params
 					breadcrumbItems = [
 						{ label: publisherName, href: path + search },
 						{ label: name },
-					];
-				} else if (path === "/favorites") {
+					]
+				} else if (path === '/favorites') {
 					breadcrumbItems = [
-						{ label: "Favorites", href: "/favorites" },
+						{ label: 'Favorites', href: '/favorites' },
 						{ label: name },
-					];
-				} else if (path === "/stats") {
+					]
+				} else if (path === '/stats') {
 					breadcrumbItems = [
-						{ label: "Insights", href: "/stats" },
+						{ label: 'Insights', href: '/stats' },
 						{ label: name },
-					];
-				} else if (path === "/pending-verification") {
+					]
+				} else if (path === '/pending-verification') {
 					breadcrumbItems = [
 						{
-							label: "Pending Verification",
-							href: "/pending-verification",
+							label: 'Pending Verification',
+							href: '/pending-verification',
 						},
 						{ label: name },
-					];
-				} else if (path.startsWith("/profile/")) {
-					const username = path.split("/profile/")[1];
+					]
+				} else if (path.startsWith('/profile/')) {
+					const username = path.split('/profile/')[1]
 					breadcrumbItems = [
 						{ label: username, href: path },
 						{ label: name },
-					];
+					]
 				} else {
 					// Fallback to standard check if no specific match
-					if (game.publisher && game.publisher !== "N/A") {
+					if (game.publisher && game.publisher !== 'N/A') {
 						breadcrumbItems = [
 							{
 								label: game.publisher,
 								href: `/publisher/${encodeURIComponent(game.publisher)}`,
 							},
 							{ label: name },
-						];
+						]
 					} else {
-						breadcrumbItems = [{ label: name }];
+						breadcrumbItems = [{ label: name }]
 					}
 				}
 			} else {
 				// No referrer or external referrer
-				if (game.publisher && game.publisher !== "N/A") {
+				if (game.publisher && game.publisher !== 'N/A') {
 					breadcrumbItems = [
 						{
 							label: game.publisher,
 							href: `/publisher/${encodeURIComponent(game.publisher)}`,
 						},
 						{ label: name },
-					];
+					]
 				} else {
-					breadcrumbItems = [{ label: name }];
+					breadcrumbItems = [{ label: name }]
 				}
 			}
 		}
-	});
+	})
 
-	let lightboxImage = $state("");
+	let lightboxImage = $state('')
 	let bannerImages = $derived(
 		createImageSet(game.bannerUrl, {
 			highRes: $preferences.highResImages,
 			bannerWidth: 800,
 		}),
-	);
+	)
 	let iconImages = $derived(
 		createImageSet(game.iconUrl || game.bannerUrl, {
 			highRes: $preferences.highResImages,
 			thumbnailWidth: 200,
 		}),
-	);
+	)
 
-	let isUnreleased = $derived(game.isUnreleased);
+	let isUnreleased = $derived(game.isUnreleased)
 
-	let hasRequested = $state(data.hasRequested);
-	let isRequesting = $state(false);
+	let hasRequested = $state(data.hasRequested)
+	let isRequesting = $state(false)
 
-	async function toggleRequest() {
+	async function toggleRequest () {
 		if (!session?.user) {
-			goto("/auth/signin?callbackUrl=" + url.href);
-			return;
+			goto('/auth/signin?callbackUrl=' + url.href)
+			return
 		}
 
-		isRequesting = true;
+		isRequesting = true
 		try {
-			const res = await fetch("/api/v1/requests", {
-				method: "POST",
+			const res = await fetch('/api/v1/requests', {
+				method: 'POST',
 				body: JSON.stringify({ gameId: id }),
-			});
+			})
 			if (res.ok) {
-				const result = await res.json();
-				hasRequested = result.requested;
+				const result = await res.json()
+				hasRequested = result.requested
 			}
 		} catch (e) {
-			console.error(e);
+			console.error(e)
 		} finally {
-			isRequesting = false;
+			isRequesting = false
 		}
 	}
 
-	import { themeStore } from "$lib/stores/theme.svelte";
+	import { themeStore } from '$lib/stores/theme.svelte'
 	$effect(() => {
-		console.log("[TitlePage] Theme trigger effect running for ID:", id);
+		console.log('[TitlePage] Theme trigger effect running for ID:', id)
 		if (id) {
 			themeStore.setTheme(
 				game.iconUrl || game.bannerUrl,
 				game.bannerUrl || game.iconUrl,
-			);
+			)
 		}
 		return () => {
-			console.log("[TitlePage] Theme trigger cleanup");
-			themeStore.clearTheme();
-		};
-	});
+			console.log('[TitlePage] Theme trigger cleanup')
+			themeStore.clearTheme()
+		}
+	})
 </script>
 
 <svelte:head>
@@ -364,18 +364,18 @@
 			"image": "${url.origin}${proxyImage(game.iconUrl || game.bannerUrl, 300)}",
 			"url": "${url.href}",
 			${
-				game.publisher && game.publisher !== "N/A"
+				game.publisher && game.publisher !== 'N/A'
 					? `"publisher": {
 				"@type": "Organization",
 				"name": "${game.publisher.replace(/"/g, '\\"')}"
 			},`
-					: ""
+					: ''
 			}
-			${game.releaseDate ? `"datePublished": "${game.releaseDate.toString().substring(0, 4)}-${game.releaseDate.toString().substring(4, 6)}-${game.releaseDate.toString().substring(6, 8)}",` : ""}
+			${game.releaseDate ? `"datePublished": "${game.releaseDate.toString().substring(0, 4)}-${game.releaseDate.toString().substring(4, 6)}-${game.releaseDate.toString().substring(6, 8)}",` : ''}
 			"genre": "Action, Adventure",
 			"description": "View performance profiles and graphics settings for ${name.replace(/"/g, '\\"')} on Switch Performance"
 		}
-		${"<"}/script>`}
+		${'<'}/script>`}
 	{/if}
 </svelte:head>
 
@@ -417,11 +417,11 @@
 					{/if}
 					<div class="title-info">
 						<h1
-							lang={preferredRegion === "JP"
-								? "ja"
-								: preferredRegion === "KR"
-									? "ko"
-									: "en"}
+							lang={preferredRegion === 'JP'
+								? 'ja'
+								: preferredRegion === 'KR'
+									? 'ko'
+									: 'en'}
 						>
 							{name}
 						</h1>
@@ -468,13 +468,13 @@
 							class="favorite-button"
 							onclick={() => favorites.toggle(id)}
 							title={isFavorited
-								? "Remove from favorites"
-								: "Add to favorites"}
+								? 'Remove from favorites'
+								: 'Add to favorites'}
 						>
 							<Icon
 								icon={isFavorited
-									? "mdi:star"
-									: "mdi:star-outline"}
+									? 'mdi:star'
+									: 'mdi:star-outline'}
 								width="24"
 								height="24"
 							/>
@@ -492,8 +492,8 @@
 						<Icon icon="mdi:plus-circle-outline" />
 						<span
 							>{currentProfileHasData
-								? "Suggest an Edit"
-								: "Add Performance Data"}</span
+								? 'Suggest an Edit'
+								: 'Add Performance Data'}</span
 						>
 					</a>
 					<div class="info-card">
@@ -527,8 +527,8 @@
 										class="detail-value interactive"
 										onclick={handleCopy}
 										onkeydown={(e) =>
-											(e.key === "Enter" ||
-												e.key === " ") &&
+											(e.key === 'Enter' ||
+												e.key === ' ') &&
 											handleCopy(e)}
 										role="button"
 										tabindex="0"
@@ -599,17 +599,17 @@
 								onclick={toggleRequest}
 								disabled={isRequesting}
 								title={hasRequested
-									? "You have requested data for this game"
-									: "Request data for this game"}
+									? 'You have requested data for this game'
+									: 'Request data for this game'}
 							>
 								<Icon
 									icon={hasRequested
-										? "mdi:check"
-										: "mdi:hand-back-right"}
+										? 'mdi:check'
+										: 'mdi:hand-back-right'}
 								/>
 								{hasRequested
-									? "Data Requested"
-									: "Request Data"}
+									? 'Data Requested'
+									: 'Request Data'}
 							</button>
 						</div>
 					</div>
@@ -757,8 +757,8 @@
 						<Icon icon="mdi:plus-circle-outline" />
 						<span
 							>{currentProfileHasData
-								? "Suggest an Edit"
-								: "Add Performance Data"}</span
+								? 'Suggest an Edit'
+								: 'Add Performance Data'}</span
 						>
 					</a>
 					<div class="info-card">
@@ -792,8 +792,8 @@
 										class="detail-value interactive"
 										onclick={handleCopy}
 										onkeydown={(e) =>
-											(e.key === "Enter" ||
-												e.key === " ") &&
+											(e.key === 'Enter' ||
+												e.key === ' ') &&
 											handleCopy(e)}
 										role="button"
 										tabindex="0"
@@ -876,8 +876,8 @@
 {#if lightboxImage}
 	<div
 		class="lightbox"
-		onclick={() => (lightboxImage = "")}
-		onkeydown={(e) => e.key === "Escape" && (lightboxImage = "")}
+		onclick={() => (lightboxImage = '')}
+		onkeydown={(e) => e.key === 'Escape' && (lightboxImage = '')}
 		transition:fade={{ duration: 150 }}
 		role="presentation"
 	>

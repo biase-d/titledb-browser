@@ -1,51 +1,51 @@
 <script>
-    import { fade, scale } from "svelte/transition";
-    import Icon from "@iconify/svelte";
-    import { preferences, COUNTRY_GROUPS } from "$lib/stores/preferences";
-    import { getFlagIcon } from "$lib/flags";
-    import { uiStore } from "$lib/stores/ui.svelte";
-    import { tick } from "svelte";
-    import { getCountryName } from "$lib/flags";
+    import { fade, scale } from 'svelte/transition'
+    import Icon from '@iconify/svelte'
+    import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
+    import { getFlagIcon } from '$lib/flags'
+    import { uiStore } from '$lib/stores/ui.svelte'
+    import { tick } from 'svelte'
+    import { getCountryName } from '$lib/flags'
 
-    let { show = $bindable() } = $props();
+    let { show = $bindable() } = $props()
 
-    let currentRegion = $state("US");
-    let showCountryGrid = $state(false);
+    let currentRegion = $state('US')
+    let showCountryGrid = $state(false)
 
     const palette = [
-        { name: "Blue", hex: "#3b82f6" },
-        { name: "Indigo", hex: "#6366f1" },
-        { name: "Purple", hex: "#8b5cf6" },
-        { name: "Pink", hex: "#ec4899" },
-        { name: "Red", hex: "#ef4444" },
-        { name: "Orange", hex: "#f97316" },
-        { name: "Green", hex: "#10b981" },
-        { name: "Teal", hex: "#14b8a6" },
-    ];
+        { name: 'Blue', hex: '#3b82f6' },
+        { name: 'Indigo', hex: '#6366f1' },
+        { name: 'Purple', hex: '#8b5cf6' },
+        { name: 'Pink', hex: '#ec4899' },
+        { name: 'Red', hex: '#ef4444' },
+        { name: 'Orange', hex: '#f97316' },
+        { name: 'Green', hex: '#10b981' },
+        { name: 'Teal', hex: '#14b8a6' },
+    ]
 
-    preferences.subscribe((p) => (currentRegion = p.region));
+    preferences.subscribe((p) => (currentRegion = p.region))
 
     $effect(() => {
         if (show && uiStore.settingsSection) {
             tick().then(() => {
                 const element = document.getElementById(
-                    uiStore.settingsSection || "",
-                );
+                    uiStore.settingsSection || '',
+                )
                 if (element) {
-                    element.scrollIntoView({ behavior: "smooth" });
+                    element.scrollIntoView({ behavior: 'smooth' })
                     // Clear after scroll so it doesn't trigger again unless requested
-                    uiStore.settingsSection = undefined;
+                    uiStore.settingsSection = undefined
                 }
-            });
+            })
         }
-    });
+    })
 </script>
 
 {#if show}
     <div
         class="modal-overlay"
         onclick={() => (show = false)}
-        onkeydown={(e) => e.key === "Escape" && (show = false)}
+        onkeydown={(e) => e.key === 'Escape' && (show = false)}
         transition:fade={{ duration: 150 }}
         role="presentation"
     >
@@ -124,8 +124,8 @@
                                                     onclick={() => {
                                                         preferences.setRegion(
                                                             country.id,
-                                                        );
-                                                        showCountryGrid = false;
+                                                        )
+                                                        showCountryGrid = false
                                                     }}
                                                     title={country.label}
                                                 >
@@ -196,10 +196,10 @@
                                     const target =
                                         /** @type {HTMLInputElement} */ (
                                             e.target
-                                        );
+                                        )
                                     preferences.setAdaptiveTheme(
                                         target.checked,
-                                    );
+                                    )
                                 }}
                             />
                             <span class="slider"></span>
@@ -224,10 +224,10 @@
                                     const target =
                                         /** @type {HTMLInputElement} */ (
                                             e.target
-                                        );
+                                        )
                                     preferences.setHighResImages(
                                         target.checked,
-                                    );
+                                    )
                                 }}
                             />
                             <span class="slider"></span>
@@ -261,8 +261,8 @@
                                     const target =
                                         /** @type {HTMLInputElement} */ (
                                             e.target
-                                        );
-                                    preferences.setBetaFlow(target.checked);
+                                        )
+                                    preferences.setBetaFlow(target.checked)
                                 }}
                             />
                             <span class="slider"></span>

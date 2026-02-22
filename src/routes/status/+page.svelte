@@ -1,33 +1,33 @@
 <script>
-    import Icon from "@iconify/svelte";
-    import { fade, fly } from "svelte/transition";
+    import Icon from '@iconify/svelte'
+    import { fade, fly } from 'svelte/transition'
 
-    let { data } = $props();
-    let health = $derived(data.health);
+    let { data } = $props()
+    let health = $derived(data.health)
 
-    function getStatusColor(status) {
+    function getStatusColor (status) {
         switch (status) {
-            case "up":
-                return "#10b981";
-            case "degraded":
-                return "#f59e0b";
-            case "down":
-                return "#ef4444";
+            case 'up':
+                return '#10b981'
+            case 'degraded':
+                return '#f59e0b'
+            case 'down':
+                return '#ef4444'
             default:
-                return "var(--text-secondary)";
+                return 'var(--text-secondary)'
         }
     }
 
-    function getStatusLabel(status) {
+    function getStatusLabel (status) {
         switch (status) {
-            case "up":
-                return "Operational";
-            case "degraded":
-                return "Degraded Performance";
-            case "down":
-                return "Service Outage";
+            case 'up':
+                return 'Operational'
+            case 'degraded':
+                return 'Degraded Performance'
+            case 'down':
+                return 'Service Outage'
             default:
-                return "Unknown";
+                return 'Unknown'
         }
     }
 </script>
@@ -40,10 +40,10 @@
     <div class="status-header" in:fly={{ y: -20, duration: 600 }}>
         <h1>System Status</h1>
         <div class="overall-status">
-            {#if Object.values(health.services).every((s) => s.status === "up")}
+            {#if Object.values(health.services).every((s) => s.status === 'up')}
                 <div class="status-indicator up"></div>
                 <span>All Systems Operational</span>
-            {:else if Object.values(health.services).some((s) => s.status === "down")}
+            {:else if Object.values(health.services).some((s) => s.status === 'down')}
                 <div class="status-indicator down"></div>
                 <span>Major Service Outage</span>
             {:else}
@@ -71,12 +71,18 @@
                 <span class="latency">{health.services.database.latency}ms</span
                 >
             </div>
+            {#if health.services.database.message && health.services.database.status !== 'up'}
+                <div class="error-detail">
+                    <Icon icon="mdi:alert-circle-outline" />
+                    <span>{health.services.database.message}</span>
+                </div>
+            {/if}
         </div>
 
         <div class="service-card" in:fade={{ delay: 300 }}>
             <div class="service-info">
                 <Icon icon="mdi:cloud-download" />
-                <h3>Nintendo CDN</h3>
+                <h3>e-Shop CDN</h3>
             </div>
             <div class="service-status">
                 <span
@@ -91,12 +97,18 @@
                     >{health.services.nintendoCdn.latency}ms</span
                 >
             </div>
+            {#if health.services.nintendoCdn.message && health.services.nintendoCdn.status !== 'up'}
+                <div class="error-detail">
+                    <Icon icon="mdi:alert-circle-outline" />
+                    <span>{health.services.nintendoCdn.message}</span>
+                </div>
+            {/if}
         </div>
 
         <div class="service-card" in:fade={{ delay: 400 }}>
             <div class="service-info">
                 <Icon icon="mdi:github" />
-                <h3>GitHub TitleDB</h3>
+                <h3>nx-performance Repo</h3>
             </div>
             <div class="service-status">
                 <span
@@ -109,6 +121,12 @@
                 </span>
                 <span class="latency">{health.services.github.latency}ms</span>
             </div>
+            {#if health.services.github.message && health.services.github.status !== 'up'}
+                <div class="error-detail">
+                    <Icon icon="mdi:alert-circle-outline" />
+                    <span>{health.services.github.message}</span>
+                </div>
+            {/if}
         </div>
     </div>
 
@@ -239,6 +257,46 @@
         font-family: monospace;
         color: var(--text-secondary);
         font-size: 0.9rem;
+    }
+
+    .error-detail {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #ef4444;
+        font-size: 0.85rem;
+        font-weight: 500;
+        animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    .error-detail :global(svg) {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    @keyframes shake {
+        10%,
+        90% {
+            transform: translate3d(-1px, 0, 0);
+        }
+        20%,
+        80% {
+            transform: translate3d(2px, 0, 0);
+        }
+        30%,
+        50%,
+        70% {
+            transform: translate3d(-4px, 0, 0);
+        }
+        40%,
+        60% {
+            transform: translate3d(4px, 0, 0);
+        }
     }
 
     .system-details {

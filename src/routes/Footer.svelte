@@ -1,6 +1,6 @@
 <script>
-	import "@fontsource-variable/caveat";
-	const currentYear = new Date().getFullYear();
+	import '@fontsource-variable/caveat'
+	const currentYear = new Date().getFullYear()
 </script>
 
 <footer class="site-footer">

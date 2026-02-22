@@ -1,19 +1,19 @@
 <script>
-    import Icon from "@iconify/svelte";
-    import { createImageSet } from "$lib/image";
-    import { preferences } from "$lib/stores/preferences";
+    import Icon from '@iconify/svelte'
+    import { createImageSet } from '$lib/image'
+    import { preferences } from '$lib/stores/preferences'
 
-    let { data } = $props();
-    const groups = $derived(data.groups);
+    let { data } = $props()
+    const groups = $derived(data.groups)
 
     /** @param {any} date */
-    function formatDate(date) {
-        if (!date) return "Unknown date";
-        return new Intl.DateTimeFormat("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-        }).format(new Date(date));
+    function formatDate (date) {
+        if (!date) return 'Unknown date'
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        }).format(new Date(date))
     }
 </script>
 
@@ -99,7 +99,8 @@
                                 >{formatDate(group.submittedAt)}</span
                             >
                             <a
-                                href={`https://github.com/biase-d/nx-performance/pull/${group.prNumber}`}
+                                href={group.prUrl ||
+                                    `https://github.com/biase-d/nx-performance/pull/${group.prNumber}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 class="pr-link github-glow"
@@ -121,31 +122,21 @@
                                 <h3 class="section-label">
                                     Contribution Details
                                 </h3>
-                                <div class="pills-row">
-                                    {#if group.contributions.performance.length > 0}
-                                        <div class="type-pill perf">
-                                            <Icon icon="mdi:speedometer" />
-                                            <span
-                                                >{group.contributions
-                                                    .performance.length} Performance
-                                                Profiles</span
-                                            >
-                                        </div>
-                                    {/if}
-
-                                    {#if group.contributions.graphics.length > 0}
-                                        <div class="type-pill graphics">
-                                            <Icon icon="mdi:tune" />
-                                            <span>Graphics Settings</span>
-                                        </div>
-                                    {/if}
-
-                                    {#if group.contributions.youtube.length > 0}
-                                        <div class="type-pill video">
-                                            <Icon icon="mdi:youtube" />
-                                            <span
-                                                >{group.contributions.youtube
-                                                    .length} Gameplay Videos</span
+                                <div class="changes-list">
+                                    {#if group.changeSummary && group.changeSummary.length > 0}
+                                        <ul class="summary-list">
+                                            {#each group.changeSummary as change}
+                                                <li class="summary-item">
+                                                    <span class="bullet">•</span
+                                                    >
+                                                    <span>{change}</span>
+                                                </li>
+                                            {/each}
+                                        </ul>
+                                    {:else}
+                                        <div class="no-changes">
+                                            <span class="text-muted"
+                                                >No summary available.</span
                                             >
                                         </div>
                                     {/if}
@@ -407,6 +398,43 @@
         color: white;
     }
 
+    .changes-list {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+    }
+
+    .summary-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .summary-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        color: #d1d5db;
+    }
+
+    .bullet {
+        color: #eab308;
+        font-size: 1.2rem;
+        line-height: 1;
+        margin-top: -0.1rem;
+    }
+
+    .no-changes {
+        font-size: 0.9rem;
+        color: #6b7280;
+        font-style: italic;
+    }
     .section-label {
         font-size: 0.75rem;
         font-weight: 700;
@@ -415,37 +443,6 @@
         letter-spacing: 0.1em;
         margin-bottom: 1rem;
         margin-top: 0;
-    }
-
-    .pills-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .type-pill {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .type-pill.perf {
-        color: #facc15;
-        border-color: rgba(250, 204, 21, 0.2);
-    }
-    .type-pill.graphics {
-        color: #a78bfa;
-        border-color: rgba(167, 139, 250, 0.2);
-    }
-    .type-pill.video {
-        color: #f87171;
-        border-color: rgba(248, 113, 113, 0.2);
     }
 
     .card-footer {

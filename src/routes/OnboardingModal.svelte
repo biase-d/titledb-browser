@@ -1,59 +1,59 @@
 <script>
-    import { fade, scale } from "svelte/transition";
-    import Icon from "@iconify/svelte";
-    import { preferences, COUNTRY_GROUPS } from "$lib/stores/preferences";
-    import { getFlagIcon } from "$lib/flags";
-    import { onMount } from "svelte";
-    import { isBot } from "$lib/utils/bot";
+    import { fade, scale } from 'svelte/transition'
+    import Icon from '@iconify/svelte'
+    import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
+    import { getFlagIcon } from '$lib/flags'
+    import { onMount } from 'svelte'
+    import { isBot } from '$lib/utils/bot'
 
-    let show = $state(false);
-    let step = $state(1);
-    let selectedRegion = $state("US");
-    let selectedColor = $state("#3b82f6");
+    let show = $state(false)
+    let step = $state(1)
+    let selectedRegion = $state('US')
+    let selectedColor = $state('#3b82f6')
 
     const palette = [
-        { name: "Blue", hex: "#3b82f6" },
-        { name: "Indigo", hex: "#6366f1" },
-        { name: "Purple", hex: "#8b5cf6" },
-        { name: "Pink", hex: "#ec4899" },
-        { name: "Red", hex: "#ef4444" },
-        { name: "Orange", hex: "#f97316" },
-        { name: "Green", hex: "#10b981" },
-        { name: "Teal", hex: "#14b8a6" },
-    ];
+        { name: 'Blue', hex: '#3b82f6' },
+        { name: 'Indigo', hex: '#6366f1' },
+        { name: 'Purple', hex: '#8b5cf6' },
+        { name: 'Pink', hex: '#ec4899' },
+        { name: 'Red', hex: '#ef4444' },
+        { name: 'Orange', hex: '#f97316' },
+        { name: 'Green', hex: '#10b981' },
+        { name: 'Teal', hex: '#14b8a6' },
+    ]
 
     onMount(() => {
         if (isBot()) {
-            console.log("[Onboarding] Bot detected, skipping modal");
-            return;
+            console.log('[Onboarding] Bot detected, skipping modal')
+            return
         }
 
-        const hasOnboarded = localStorage.getItem("has_onboarded");
+        const hasOnboarded = localStorage.getItem('has_onboarded')
         if (!hasOnboarded) {
-            const current = localStorage.getItem("preferred_region");
-            if (current) selectedRegion = current;
+            const current = localStorage.getItem('preferred_region')
+            if (current) selectedRegion = current
             setTimeout(() => {
-                show = true;
-            }, 500);
+                show = true
+            }, 500)
         }
-    });
+    })
 
-    function nextStep() {
+    function nextStep () {
         if (step < 3) {
-            step++;
+            step++
         } else {
-            finish();
+            finish()
         }
     }
 
-    function finish() {
+    function finish () {
         // Save the region preference
-        preferences.setRegion(selectedRegion);
-        preferences.setFavoriteColor(selectedColor);
+        preferences.setRegion(selectedRegion)
+        preferences.setFavoriteColor(selectedColor)
 
         // Mark onboarding as complete
-        localStorage.setItem("has_onboarded", "true");
-        show = false;
+        localStorage.setItem('has_onboarded', 'true')
+        show = false
     }
 </script>
 

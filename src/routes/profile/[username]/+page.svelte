@@ -1,128 +1,130 @@
 <script>
-	import Icon from "@iconify/svelte";
-	import { page } from "$app/state";
-	import { goto } from "$app/navigation";
-	import { onMount } from "svelte";
-	import { browser } from "$app/environment";
-	import CanvasFlair from "./CanvasFlair.svelte";
-	import { fade } from "svelte/transition";
-	import { createImageSet } from "$lib/image";
-	import { preferences } from "$lib/stores/preferences";
+	import Icon from '@iconify/svelte'
+	import { page } from '$app/state'
+	import { goto } from '$app/navigation'
+	import { onMount } from 'svelte'
+	import { browser } from '$app/environment'
+	import CanvasFlair from './CanvasFlair.svelte'
+	import { fade } from 'svelte/transition'
+	import { createImageSet } from '$lib/image'
+	import { getRegionLabel } from '$lib/regions'
+
+	import { preferences } from '$lib/stores/preferences'
 
 	const badges = [
 		{
 			threshold: 500,
-			name: "Creative Right Hand",
-			color: "#fde047",
-			icon: "mdi:hand-back-right",
+			name: 'Creative Right Hand',
+			color: '#fde047',
+			icon: 'mdi:hand-back-right',
 		},
 		{
 			threshold: 400,
-			name: "Ancient Angel Borb",
-			color: "#d1d5db",
-			icon: "mdi:shield-star",
+			name: 'Ancient Angel Borb',
+			color: '#d1d5db',
+			icon: 'mdi:shield-star',
 		},
 		{
 			threshold: 300,
-			name: "Big Purple Pterodactyl",
-			color: "#8b5cf6",
-			icon: "mdi:bird",
+			name: 'Big Purple Pterodactyl',
+			color: '#8b5cf6',
+			icon: 'mdi:bird',
 		},
 		{
 			threshold: 200,
-			name: "King K. Roolish",
-			color: "#facc15",
-			icon: "mdi:crown",
+			name: 'King K. Roolish',
+			color: '#facc15',
+			icon: 'mdi:crown',
 		},
 		{
 			threshold: 100,
-			name: "Evil Gray Twin",
-			color: "#4f46e5",
-			icon: "mdi:sword-cross",
+			name: 'Evil Gray Twin',
+			color: '#4f46e5',
+			icon: 'mdi:sword-cross',
 		},
 		{
 			threshold: 50,
-			name: "Big Buff Croc",
-			color: "#78716c",
-			icon: "mdi:arm-flex",
+			name: 'Big Buff Croc',
+			color: '#78716c',
+			icon: 'mdi:arm-flex',
 		},
 		{
 			threshold: 30,
-			name: "Spooky Robe Guy",
-			color: "#e11d48",
-			icon: "mdi:ghost",
+			name: 'Spooky Robe Guy',
+			color: '#e11d48',
+			icon: 'mdi:ghost',
 		},
 		{
 			threshold: 15,
-			name: "Floating Brain Jelly",
-			color: "#f59e0b",
-			icon: "mdi:jellyfish",
+			name: 'Floating Brain Jelly',
+			color: '#f59e0b',
+			icon: 'mdi:jellyfish',
 		},
 		{
 			threshold: 5,
-			name: "Grumpy Gator",
-			color: "#16a34a",
-			icon: "mdi:alligator",
+			name: 'Grumpy Gator',
+			color: '#16a34a',
+			icon: 'mdi:alligator',
 		},
 		{
 			threshold: 1,
-			name: "Shroom Stomper",
-			color: "#a16207",
-			icon: "mdi:mushroom",
+			name: 'Shroom Stomper',
+			color: '#a16207',
+			icon: 'mdi:mushroom',
 		},
-	];
+	]
 
-	let { data } = $props();
+	let { data } = $props()
 
-	let username = $derived(data.username);
-	let contributions = $derived(data.contributions || []);
-	let totalContributions = $derived(data.totalContributions || 0);
-	let sessionUser = $derived(data.session?.user);
+	let username = $derived(data.username)
+	let contributions = $derived(data.contributions || [])
+	let totalContributions = $derived(data.totalContributions || 0)
+	let sessionUser = $derived(data.session?.user)
 	let isOwnProfile = $derived(
 		sessionUser?.login?.toLowerCase() === username.toLowerCase(),
-	);
-	let currentTierName = $derived(data.currentTierName);
-	let pagination = $derived(data.pagination);
+	)
+	let currentTierName = $derived(data.currentTierName)
+	let pagination = $derived(data.pagination)
 
 	let currentTierBadge = $derived(
 		badges.find((b) => b.name === currentTierName),
-	);
+	)
 
 	let nextBadge = $derived(
 		badges
 			.slice()
 			.reverse()
 			.find((badge) => totalContributions < badge.threshold),
-	);
+	)
 	let progressToNext = $derived(
 		nextBadge
 			? Math.floor((totalContributions / nextBadge.threshold) * 100)
 			: 100,
-	);
+	)
 
-	let viewMode = $state("grid");
+	let viewMode = $state('grid')
 
 	onMount(() => {
-		const savedView = localStorage.getItem("profileViewMode");
-		if (savedView === "grid" || savedView === "list") viewMode = savedView;
-	});
+		const savedView = localStorage.getItem('profileViewMode')
+		if (savedView === 'grid' || savedView === 'list') viewMode = savedView
+	})
 
 	$effect(() => {
-		if (browser) localStorage.setItem("profileViewMode", viewMode);
-	});
+		if (browser) localStorage.setItem('profileViewMode', viewMode)
+	})
 
-	function changePage(newPage) {
-		const url = new URL(page.url);
-		url.searchParams.set("page", newPage.toString());
-		goto(url, { keepData: false, noScroll: true });
+	function changePage (newPage) {
+		const url = new URL(page.url)
+		url.searchParams.set('page', newPage.toString())
+		goto(url, { keepData: false, noScroll: true })
 	}
 
-	function handleSignOut() {
-		const form = document.createElement("form");
-		form.method = "POST";
-		form.action = "/auth/signout";
-		document.body.appendChild(form);
-		form.submit();
+	function handleSignOut () {
+		const form = document.createElement('form')
+		form.method = 'POST'
+		form.action = '/auth/signout'
+		document.body.appendChild(form)
+		form.submit()
 	}
 </script>
 
@@ -139,7 +141,7 @@
 		<!-- Hero Section -->
 		<div
 			class="profile-hero"
-			data-tier={currentTierName?.toLowerCase().replace(/\s+/g, "-")}
+			data-tier={currentTierName?.toLowerCase().replace(/\s+/g, '-')}
 		>
 			<div class="hero-background">
 				{#key username}
@@ -176,9 +178,9 @@
 								alt="{username}'s GitHub avatar"
 								class="user-avatar"
 								onerror={(e) => {
-									e.currentTarget.style.display = "none";
+									e.currentTarget.style.display = 'none'
 									e.currentTarget.nextElementSibling.style.display =
-										"flex";
+										'flex'
 								}}
 							/>
 						{/if}
@@ -295,16 +297,16 @@
 				<div class="view-controls">
 					<button
 						class="view-btn"
-						class:active={viewMode === "list"}
-						onclick={() => (viewMode = "list")}
+						class:active={viewMode === 'list'}
+						onclick={() => (viewMode = 'list')}
 						aria-label="List view"
 					>
 						<Icon icon="mdi:view-list" />
 					</button>
 					<button
 						class="view-btn"
-						class:active={viewMode === "grid"}
-						onclick={() => (viewMode = "grid")}
+						class:active={viewMode === 'grid'}
+						onclick={() => (viewMode = 'grid')}
 						aria-label="Grid view"
 					>
 						<Icon icon="mdi:view-grid" />
@@ -317,7 +319,7 @@
 					{#each contributions as item (item.game.id)}
 						{@const iconSet = createImageSet(item.game.iconUrl, {
 							highRes: $preferences.highResImages,
-							thumbnailWidth: 96,
+							thumbnailWidth: viewMode === 'grid' ? 256 : 96,
 						})}
 						<a
 							href={`/title/${item.game.id}`}
@@ -341,6 +343,19 @@
 
 							<div class="card-body">
 								<h3 class="game-title">{item.game.name}</h3>
+								<div class="card-meta">
+									{#if item.game.regions && item.game.regions.length > 0}
+										<span
+											class="region-badge"
+											title={getRegionLabel(
+												item.game.regions,
+											)}
+										>
+											{getRegionLabel(item.game.regions)}
+										</span>
+									{/if}
+									<span class="card-id">{item.game.id}</span>
+								</div>
 
 								<div class="tag-cloud">
 									{#each item.versions as v}
@@ -365,11 +380,21 @@
 											Videos
 										</span>
 									{/if}
-								</div>
-							</div>
 
-							<div class="card-arrow">
-								<Icon icon="mdi:chevron-right" width="20" />
+									{#if item.performance.docked}
+										<span class="tag performance docked">
+											<Icon icon="mdi:television" />
+											{item.performance.docked} FPS
+										</span>
+									{/if}
+
+									{#if item.performance.handheld}
+										<span class="tag performance handheld">
+											<Icon icon="mdi:nintendo-switch" />
+											{item.performance.handheld} FPS
+										</span>
+									{/if}
+								</div>
 							</div>
 						</a>
 					{/each}
@@ -847,13 +872,52 @@
 	}
 
 	.game-title {
-		margin: 0 0 0.5rem;
+		margin: 0 0 0.25rem;
 		font-size: 1.1rem;
 		font-weight: 700;
 		color: var(--text-primary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	.card-meta {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.region-badge {
+		font-size: 0.65rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		background-color: var(--input-bg);
+		padding: 2px 6px;
+		border-radius: 4px;
+		border: 1px solid var(--border-color);
+		white-space: nowrap;
+		max-width: 80px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.card-id {
+		font-family: var(--font-mono);
+		opacity: 0.6;
+		font-size: 0.7rem;
+		color: var(--text-secondary);
+	}
+
+	:global(.has-theme) .region-badge {
+		color: var(--primary-color);
+		background-color: color-mix(
+			in srgb,
+			var(--primary-color) 10%,
+			transparent
+		);
+		border-color: color-mix(in srgb, var(--primary-color) 25%, transparent);
 	}
 
 	.tag-cloud {
@@ -886,6 +950,24 @@
 
 	.tag.video {
 		color: #ef4444;
+	}
+
+	.tag.performance {
+		color: var(--text-primary);
+		background: color-mix(
+			in srgb,
+			var(--primary-color) 10%,
+			var(--input-bg)
+		);
+		border-color: color-mix(
+			in srgb,
+			var(--primary-color) 20%,
+			var(--border-color)
+		);
+	}
+
+	.tag.performance :global(svg) {
+		color: var(--primary-color);
 	}
 
 	.card-arrow {

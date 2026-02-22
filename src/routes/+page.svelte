@@ -1,176 +1,214 @@
 <script>
-	import { page } from "$app/state";
-	import { goto } from "$app/navigation";
-	import { browser } from "$app/environment";
-	import { onMount, onDestroy } from "svelte";
-	import { fade, fly } from "svelte/transition";
-	import Icon from "@iconify/svelte";
-	import ListItem from "./ListItem.svelte";
-	import GridItem from "./GridItem.svelte";
-	import Drafts from "./Drafts.svelte";
-	import { createImageSet, proxyImage } from "$lib/image";
-	import { getLocalizedName } from "$lib/i18n";
-	import { preferences } from "$lib/stores/preferences";
-	import SkeletonCard from "$lib/components/SkeletonCard.svelte";
-	import { navigating } from "$app/stores";
+	import { page } from '$app/state'
+	import { goto } from '$app/navigation'
+	import { browser } from '$app/environment'
+	import { onMount } from 'svelte'
+	import { fade } from 'svelte/transition'
+	import Icon from '@iconify/svelte'
+	import ListItem from './ListItem.svelte'
+	import GridItem from './GridItem.svelte'
+	import CompactItem from './CompactItem.svelte'
+	import TableItem from './TableItem.svelte'
+	import GalleryItem from './GalleryItem.svelte'
+	import DetailedItem from './DetailedItem.svelte'
+	import ActivityItem from './ActivityItem.svelte'
+	import NoResults from './NoResults.svelte'
+	import Drafts from './Drafts.svelte'
+	import HeroCarousel from '$lib/components/HeroCarousel.svelte'
+	import { createImageSet, proxyImage } from '$lib/image'
+	import { preferences } from '$lib/stores/preferences'
+	import SkeletonCard from '$lib/components/SkeletonCard.svelte'
+	import { navigating } from '$app/stores'
 
-	import { isFeatureEnabled } from "$lib/services/versionService";
+	import { isFeatureEnabled } from '$lib/services/versionService'
 
-	let { data } = $props();
-	let { randomGames = [] } = $derived(data);
+	let { data } = $props()
+	let { randomGames = [] } = $derived(data)
 
-	let results = $derived(data.results);
-	let recentUpdates = $derived(data.recentUpdates || []);
-	let pagination = $derived(data.pagination);
+	let results = $derived(data.results)
+	let recentUpdates = $derived(data.recentUpdates || [])
+	let pagination = $derived(data.pagination)
 
 	// --- State ---
-	let search = $state("");
-	let dockedFps = $state("");
-	let handheldFps = $state("");
-	let resolutionType = $state("");
-	let regionFilter = $state("");
-	let selectedSort = $state("date-desc");
-	let currentPage = $state(1);
-	let viewMode = $state("list");
-	let preferredRegion = $state("US");
+	let search = $state('')
+	let dockedFps = $state('')
+	let handheldFps = $state('')
+	let resolutionType = $state('')
+	let regionFilter = $state('')
+	let selectedSort = $state('date-desc')
+	let currentPage = $state(1)
+	/** @type {"list" | "grid" | "table" | "detailed" | "gallery" | "compact" | "activity"} */
+	let viewMode = $state('grid')
+	let preferredRegion = $state('US')
+	let isViewPickerOpen = $state(false)
+	let scrollTop = $state(0)
+	let viewportHeight = $state(0)
+	let resultsContainer = $state()
 
-	// --- Hero Carousel Logic ---
-	let heroIndex = $state(0);
-	let carouselTimer;
-	let isPaused = $state(false);
-
-	// Derived hero data based on current index
-	let featuredGame = $derived(
-		recentUpdates.length > 0 ? recentUpdates[heroIndex] : null,
-	);
-	let heroBanner = $derived(
-		featuredGame
-			? createImageSet(featuredGame.bannerUrl, {
-					highRes: $preferences.highResImages,
-					bannerWidth: 1000,
-				})
-			: null,
-	);
-	let featuredName = $derived(
-		featuredGame
-			? getLocalizedName(featuredGame.names, preferredRegion)
-			: "",
-	);
-	let featuredPerformance = $derived(
-		featuredGame?.performance || { docked: {}, handheld: {} },
-	);
-
-	function startCarousel() {
-		if (!browser) return;
-		clearInterval(carouselTimer);
-		carouselTimer = setInterval(() => {
-			if (!isPaused && recentUpdates.length > 0) {
-				nextHero();
-			}
-		}, 6000);
-	}
-
-	function nextHero() {
-		heroIndex = (heroIndex + 1) % recentUpdates.length;
-	}
-
-	function prevHero() {
-		heroIndex =
-			(heroIndex - 1 + recentUpdates.length) % recentUpdates.length;
-	}
-
-	function setHero(index) {
-		heroIndex = index;
-		startCarousel();
-	}
-
-	let debounceTimer;
+	let debounceTimer
 
 	onMount(() => {
-		const { searchParams } = page.url;
-		search = searchParams.get("q") || "";
-		dockedFps = searchParams.get("docked_fps") || "";
-		handheldFps = searchParams.get("handheld_fps") || "";
-		resolutionType = searchParams.get("res_type") || "";
-		regionFilter = searchParams.get("region_filter") || "";
+		const { searchParams } = page.url
+		search = searchParams.get('q') || ''
+		dockedFps = searchParams.get('docked_fps') || ''
+		handheldFps = searchParams.get('handheld_fps') || ''
+		resolutionType = searchParams.get('res_type') || ''
+		regionFilter = searchParams.get('region_filter') || ''
 		selectedSort =
-			searchParams.get("sort") ||
-			(search ? "relevance-desc" : "date-desc");
-		currentPage = parseInt(searchParams.get("page"), 10) || 1;
+			searchParams.get('sort') ||
+			(search ? 'relevance-desc' : 'date-desc')
+		currentPage = parseInt(searchParams.get('page') || '1', 10) || 1
 
-		const savedView = localStorage.getItem("viewMode");
-		if (savedView === "grid" || savedView === "list") viewMode = savedView;
+		const savedView = localStorage.getItem('viewMode')
+		/** @type {any[]} */
+		const validModes = [
+			'list',
+			'grid',
+			'table',
+			'detailed',
+			'gallery',
+			'compact',
+			'activity',
+		]
+		if (savedView && validModes.includes(savedView))
+			viewMode = /** @type {any} */ (savedView)
 
-		preferences.subscribe((p) => (preferredRegion = p.region));
-
-		if (recentUpdates.length > 0) startCarousel();
-	});
-
-	onDestroy(() => {
-		if (browser) clearInterval(carouselTimer);
-	});
+		preferences.subscribe((p) => (preferredRegion = p.region))
+	})
 
 	$effect(() => {
-		if (browser) localStorage.setItem("viewMode", viewMode);
-	});
+		if (browser) {
+			localStorage.setItem('viewMode', viewMode)
+			isViewPickerOpen = false // Close dropdown when mode changes
+
+			// Reset scroll tracking when view mode changes
+			scrollTop = window.scrollY
+			viewportHeight = window.innerHeight
+		}
+	})
+
+	function handleScroll () {
+		scrollTop = window.scrollY
+	}
+
+	function handleResize () {
+		viewportHeight = window.innerHeight
+	}
+
+	// Virtualization Metrics (Aligned with CSS in <style>)
+	const GRID_MIN_WIDTH = 200
+	const GALLERY_MIN_WIDTH = 300
+	const GRID_GAP = 24 // 1.5rem
+	const FLEX_GAP = 12 // 0.75rem
+
+	const columns = $derived.by(() => {
+		if (!resultsContainer) return 1
+		const width = resultsContainer.clientWidth
+
+		if (viewMode === 'grid') {
+			return Math.max(
+				1,
+				Math.floor((width + GRID_GAP) / (GRID_MIN_WIDTH + GRID_GAP)),
+			)
+		}
+		if (viewMode === 'gallery') {
+			return Math.max(
+				1,
+				Math.floor((width + GRID_GAP) / (GALLERY_MIN_WIDTH + GRID_GAP)),
+			)
+		}
+		return 1
+	})
+
+	const itemHeight = $derived.by(() => {
+		switch (viewMode) {
+			case 'grid':
+				return 320 + GRID_GAP
+			case 'list':
+				return 110 + FLEX_GAP
+			case 'compact':
+				return 48 + FLEX_GAP
+			case 'table':
+				return 49 // 48px + 1px border
+			case 'gallery':
+				return 360 + GRID_GAP
+			case 'detailed':
+				return 300 + FLEX_GAP
+			case 'activity':
+				return 120 + FLEX_GAP
+			default:
+				return 100
+		}
+	})
 
 	$effect(() => {
-		const q = page.url.searchParams.get("q") || "";
-		if (search !== q) search = q;
-	});
+		const q = page.url.searchParams.get('q') || ''
+		if (search !== q) search = q
+	})
 
-	let showSkeletons = $derived($navigating?.to?.url.pathname === "/");
+	let showSkeletons = $derived($navigating?.to?.url.pathname === '/')
 
-	function updateData({ resetPage = false } = {}) {
-		if (!browser) return;
-		clearTimeout(debounceTimer);
+	function updateData ({ resetPage = false } = {}) {
+		if (!browser) return
+		clearTimeout(debounceTimer)
 		debounceTimer = setTimeout(() => {
-			const url = new URL(window.location.href);
-			if (resetPage) currentPage = 1;
+			const url = new URL(window.location.href)
+			if (resetPage) currentPage = 1
 
-			const updateParam = (key, value, defaultValue = "") => {
+			const updateParam = (key, value, defaultValue = '') => {
 				if (value && value.toString() !== defaultValue)
-					url.searchParams.set(key, value);
-				else url.searchParams.delete(key);
-			};
+					url.searchParams.set(key, value)
+				else url.searchParams.delete(key)
+			}
 
-			updateParam("q", search);
-			updateParam("docked_fps", dockedFps);
-			updateParam("handheld_fps", handheldFps);
-			updateParam("res_type", resolutionType);
-			updateParam("region_filter", regionFilter);
-			updateParam("sort", selectedSort, "date-desc");
-			updateParam("page", currentPage, "1");
+			updateParam('q', search)
+			updateParam('docked_fps', dockedFps)
+			updateParam('handheld_fps', handheldFps)
+			updateParam('res_type', resolutionType)
+			updateParam('region_filter', regionFilter)
+			updateParam('sort', selectedSort, 'date-desc')
+			updateParam('page', currentPage, '1')
 
 			if (url.href !== window.location.href) {
 				goto(url, {
 					replaceState: true,
 					noScroll: true,
 					keepFocus: true,
-				});
+				})
 			}
-		}, 350);
+		}, 350)
 	}
 
-	function changePage(newPage) {
-		currentPage = newPage;
-		updateData({ resetPage: false });
-		if (browser) window.scrollTo({ top: 0, behavior: "smooth" });
+	function changePage (newPage) {
+		currentPage = newPage
+		updateData({ resetPage: false })
+		if (browser) window.scrollTo({ top: 0, behavior: 'smooth' })
+	}
+
+	function clearFilters () {
+		search = ''
+		dockedFps = ''
+		handheldFps = ''
+		resolutionType = ''
+		regionFilter = ''
+		selectedSort = 'date-desc'
+		currentPage = 1
+		updateData({ resetPage: true })
 	}
 
 	let hasActiveFilters = $derived(
 		dockedFps || handheldFps || resolutionType || regionFilter,
-	);
+	)
 
 	let searchResultText = $derived(
 		(() => {
-			const count = pagination?.totalItems?.toLocaleString() || 0;
+			const count = pagination?.totalItems?.toLocaleString() || 0
 			if (search || hasActiveFilters) {
-				return `Found ${count} titles`;
+				return `Found ${count} titles`
 			}
-			return "All Titles";
+			return 'All Titles'
 		})(),
-	);
+	)
 </script>
 
 <svelte:head>
@@ -212,152 +250,18 @@
 			"query-input": "required name=search_term_string"
 		}
 	}
-	${"<"}/script>`}
+	${'<'}/script>`}
 </svelte:head>
+
+<svelte:window onscroll={handleScroll} onresize={handleResize} />
 
 <main class="main-content">
 	{#if data.isLandingPage}
 		<!-- Recently Updated Carousel -->
-		{#if recentUpdates.length > 0}
-			<section
-				class="hero-section"
-				onmouseenter={() => (isPaused = true)}
-				onmouseleave={() => (isPaused = false)}
-				aria-label="Featured recently updated games"
-				in:fade
-			>
-				<div class="section-badge">
-					<Icon icon="mdi:star" /> Recently Updated
-				</div>
-
-				<!-- Background Image -->
-				{#key heroIndex}
-					{#if heroBanner}
-						<div
-							class="hero-bg"
-							in:fade={{ duration: 600 }}
-							out:fade={{ duration: 600 }}
-						>
-							<img
-								src={heroBanner.src}
-								srcset={heroBanner.srcset}
-								alt=""
-							/>
-							<div class="hero-overlay"></div>
-						</div>
-					{/if}
-				{/key}
-
-				<!-- Content -->
-				<div class="hero-content">
-					{#key heroIndex}
-						<div
-							class="hero-content-inner"
-							in:fly={{ y: 20, duration: 400, delay: 200 }}
-							out:fade={{ duration: 200 }}
-						>
-							<div class="hero-badge">
-								<Icon icon="mdi:clock-outline" /> Latest Update
-							</div>
-
-							<h1>{featuredName}</h1>
-
-							{#if featuredPerformance.docked?.target_fps || featuredPerformance.handheld?.target_fps}
-								<div class="hero-performance">
-									{#if featuredPerformance.docked?.target_fps}
-										<span
-											class="perf-badge"
-											title="Docked: {featuredPerformance
-												.docked.target_fps} FPS"
-										>
-											<Icon
-												icon="mdi:television"
-												width="16"
-											/>
-											{featuredPerformance.docked
-												.target_fps === "Unlocked"
-												? "60"
-												: featuredPerformance.docked
-														.target_fps} FPS
-										</span>
-									{/if}
-									{#if featuredPerformance.handheld?.target_fps}
-										<span
-											class="perf-badge"
-											title="Handheld: {featuredPerformance
-												.handheld.target_fps} FPS"
-										>
-											<Icon
-												icon="mdi:nintendo-switch"
-												width="16"
-											/>
-											{featuredPerformance.handheld
-												.target_fps === "Unlocked"
-												? "60"
-												: featuredPerformance.handheld
-														.target_fps} FPS
-										</span>
-									{/if}
-									{#if featuredPerformance.docked?.resolution_type || featuredPerformance.handheld?.resolution_type}
-										<span class="perf-badge res-badge">
-											<Icon
-												icon="mdi:monitor-screenshot"
-												width="16"
-											/>
-											{featuredPerformance.docked
-												?.resolution_type ||
-												featuredPerformance.handheld
-													?.resolution_type}
-										</span>
-									{/if}
-								</div>
-							{/if}
-
-							<a href="/title/{featuredGame.id}" class="hero-cta">
-								View Details <Icon icon="mdi:arrow-right" />
-							</a>
-						</div>
-					{/key}
-				</div>
-
-				<!-- Carousel Controls -->
-				<div class="hero-controls">
-					<button
-						class="control-btn"
-						onclick={prevHero}
-						aria-label="Previous game"
-					>
-						<Icon icon="mdi:chevron-left" width="24" height="24" />
-					</button>
-
-					<div class="indicators">
-						{#each recentUpdates as _, i}
-							<button
-								class="indicator-dot"
-								class:active={i === heroIndex}
-								onclick={() => setHero(i)}
-								aria-label="Go to slide {i + 1}"
-							></button>
-						{/each}
-					</div>
-
-					<span class="indicator-counter"
-						>{heroIndex + 1} / {recentUpdates.length}</span
-					>
-
-					<button
-						class="control-btn"
-						onclick={nextHero}
-						aria-label="Next game"
-					>
-						<Icon icon="mdi:chevron-right" width="24" height="24" />
-					</button>
-				</div>
-			</section>
-		{/if}
+		<HeroCarousel {recentUpdates} {preferredRegion} />
 
 		<!-- Discovery Section -->
-		{#if isFeatureEnabled("discoverSection") && randomGames.length > 0}
+		{#if isFeatureEnabled('discoverSection') && randomGames.length > 0}
 			<section class="discover-section">
 				<div class="section-title">
 					<Icon icon="mdi:auto-fix" />
@@ -401,40 +305,154 @@
 			<h2 class="section-header">{searchResultText}</h2>
 
 			<div class="controls-row">
-				<div class="view-switcher">
+				<div class="view-picker">
 					<button
-						class:active={viewMode === "list"}
-						onclick={() => (viewMode = "list")}
-						title="List View"><Icon icon="mdi:view-list" /></button
+						class="picker-btn"
+						onclick={() => (isViewPickerOpen = !isViewPickerOpen)}
+						aria-expanded={isViewPickerOpen}
+						aria-haspopup="menu"
+						aria-label="Change view mode"
 					>
-					<button
-						class:active={viewMode === "grid"}
-						onclick={() => (viewMode = "grid")}
-						title="Grid View"><Icon icon="mdi:view-grid" /></button
-					>
+						<Icon
+							icon={viewMode === 'list'
+								? 'mdi:view-list'
+								: viewMode === 'grid'
+									? 'mdi:view-grid'
+									: viewMode === 'table'
+										? 'mdi:table'
+										: viewMode === 'compact'
+											? 'mdi:view-headline'
+											: viewMode === 'detailed'
+												? 'mdi:text-box-search-outline'
+												: viewMode === 'gallery'
+													? 'mdi:view-gallery'
+													: 'mdi:clock-outline'}
+						/>
+						<span class="picker-label"
+							>{viewMode.charAt(0).toUpperCase() +
+								viewMode.slice(1)} View</span
+						>
+						<Icon icon="mdi:chevron-down" class="chevron" />
+					</button>
+
+					{#if isViewPickerOpen}
+						<div
+							class="picker-menu"
+							transition:fade={{ duration: 100 }}
+							role="menu"
+						>
+							<div class="menu-section">
+								<span class="section-title">Standard</span>
+								<button
+									class:active={viewMode === 'grid'}
+									onclick={() => (viewMode = 'grid')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:view-grid" />
+									<span>Grid</span>
+								</button>
+								<button
+									class:active={viewMode === 'list'}
+									onclick={() => (viewMode = 'list')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:view-list" />
+									<span>List</span>
+								</button>
+							</div>
+							<div class="menu-section">
+								<span class="section-title">Advanced</span>
+								<button
+									class:active={viewMode === 'table'}
+									onclick={() => (viewMode = 'table')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:table" />
+									<span>Table</span>
+								</button>
+								<button
+									class:active={viewMode === 'detailed'}
+									onclick={() => (viewMode = 'detailed')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:text-box-search-outline" />
+									<span>Detailed View</span>
+								</button>
+							</div>
+							<div class="menu-section">
+								<span class="section-title">Specialized</span>
+								<button
+									class:active={viewMode === 'gallery'}
+									onclick={() => (viewMode = 'gallery')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:view-gallery" />
+									<span>Gallery</span>
+								</button>
+								<button
+									class:active={viewMode === 'compact'}
+									onclick={() => (viewMode = 'compact')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:view-headline" />
+									<span>Compact</span>
+								</button>
+								<button
+									class:active={viewMode === 'activity'}
+									onclick={() => (viewMode = 'activity')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:clock-outline" />
+									<span>Recent Activity</span>
+								</button>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>
 
-		<div class="results-container {viewMode}">
-			{#if showSkeletons}
-				{#each Array(viewMode === "grid" ? 12 : 8) as _}
-					<SkeletonCard {viewMode} />
-				{/each}
-			{:else}
-				{#each results as item (item.id)}
-					{#if viewMode === "list"}
-						<ListItem titleData={item} query={search} />
-					{:else}
-						<GridItem titleData={item} query={search} />
-					{/if}
-				{:else}
-					<div class="no-results">
-						<h3>No Titles Found</h3>
-						<p>Try adjusting your search or filter criteria</p>
-					</div>
-				{/each}
+		<div class="results-wrapper {viewMode}">
+			{#if viewMode === 'table'}
+				<div class="table-header">
+					<div class="col col-icon"></div>
+					<div class="col col-name">Title Name</div>
+					<div class="col col-id">Title ID</div>
+					<div class="col col-region">Region</div>
+					<div class="col col-fps">Performance</div>
+				</div>
 			{/if}
+
+			<div
+				bind:this={resultsContainer}
+				class="results-container {viewMode}"
+			>
+				{#if showSkeletons}
+					{#each Array(viewMode === 'grid' || viewMode === 'gallery' ? 12 : 8) as _}
+						<SkeletonCard {viewMode} />
+					{/each}
+				{:else}
+					{#each results as item (item.id)}
+						{#if viewMode === 'list'}
+							<ListItem titleData={item} query={search} />
+						{:else if viewMode === 'grid'}
+							<GridItem titleData={item} query={search} />
+						{:else if viewMode === 'compact'}
+							<CompactItem titleData={item} query={search} />
+						{:else if viewMode === 'table'}
+							<TableItem titleData={item} query={search} />
+						{:else if viewMode === 'gallery'}
+							<GalleryItem titleData={item} />
+						{:else if viewMode === 'detailed'}
+							<DetailedItem titleData={item} query={search} />
+						{:else if viewMode === 'activity'}
+							<ActivityItem titleData={item} />
+						{/if}
+					{:else}
+						<NoResults onClear={clearFilters} />
+					{/each}
+				{/if}
+			</div>
 		</div>
 	</section>
 
@@ -676,252 +694,6 @@
 		background: var(--border-color);
 	}
 
-	/* --- Hero Section (Recently Updated) --- */
-	.hero-section {
-		position: relative;
-		border-radius: var(--radius-lg);
-		overflow: hidden;
-		color: white;
-		min-height: 280px;
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-end;
-		padding: 2.5rem 2rem 2rem;
-		box-shadow: var(--shadow-lg);
-		background-color: var(--surface-color);
-	}
-
-	@media (min-width: 640px) {
-		.hero-section {
-			min-height: 380px;
-		}
-	}
-
-	.hero-bg {
-		position: absolute;
-		inset: 0;
-		z-index: 0;
-	}
-
-	.hero-bg img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-	}
-
-	.hero-overlay {
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(
-			to top,
-			var(--theme-overlay, rgba(0, 0, 0, 0.95)) 0%,
-			color-mix(
-					in srgb,
-					var(--theme-overlay, rgba(0, 0, 0, 0.6)) 80%,
-					transparent
-				)
-				60%,
-			transparent 100%
-		);
-	}
-
-	@media (prefers-color-scheme: dark) {
-		.hero-overlay:not(:global(.has-theme) *) {
-			background: linear-gradient(
-				to top,
-				rgba(0, 0, 0, 0.95) 0%,
-				rgba(0, 0, 0, 0.6) 60%,
-				rgba(0, 0, 0, 0.3) 100%
-			);
-		}
-	}
-
-	@media (prefers-color-scheme: light) {
-		.hero-overlay:not(:global(.has-theme) *) {
-			background: linear-gradient(
-				to top,
-				rgba(255, 255, 255, 0.95) 0%,
-				rgba(255, 255, 255, 0.7) 60%,
-				rgba(255, 255, 255, 0.4) 100%
-			);
-		}
-	}
-
-	.hero-content {
-		position: relative;
-		z-index: 1;
-		width: 100%;
-		max-width: 700px;
-		display: grid;
-		align-items: end;
-	}
-
-	.hero-content-inner {
-		grid-area: 1 / 1;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.hero-badge {
-		display: inline-flex;
-		align-items: center;
-		align-self: flex-start;
-		gap: 0.4rem;
-		background-color: var(--primary-color);
-		color: var(--primary-action-text);
-		padding: 6px 14px;
-		border-radius: 99px;
-		font-size: 0.85rem;
-		font-weight: 600;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-	}
-
-	.hero-section h1 {
-		font-size: 1.75rem;
-		font-weight: 800;
-		margin: 0;
-		line-height: 1.2;
-		color: #ffffff;
-		text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-	}
-
-	@media (min-width: 640px) {
-		.hero-section h1 {
-			font-size: 2.5rem;
-		}
-	}
-
-	.hero-cta {
-		display: inline-flex;
-		align-items: center;
-		align-self: flex-start;
-		gap: 0.5rem;
-		background-color: var(--primary-color);
-		color: var(--primary-action-text);
-		padding: 10px 20px;
-		border-radius: 99px;
-		font-weight: 700;
-		font-size: 0.95rem;
-		text-decoration: none;
-		transition: transform 0.2s;
-	}
-
-	.hero-cta:hover {
-		transform: translateY(-2px);
-	}
-
-	.hero-performance {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-
-	.perf-badge {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.35rem;
-		padding: 6px 12px;
-		background: rgba(0, 0, 0, 0.6);
-		color: white;
-		border-radius: 8px;
-		font-size: 0.85rem;
-		font-weight: 600;
-		backdrop-filter: blur(8px);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-	}
-
-	.hero-controls {
-		position: relative;
-		z-index: 2;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin-top: 1.5rem;
-		padding-top: 1rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	@media (max-width: 640px) {
-		.hero-controls {
-			justify-content: center;
-			gap: 2rem;
-		}
-		.indicators {
-			display: none;
-		}
-	}
-
-	.control-btn {
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		color: white;
-		border-radius: 50%;
-		width: 36px;
-		height: 36px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		transition: all 0.2s;
-	}
-
-	.control-btn:hover {
-		background: rgba(255, 255, 255, 0.25);
-		transform: scale(1.1);
-	}
-
-	.section-badge {
-		position: absolute;
-		top: 1.5rem;
-		left: 1.5rem;
-		z-index: 10;
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		background: rgba(0, 0, 0, 0.6);
-		backdrop-filter: blur(8px);
-		padding: 6px 12px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		color: white;
-		border: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.indicators {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.indicator-counter {
-		font-size: 0.85rem;
-		font-weight: 700;
-		color: rgba(255, 255, 255, 0.9);
-		background: rgba(0, 0, 0, 0.4);
-		padding: 4px 10px;
-		border-radius: 99px;
-		backdrop-filter: blur(4px);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-	}
-
-	.indicator-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background-color: rgba(255, 255, 255, 0.3);
-		border: none;
-		cursor: pointer;
-	}
-
-	.indicator-dot.active {
-		background-color: var(--primary-color);
-		width: 24px;
-		border-radius: 4px;
-	}
-
 	/* --- General --- */
 	.section-title {
 		display: flex;
@@ -980,19 +752,217 @@
 		gap: 1.5rem;
 	}
 
-	.results-container.list {
+	.results-container.gallery {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.results-container.list,
+	.results-container.compact,
+	.results-container.activity,
+	.results-container.detailed {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
 	}
 
+	.results-wrapper.table {
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-md);
+		overflow: hidden;
+		background: var(--surface-color);
+	}
+
+	.results-container.table {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		border: none;
+	}
+
+	.table-header {
+		display: grid;
+		grid-template-columns: 48px 1fr 160px 120px 140px;
+		align-items: center;
+		padding: 0.75rem 1rem;
+		background-color: var(--input-bg);
+		border-bottom: 2px solid var(--border-color);
+		font-weight: 700;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		letter-spacing: 0.05em;
+	}
+	.hero-cta {
+		display: inline-flex;
+		align-items: center;
+		align-self: flex-start;
+		gap: 0.5rem;
+		background-color: var(--primary-color);
+		color: var(--primary-action-text);
+		padding: 10px 20px;
+		border-radius: 99px;
+		font-weight: 700;
+		font-size: 0.95rem;
+		text-decoration: none;
+		transition: transform 0.2s;
+	}
+
+	.hero-cta:hover {
+		transform: translateY(-2px);
+	}
+
+	@media (max-width: 900px) {
+		.table-header {
+			grid-template-columns: 40px 1fr 120px;
+		}
+		.table-header .col-id,
+		.table-header .col-region {
+			display: none;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.table-header {
+			grid-template-columns: 40px 1fr;
+		}
+		.table-header .col-fps {
+			display: none;
+		}
+	}
+
+	/* --- View Picker Dropdown --- */
+	.view-picker {
+		position: relative;
+		z-index: 100;
+	}
+
+	.picker-btn {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.5rem 1rem;
+		background: var(--input-bg);
+		border: 1px solid var(--border-color);
+		border-radius: 12px;
+		color: var(--text-primary);
+		font-weight: 600;
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.picker-btn:hover {
+		border-color: var(--primary-color);
+		background: var(--surface-color);
+	}
+
+	.picker-btn .chevron {
+		opacity: 0.5;
+		margin-left: 0.25rem;
+	}
+
+	.picker-menu {
+		position: absolute;
+		top: calc(100% + 0.5rem);
+		right: 0;
+		width: 200px;
+		background: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: 12px;
+		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+		overflow: hidden;
+		animation: slideUp 0.15s ease-out;
+	}
+
+	@keyframes slideUp {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	.menu-section {
+		padding: 0.5rem 0;
+	}
+
+	.menu-section:not(:last-child) {
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.section-title {
+		display: block;
+		padding: 0.25rem 1rem;
+		font-size: 0.65rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		opacity: 0.5;
+	}
+
+	.menu-section button {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.6rem 1rem;
+		border: none;
+		background: none;
+		color: var(--text-primary);
+		font-size: 0.875rem;
+		cursor: pointer;
+		transition: all 0.15s ease;
+		text-align: left;
+	}
+
+	.menu-section button:hover {
+		background: var(--input-bg);
+		color: var(--primary-color);
+	}
+
+	.menu-section button.active {
+		background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+		color: var(--primary-color);
+		font-weight: 700;
+	}
+
+	.picker-label {
+		white-space: nowrap;
+	}
+
+	@media (max-width: 640px) {
+		.picker-label {
+			display: none;
+		}
+		.picker-btn {
+			padding: 0.5rem 0.75rem;
+		}
+	}
+
 	/* --- Controls & Buttons --- */
+	.view-switcher-group {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.5rem;
+	}
+
 	.view-switcher {
 		display: flex;
 		background: var(--input-bg);
 		padding: 4px;
 		border-radius: 12px;
 		border: 1px solid var(--border-color);
+	}
+
+	.view-switcher.secondary {
+		border-style: dashed;
+		opacity: 0.8;
 	}
 
 	.view-switcher button {

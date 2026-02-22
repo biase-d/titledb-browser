@@ -1,23 +1,30 @@
 <script>
-	import { page } from "$app/state";
+	import { page } from '$app/state'
+	import { onMount } from 'svelte'
+
+	let healthPromise = $state(new Promise(() => {}))
+
+	onMount(() => {
+		healthPromise = fetch('/api/v1/status').then((r) => r.json())
+	})
 </script>
 
 <div class="error-container">
 	<div class="error-card">
 		<h1>{page.status}</h1>
-		<p class="message">{page.error?.message || "Something went wrong"}</p>
+		<p class="message">{page.error?.message || 'Something went wrong'}</p>
 
 		<div class="status-summary">
-			{#await fetch("/api/v1/status").then((r) => r.json())}
+			{#await healthPromise}
 				<div class="status-loading">Checking system status...</div>
 			{:then health}
-				{@const dbDown = health.services.database.status === "down"}
+				{@const dbDown = health.services.database.status === 'down'}
 				<div class="status-item" class:is-down={dbDown}>
 					<span class="dot"></span>
 					<span class="label">
 						{dbDown
-							? "Database is currently offline"
-							: "Systems are operational"}
+							? 'Database is currently offline'
+							: 'Systems are operational'}
 					</span>
 				</div>
 			{:catch}

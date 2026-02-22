@@ -1,19 +1,19 @@
 <script>
-    import "../app.css";
-    import { page, navigating } from "$app/stores";
-    import Header from "./Header.svelte";
-    import Footer from "./Footer.svelte";
-    import OnboardingModal from "./OnboardingModal.svelte";
-    import AnnouncementBanner from "$lib/components/AnnouncementBanner.svelte";
-    import { themeStore } from "$lib/stores/theme.svelte";
-    import { preferences } from "$lib/stores/preferences";
-    import { fade } from "svelte/transition";
-    import { createImageSet } from "$lib/image";
+    import '../app.css'
+    import { page, navigating } from '$app/stores'
+    import Header from './Header.svelte'
+    import Footer from './Footer.svelte'
+    import OnboardingModal from './OnboardingModal.svelte'
+    import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte'
+    import { themeStore } from '$lib/stores/theme.svelte'
+    import { preferences } from '$lib/stores/preferences'
+    import { fade } from 'svelte/transition'
+    import { createImageSet } from '$lib/image'
 
-    let { data, children } = $props();
+    let { data, children } = $props()
 
     $effect(() => {
-        const root = document.documentElement;
+        const root = document.documentElement
 
         if (
             $preferences.adaptiveTheme &&
@@ -21,31 +21,31 @@
             themeStore.colors
         ) {
             root.style.setProperty(
-                "--primary-color",
+                '--primary-color',
                 themeStore.colors.primary,
-            );
-            root.style.setProperty("--accent-color", themeStore.colors.accent);
+            )
+            root.style.setProperty('--accent-color', themeStore.colors.accent)
             root.style.setProperty(
-                "--theme-overlay",
+                '--theme-overlay',
                 themeStore.colors.overlay,
-            );
+            )
             root.style.setProperty(
-                "--primary-color-hover",
+                '--primary-color-hover',
                 `color-mix(in srgb, ${themeStore.colors.primary} 80%, white)`,
-            );
+            )
         } else {
             root.style.setProperty(
-                "--primary-color",
+                '--primary-color',
                 $preferences.favoriteColor,
-            );
+            )
             root.style.setProperty(
-                "--primary-color-hover",
+                '--primary-color-hover',
                 `color-mix(in srgb, ${$preferences.favoriteColor} 80%, white)`,
-            );
-            root.style.removeProperty("--accent-color");
-            root.style.removeProperty("--theme-overlay");
+            )
+            root.style.removeProperty('--accent-color')
+            root.style.removeProperty('--theme-overlay')
         }
-    });
+    })
 </script>
 
 <AnnouncementBanner />
@@ -80,7 +80,7 @@
         {@render children?.()}
     </main>
 
-    {#if !$page.url.pathname.startsWith("/contribute/")}
+    {#if !$page.url.pathname.startsWith('/contribute/')}
         <Footer />
     {/if}
 </div>
