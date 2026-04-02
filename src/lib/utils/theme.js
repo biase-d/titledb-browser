@@ -1,107 +1,62 @@
+import { Vibrant } from 'node-vibrant/browser'
+
 /**
- * Extracts a dominant color from an image URL.
+ * Extracts a dominant color using node-vibrant for better UI palettes
  * @param {string} imageUrl
  * @returns {Promise<{ primary: string, accent: string, overlay: string } | null>}
  */
-export async function extractTheme (imageUrl) {
+export async function extractTheme(imageUrl) {
+	if (typeof window === 'undefined') return null
 	if (!imageUrl) return null
 
-	// Use internal proxy to bypass CORS for external assets
+	// Bypass CORS for external assets
 	let proxyUrl = imageUrl
 	if (imageUrl.includes('nintendo.net') || imageUrl.includes('githubusercontent.com')) {
 		proxyUrl = `/api/v1/proxy/image?url=${encodeURIComponent(imageUrl)}`
 	}
 
-	return new Promise((resolve) => {
+	try {
 		const img = new Image()
 		img.crossOrigin = 'Anonymous'
 		img.src = proxyUrl
 
-		img.onload = () => {
-			const canvas = document.createElement('canvas')
-			const ctx = canvas.getContext('2d')
-			if (!ctx) {
-				resolve(null)
-				return
-			}
+		await new Promise((resolve, reject) => {
+			img.onload = resolve
+			img.onerror = () => reject(new Error('Image failed to load'))
+		})
 
-			// Downscale for performance
-			const size = 50
-			canvas.width = size
-			canvas.height = size
+		const palette = await Vibrant.from(img).getPalette()
+		const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
 
-			try {
-				ctx.drawImage(img, 0, 0, size, size)
-				const imageData = ctx.getImageData(0, 0, size, size).data
+		let swatch = isDarkMode 
+			? (palette.Vibrant || palette.Muted) 
+			: (palette.DarkVibrant || palette.Vibrant || palette.Muted)
 
-				let r = 0; let g = 0; let b = 0; let count = 0
-
-				for (let i = 0; i < imageData.length; i += 4) {
-					const alpha = imageData[i + 3]
-					if (alpha < 128) continue // Skip semi-transparent
-
-					const pixelR = imageData[i]
-					const pixelG = imageData[i + 1]
-					const pixelB = imageData[i + 2]
-
-					// Very dark or very light pixels are less useful for themes
-					const brightness = (pixelR + pixelG + pixelB) / 3
-					if (brightness < 10 || brightness > 245) continue
-
-					r += pixelR
-					g += pixelG
-					b += pixelB
-					count++
-				}
-
-
-				if (count === 0) {
-					console.warn('[ThemeEngine] No valid pixels found, using fallback')
-					const fallback = {
-						primary: 'var(--color-primary-dark)',
-						accent: 'rgba(128, 128, 128, 0.1)',
-						overlay: 'rgba(0, 0, 0, 0.6)'
-					}
-					resolve(fallback)
-					return
-				}
-
-				r = Math.floor(r / count)
-				g = Math.floor(g / count)
-				b = Math.floor(b / count)
-
-				const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
-
-				let primary = `rgb(${r}, ${g}, ${b})`
-				let accent = `rgba(${r}, ${g}, ${b}, 0.15)`
-				let overlay = `rgba(${Math.floor(r * 0.1)}, ${Math.floor(g * 0.1)}, ${Math.floor(b * 0.1)}, 0.7)`
-
-				if (!isDarkMode) {
-					// In light mode, we might need to darken the color to ensure it's readable as an accent/primary
-					const brightness = (r * 299 + g * 587 + b * 114) / 1000
-					if (brightness > 160) {
-						const factor = 0.6
-						r = Math.floor(r * factor)
-						g = Math.floor(g * factor)
-						b = Math.floor(b * factor)
-						primary = `rgb(${r}, ${g}, ${b})`
-					}
-					accent = `rgba(${r}, ${g}, ${b}, 0.12)`
-					overlay = 'rgba(255, 255, 255, 0.85)' // Light mode uses light overlay
-				}
-
-				const theme = { primary, accent, overlay }
-
-				resolve(theme)
-			} catch (e) {
-				console.error('[ThemeEngine] Failed to extract colors:', e)
-				resolve(null)
+		// Fallback if Vibrant fails to find any usable colors
+		if (!swatch) {
+			console.warn('[ThemeEngine] node-vibrant found no swatches, using fallback')
+			return {
+				primary: 'var(--color-primary-dark)',
+				accent: 'rgba(128, 128, 128, 0.1)',
+				overlay: 'rgba(0, 0, 0, 0.6)'
 			}
 		}
 
-		img.onerror = (err) => {
-			console.error('[ThemeEngine] Image failed to load (CORS issue?):', imageUrl, err)
-			resolve(null)
+		const [r, g, b] = swatch.rgb.map(Math.floor)
+
+		let primary = `rgb(${r}, ${g}, ${b})`
+		let accent = `rgba(${r}, ${g}, ${b}, 0.15)`
+		let overlay = `rgba(${Math.floor(r * 0.1)}, ${Math.floor(g * 0.1)}, ${Math.floor(b * 0.1)}, 0.7)`
+
+		if (!isDarkMode) {
+			accent = `rgba(${r}, ${g}, ${b}, 0.12)`
+			overlay = 'rgba(255, 255, 255, 0.85)'
 		}
-	})
+
+		return { primary, accent, overlay }
+
+	} catch (e) {
+		console.error('[ThemeEngine] node-vibrant extraction failed:', e)
+		return null
+	}
 }

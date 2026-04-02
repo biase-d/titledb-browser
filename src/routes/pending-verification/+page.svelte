@@ -127,8 +127,7 @@
                                         <ul class="summary-list">
                                             {#each group.changeSummary as change}
                                                 <li class="summary-item">
-                                                    <span class="bullet">•</span
-                                                    >
+                                                    <span class="bullet">•</span>
                                                     <span>{change}</span>
                                                 </li>
                                             {/each}
@@ -163,7 +162,7 @@
                     </div>
 
                     <div class="card-footer">
-                        <div class="merge-status">
+                        <div class="merge-status pending">
                             <div class="pulse-dot"></div>
                             Awaiting GitHub merge
                         </div>
@@ -195,9 +194,9 @@
         gap: 0.5rem;
         padding: 0.375rem 1rem;
         border-radius: 9999px;
-        background: rgba(234, 179, 8, 0.1);
+        background: color-mix(in srgb, #eab308 15%, transparent);
         color: #eab308;
-        border: 1px solid rgba(234, 179, 8, 0.2);
+        border: 1px solid color-mix(in srgb, #eab308 30%, transparent);
         font-size: 0.75rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -210,11 +209,11 @@
         font-weight: 900;
         margin-bottom: 1rem;
         letter-spacing: -0.025em;
-        color: white;
+        color: var(--text-primary);
     }
 
     .title-sub {
-        color: #9ca3af;
+        color: var(--text-secondary);
         max-width: 36rem;
         margin-left: auto;
         margin-right: auto;
@@ -223,10 +222,10 @@
     }
 
     .glass-panel {
-        background: rgba(23, 23, 23, 0.4);
+        background: color-mix(in srgb, var(--surface-color) 70%, transparent);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border-color);
     }
 
     .groups-list {
@@ -240,17 +239,17 @@
             transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
             box-shadow 0.3s ease,
             border-color 0.3s ease;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
     }
 
     .verification-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
-        border-color: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 20px 40px -10px color-mix(in srgb, var(--primary-color) 15%, rgba(0,0,0,0.2));
+        border-color: var(--primary-color);
     }
 
     .card-header {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid var(--border-color);
         padding: 1.5rem;
         display: flex;
         flex-wrap: wrap;
@@ -269,8 +268,8 @@
         width: 3rem;
         height: 3rem;
         border-radius: 0.75rem;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-color);
         object-fit: cover;
     }
 
@@ -279,28 +278,28 @@
     }
 
     .game-icon.placeholder {
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--input-bg);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #4b5563;
+        color: var(--text-secondary);
     }
 
     .game-name {
         font-size: 1.25rem;
         font-weight: 700;
         margin: 0;
-        color: white;
+        color: var(--text-primary);
     }
 
     .game-name.unknown {
-        color: #6b7280;
+        color: var(--text-secondary);
         font-style: italic;
     }
 
     .group-id {
         font-size: 0.75rem;
-        color: #9ca3af;
+        color: var(--text-secondary);
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
             monospace;
         letter-spacing: -0.05em;
@@ -316,7 +315,7 @@
 
     .submission-date {
         font-size: 0.875rem;
-        color: #6b7280;
+        color: var(--text-secondary);
         font-weight: 500;
     }
 
@@ -325,20 +324,20 @@
         align-items: center;
         gap: 0.75rem;
         padding: 0.6rem 1.25rem;
-        background: #24292f;
-        color: white;
+        /* Dynamic inversion based on theme */
+        background: var(--text-primary);
+        color: var(--surface-color);
         text-decoration: none;
         border-radius: 14px;
         font-weight: 700;
         font-size: 0.9rem;
         transition: all 0.2s ease;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid transparent;
     }
 
     .github-glow:hover {
-        background: #333942;
-        box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
         transform: scale(1.02);
+        box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 20%, transparent);
     }
 
     .pr-link :global(.external-icon) {
@@ -352,7 +351,7 @@
     }
 
     .title-link:hover {
-        color: var(--primary-color, #eab308);
+        color: var(--primary-color);
         text-underline-offset: 4px;
         text-decoration: underline;
     }
@@ -368,7 +367,7 @@
     }
 
     .contributors-section {
-        border-top: 1px solid rgba(255, 255, 255, 0.03);
+        border-top: 1px solid var(--border-color);
         padding-top: 1.5rem;
     }
 
@@ -383,24 +382,24 @@
         align-items: center;
         gap: 0.375rem;
         padding: 0.3rem 0.75rem;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         font-size: 0.8rem;
         font-weight: 500;
-        color: #d1d5db;
+        color: var(--text-secondary);
         transition: all 0.2s ease;
     }
 
     .contributor-badge:hover {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.1);
-        color: white;
+        background: color-mix(in srgb, var(--primary-color) 10%, var(--input-bg));
+        border-color: var(--primary-color);
+        color: var(--primary-color);
     }
 
     .changes-list {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
         border-radius: 12px;
         padding: 1rem 1.25rem;
     }
@@ -420,11 +419,11 @@
         gap: 0.75rem;
         font-size: 0.9rem;
         line-height: 1.4;
-        color: #d1d5db;
+        color: var(--text-primary);
     }
 
     .bullet {
-        color: #eab308;
+        color: var(--primary-color);
         font-size: 1.2rem;
         line-height: 1;
         margin-top: -0.1rem;
@@ -432,13 +431,14 @@
 
     .no-changes {
         font-size: 0.9rem;
-        color: #6b7280;
+        color: var(--text-secondary);
         font-style: italic;
     }
+
     .section-label {
         font-size: 0.75rem;
         font-weight: 700;
-        color: #6b7280;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.1em;
         margin-bottom: 1rem;
@@ -446,12 +446,12 @@
     }
 
     .card-footer {
-        background: rgba(255, 255, 255, 0.02);
+        background: var(--input-bg);
         padding: 1rem 1.5rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid var(--border-color);
         border-radius: 0 0 24px 24px;
     }
 
@@ -460,52 +460,55 @@
         align-items: center;
         gap: 0.5rem;
         font-size: 0.75rem;
-        color: rgba(234, 179, 8, 0.8);
-        font-weight: 500;
+        font-weight: 600;
+    }
+
+    .merge-status.pending {
+        color: #eab308;
     }
 
     .footer-note {
         font-size: 0.75rem;
-        color: #4b5563;
+        color: var(--text-secondary);
         font-style: italic;
     }
 
     .empty-state {
         text-align: center;
         padding: 6rem 1.25rem;
-        background: rgba(255, 255, 255, 0.02);
-        border: 2px dashed rgba(255, 255, 255, 0.05);
+        background: color-mix(in srgb, var(--surface-color) 40%, transparent);
+        border: 2px dashed var(--border-color);
         border-radius: 32px;
     }
 
     .icon-circle {
         width: 100px;
         height: 100px;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--input-bg);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         margin: 0 auto 1.5rem;
-        color: rgba(255, 255, 255, 0.1);
+        color: var(--text-secondary);
     }
 
     .empty-title {
         font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 0.5rem;
-        color: white;
+        color: var(--text-primary);
     }
 
     .empty-sub {
-        color: #6b7280;
+        color: var(--text-secondary);
         margin: 0;
     }
 
     .pulse-dot {
         width: 8px;
         height: 8px;
-        background: #eab308;
+        background: currentColor;
         border-radius: 50%;
         animation: pulse 2s infinite;
     }
@@ -513,7 +516,7 @@
     @keyframes pulse {
         0% {
             transform: scale(0.95);
-            box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
+            box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 70%, transparent);
         }
         70% {
             transform: scale(1);
