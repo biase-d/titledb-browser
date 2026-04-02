@@ -94,6 +94,38 @@ export class GitHubService {
 	}
 
 	/**
+	 * Retrieves all commits for a PR
+	 * @param {number} pullNumber 
+	 */
+	static async getPullRequestCommits(pullNumber) {
+			const { data: commits } = await octokit.pulls.listCommits({
+					owner: REPO_OWNER,
+					repo: REPO_NAME,
+					pull_number: pullNumber,
+			});
+
+			return { commits };
+	}
+
+/**
+ * Retrieves all co-author usernames from a PR 
+ * @param {number} pullNumber
+ */
+	static async getCoAuthors(pullNumber) { 
+    const { commits } = await this.getPullRequestCommits(pullNumber);
+
+    const coAuthors = commits.flatMap(c => {
+			const message = c.commit.message;
+			const matches = message.matchAll(/Co-authored-by: [^<]*<([^@>]+)@/g);
+			
+			return Array.from(matches, m => m[1]);
+    });
+
+    return [...new Set(coAuthors)];
+	}
+
+
+	/**
    * Creates a new branch, commits files, and opens a draft PR
    * @param {object} params
    * @param {string} params.branchName

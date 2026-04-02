@@ -13,6 +13,7 @@ export async function load ({ locals }) {
 	const groupIdsToFetch = new Set()
 
 	for (const pr of pulls) {
+		const coAuthors  = await GitHubService.getCoAuthors(pr.number)
 		const groupIdMatch = pr.body?.match(/\*\*Group ID:\*\*\s*`([A-F0-9]+)`/i)
 		const groupId = groupIdMatch ? groupIdMatch[1] : null
 
@@ -37,10 +38,8 @@ export async function load ({ locals }) {
 			title: pr.title,
 			prUrl: pr.html_url,
 			submittedAt: pr.created_at,
-			contributors: pr.user?.login ? [pr.user.login] : [],
-			changeSummary,
-			// Keep contributions object dummy since the frontend still expects it initially,
-			// or we can remove it entirely if we refactor the Svelte side correctly.
+			contributors: coAuthors,
+			changeSummary
 		})
 	}
 
