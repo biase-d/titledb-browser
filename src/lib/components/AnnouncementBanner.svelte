@@ -12,22 +12,28 @@
     let isVisible = $state(false)
 
     onMount(() => {
-        // Hide banner for first-time visitors
-        const hasVisited = localStorage.getItem('has_visited')
-        if (!hasVisited) {
-            localStorage.setItem('has_visited', 'true')
-            return
+        let firstVisitStr = localStorage.getItem('first_visit_date')
+        if (!firstVisitStr) {
+            if (localStorage.getItem('has_visited') === 'true') {
+                firstVisitStr = new Date('2000-01-01').toISOString()
+                localStorage.setItem('first_visit_date', firstVisitStr)
+            } else {
+                firstVisitStr = new Date().toISOString()
+                localStorage.setItem('first_visit_date', firstVisitStr)
+                localStorage.setItem('has_visited', 'true')
+                return 
+            }
         }
 
         const { announcements } = getVersionInfo()
+        const firstVisitTime = new Date(firstVisitStr).getTime()
 
-        // Find latest active announcement
         const latest = announcements
-            .filter((a) => a.active)
+            .filter((a) => a.active && new Date(a.date).getTime() > firstVisitTime)
             .sort(
                 (a, b) =>
                     new Date(b.date).getTime() - new Date(a.date).getTime(),
-            )[0]
+            )
 
         if (latest) {
             const dismissed = localStorage.getItem(
@@ -72,7 +78,7 @@
     function handleLinkClick (e, link) {
         if (link.startsWith('/settings')) {
             e.preventDefault()
-            const section = link.split('#')[1] || undefined
+            const section = link.split('#') || undefined
             uiStore.openSettings(section)
         }
     }
