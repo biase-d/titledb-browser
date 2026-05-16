@@ -1,6 +1,7 @@
 <script>
     import '../app.css'
-    import { page, navigating } from '$app/state'
+    import { page } from '$app/state'
+    import { navigating } from '$app/stores'
     import Header from './Header.svelte'
     import Footer from './Footer.svelte'
     import OnboardingModal from './OnboardingModal.svelte'
@@ -55,7 +56,7 @@
 
 <AnnouncementBanner />
 
-{#if navigating}
+{#if $navigating}
     <div class="nav-progress-bar">
         <div class="nav-progress-inner"></div>
     </div>

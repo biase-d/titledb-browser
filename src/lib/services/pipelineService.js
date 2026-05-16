@@ -127,7 +127,8 @@ export async function runPipeline(drizzleDb, connectionStringOverride) {
 
       let syncStats = { games: 0, profiles: 0, graphics: 0, videos: 0 };
       await dbInstance.transaction(async (tx) => {
-        await tx.execute(sql.raw(`SET search_path TO "${standbySchema}"`));
+        // SET search_path must include public for shared types/enums
+        await tx.execute(sql.raw(`SET search_path TO "${standbySchema}", public`));
         syncStats = await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
       });
 
@@ -152,11 +153,16 @@ export async function runPipeline(drizzleDb, connectionStringOverride) {
       const activeSchema = await getActiveSchema(sqlClient);
       console.log(`Incremental sync into active schema: ${activeSchema}`);
 
+      // Ensure tables exist in the active schema (might be first run)
+      const { ensurePhysicalTables } = await import('../pipeline/schema-manager.js');
+      await ensurePhysicalTables(sqlClient, activeSchema);
+
       const dbInstance = drizzle(sqlClient);
 
       let syncStats = { games: 0, profiles: 0, graphics: 0, videos: 0 };
       await dbInstance.transaction(async (tx) => {
-        await tx.execute(sql.raw(`SET search_path TO "${activeSchema}"`));
+        // SET search_path must include public for shared types/enums
+        await tx.execute(sql.raw(`SET search_path TO "${activeSchema}", public`));
         syncStats = await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
       });
 

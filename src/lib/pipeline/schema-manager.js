@@ -118,19 +118,13 @@ export async function getStandbySchema(sqlClient) {
 }
 
 /**
- * Drop and recreate all content tables in the standby schema.
- * This gives us a clean slate for a full rebuild.
+ * Ensure all physical content tables exist in the target schema.
+ * Safe to call multiple times (idempotent).
  * @param {import('postgres').Sql} sqlClient
- * @param {string} schema - The standby schema to prepare
+ * @param {string} schema - The target schema (e.g., layer_a)
  */
-export async function prepareStandbySchema(sqlClient, schema) {
-    console.log(`[SchemaManager] Preparing standby schema: ${schema}`)
-
-    // Drop content tables in reverse dependency order
-    const reverseTables = [...CONTENT_TABLES].reverse()
-    for (const table of reverseTables) {
-        await sqlClient.unsafe(`DROP TABLE IF EXISTS "${schema}"."${table}" CASCADE`)
-    }
+export async function ensurePhysicalTables(sqlClient, schema) {
+    console.log(`[SchemaManager] Ensuring physical tables exist in schema: ${schema}`)
 
     // Recreate tables using the same DDL as public, but in the target schema
     await sqlClient.unsafe(`
@@ -225,6 +219,24 @@ export async function prepareStandbySchema(sqlClient, schema) {
 			"submitted_at" TIMESTAMPTZ DEFAULT now()
 		)
 	`)
+}
+
+/**
+ * Drop and recreate all content tables in the standby schema.
+ * This gives us a clean slate for a full rebuild.
+ * @param {import('postgres').Sql} sqlClient
+ * @param {string} schema - The standby schema to prepare
+ */
+export async function prepareStandbySchema(sqlClient, schema) {
+    console.log(`[SchemaManager] Preparing standby schema for full rebuild: ${schema}`)
+
+    // Drop content tables in reverse dependency order
+    const reverseTables = [...CONTENT_TABLES].reverse()
+    for (const table of reverseTables) {
+        await sqlClient.unsafe(`DROP TABLE IF EXISTS "${schema}"."${table}" CASCADE`)
+    }
+
+    await ensurePhysicalTables(sqlClient, schema)
 
     console.log(`[SchemaManager] Standby schema "${schema}" is ready.`)
 }
