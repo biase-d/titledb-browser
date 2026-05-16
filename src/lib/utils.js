@@ -41,6 +41,8 @@ export function isProfileEmpty (profile) {
 	const { docked, handheld } = profile.profiles
 	const isModeEmpty = (mode) => {
 		if (!mode) return true
+		// 'Dynamic' resolution type is itself meaningful data even without specific values
+		if (mode.resolution_type === 'Dynamic') return false
 		return !(mode.resolution || mode.resolutions || mode.min_res || mode.max_res || mode.resolution_notes || mode.fps_notes || mode.target_fps)
 	}
 	return isModeEmpty(docked) && isModeEmpty(handheld)
@@ -56,9 +58,18 @@ export function isGraphicsEmpty (graphics) {
 	const isModeDataEmpty = (modeData) => {
 		if (!modeData) return true
 		const res = modeData.resolution
-		if (res && (res.fixedResolution || res.minResolution || res.maxResolution || res.multipleResolutions?.[0] || res.notes)) return false
+		if (res) {
+			// 'Dynamic' type is meaningful even without specific resolution values
+			if (res.resolutionType === 'Dynamic') return false
+			if (res.fixedResolution || res.minResolution || res.maxResolution || res.multipleResolutions?.[0] || res.notes) return false
+		}
 		const fps = modeData.framerate
-		if (fps && (fps.targetFps || fps.notes)) return false
+		if (fps) {
+			// 'Unlocked' lockType and non-default buffering modes are meaningful without a target FPS
+			if (fps.lockType === 'Unlocked') return false
+			if (fps.apiBuffering && fps.apiBuffering !== 'Unknown') return false
+			if (fps.targetFps || fps.notes) return false
+		}
 		const custom = modeData.custom
 		if (custom && Object.values(custom).some(c => c.value || c.notes)) return false
 		return true

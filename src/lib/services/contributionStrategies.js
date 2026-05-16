@@ -1,5 +1,8 @@
 import * as githubRepo from '$lib/repositories/githubRepository'
-import * as contributionRepo from '$lib/repositories/contributionRepository'
+import { submissions } from '$lib/db/schema'
+import { upsertUserAndGetKarma } from '$lib/repositories/userRepository'
+
+const KARMA_APPROVAL_THRESHOLD = 10
 
 /**
  * @typedef {Object} ContributionDetails
@@ -16,31 +19,27 @@ import * as contributionRepo from '$lib/repositories/contributionRepository'
  */
 
 /**
- * Base Strategy Class
+ * @typedef {{ id: string, login: string }} SessionUser
  */
+
 class ContributionStrategy {
 	/**
 	 * @param {ContributionDetails} details
-	 * @param {string} username
+	 * @param {SessionUser} user
 	 * @param {any} dbConnection
 	 * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
 	 */
-	async submit (_details, _username, _dbConnection) {
+	async submit (_details, _user, _dbConnection) {
 		throw new Error('Method not implemented')
 	}
 }
 
 /**
- * Legacy/Current behavior: Only creates a Pull Request on GitHub
+ * Legacy behavior: only creates a GitHub PR, no DB write.
  */
 export class GitHubOnlyStrategy extends ContributionStrategy {
-	/**
-	 * @param {ContributionDetails} details
-	 * @param {string} username
-	 * @param {any} dbConnection
-	 */
-	async submit (details, username, _dbConnection) {
-		const branchName = `contrib/${username}/${details.groupId}-${Date.now()}`
+	async submit (details, user, _dbConnection) {
+		const branchName = `contrib/${user.login}/${details.groupId}-${Date.now()}`
 
 		const prDetails = await githubRepo.createPullRequest({
 			branchName,
@@ -59,17 +58,14 @@ export class GitHubOnlyStrategy extends ContributionStrategy {
 }
 
 /**
- * New behavior: Inserts into DB as 'pending' and then creates a GitHub PR
+ * Simultaneous hybrid: writes to public.submissions as 'pending' (or 'approved' for high-karma
+ * users), then opens a GitHub PR. The DB entry is visible immediately in the UI.
  */
 export class DatabaseAndGitHubStrategy extends ContributionStrategy {
-	/**
-	 * @param {ContributionDetails} details
-	 * @param {string} username
-	 * @param {any} dbConnection
-	 */
-	async submit (details, username, dbConnection) {
-		const branchName = `contrib-beta/${username}/${details.groupId}-${Date.now()}`
+	async submit (details, user, dbConnection) {
+		const branchName = `contrib-beta/${user.login}/${details.groupId}-${Date.now()}`
 
+		// Path A: Create PR on GitHub
 		const prDetails = await githubRepo.createPullRequest({
 			branchName,
 			commitMessage: details.commitMessage,
@@ -82,21 +78,55 @@ export class DatabaseAndGitHubStrategy extends ContributionStrategy {
 			return { success: false, error: 'Failed to create GitHub PR' }
 		}
 
-		// 2. Persistent pending status in DB
-		await contributionRepo.savePendingContribution(dbConnection, {
-			groupId: details.groupId,
-			performance: details.rawPerformance,
-			graphics: details.rawGraphics,
-			youtube: details.rawYoutube,
-			prNumber: prDetails.number
-		})
+		// Path B: Persist in public.submissions, resolving status via karma
+		const karma = await upsertUserAndGetKarma(dbConnection, { id: user.id, login: user.login })
+		const status = karma > KARMA_APPROVAL_THRESHOLD ? 'approved' : 'pending'
+
+		/** @type {Array<{userId: string, githubPrNumber: number, groupId: string, data: any, status: string, type: string}>} */
+		const rows = []
+
+		if (details.rawPerformance?.length) {
+			rows.push({
+				userId: user.id,
+				githubPrNumber: prDetails.number,
+				groupId: details.groupId,
+				data: details.rawPerformance,
+				status,
+				type: 'performance'
+			})
+		}
+
+		if (details.rawGraphics) {
+			rows.push({
+				userId: user.id,
+				githubPrNumber: prDetails.number,
+				groupId: details.groupId,
+				data: details.rawGraphics,
+				status,
+				type: 'graphics'
+			})
+		}
+
+		if (details.rawYoutube?.length) {
+			rows.push({
+				userId: user.id,
+				githubPrNumber: prDetails.number,
+				groupId: details.groupId,
+				data: details.rawYoutube,
+				status,
+				type: 'youtube'
+			})
+		}
+
+		if (rows.length > 0) {
+			await dbConnection.insert(submissions).values(rows)
+		}
 
 		return { success: true, url: prDetails.url, number: prDetails.number }
 	}
 }
 
 /**
- * Factory for selecting the strategy
  * @param {boolean} isBetaEnabled
  * @returns {ContributionStrategy}
  */

@@ -6,6 +6,7 @@ export const contributionStatusEnum = pgEnum('contribution_status', ['pending', 
 
 export const gameGroups = pgTable('game_groups', {
 	id: text('id').primaryKey(),
+	platformId: integer('platform_id').notNull().default(1),
 	youtubeContributors: text('youtube_contributors').array(),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
@@ -27,6 +28,7 @@ export const games = pgTable('games', {
 export const performanceProfiles = pgTable('performance_profiles', {
 	id: serial('id').primaryKey(),
 	groupId: text('group_id').notNull().references(() => gameGroups.id),
+	platformId: integer('platform_id').notNull().default(1),
 	gameVersion: text('game_version').notNull(),
 	suffix: text('suffix'),
 	profiles: jsonb('profiles').notNull(),
@@ -43,6 +45,7 @@ export const performanceProfiles = pgTable('performance_profiles', {
 
 export const graphicsSettings = pgTable('graphics_settings', {
 	groupId: text('group_id').primaryKey().references(() => gameGroups.id),
+	platformId: integer('platform_id').notNull().default(1),
 	settings: jsonb('settings').notNull(),
 	contributor: text('contributor').array(),
 	status: contributionStatusEnum('status').notNull().default('approved'),
@@ -87,4 +90,28 @@ export const userPreferences = pgTable('user_preferences', {
 	preferredRegion: text('preferred_region'),
 	featuredGameId: text('featured_game_id').references(() => games.id, { onDelete: 'set null' }),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
+})
+
+// User table in public schema — survives schema swaps.
+// Populated on first authenticated action; karma unlocks optimistic approval.
+export const users = pgTable('users', {
+	id: text('id').primaryKey(),
+	login: text('login').notNull(),
+	karma: integer('karma').notNull().default(0),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow()
+})
+
+// Submission tracking — lives in public schema, survives schema swaps.
+// 'data' holds the raw JSON payload; cleared once the PR is promoted into the main schema.
+export const submissions = pgTable('submissions', {
+	id: serial('id').primaryKey(),
+	userId: text('user_id').notNull(),
+	githubPrNumber: integer('github_pr_number'),
+	groupId: text('group_id').notNull(),
+	data: jsonb('data').notNull(),
+	status: text('status').notNull().default('pending'),
+	type: text('type').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
 })

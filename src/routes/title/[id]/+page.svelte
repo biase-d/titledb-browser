@@ -631,7 +631,7 @@
 												<option value={i}>
 													{profile.suffix
 														? `${profile.gameVersion} (${profile.suffix})`
-														: profile.gameVersion}
+														: profile.gameVersion}{profile.isPending ? ' [Pending]' : ''}
 												</option>
 											{/each}
 										</select>
@@ -649,6 +649,12 @@
 										Version: {performance.suffix
 											? `${performance.gameVersion} (${performance.suffix})`
 											: performance.gameVersion}
+									</span>
+								{/if}
+								{#if performance?.isPending}
+									<span class="pending-badge">
+										<Icon icon="mdi:clock-outline" width="14" />
+										Pending Review
 									</span>
 								{/if}
 							</div>
@@ -1412,6 +1418,19 @@
 		padding: 6px 10px;
 		border-radius: var(--radius-md);
 		font-size: 0.9rem;
+	}
+
+	.pending-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		background-color: color-mix(in srgb, #f59e0b 15%, transparent);
+		border: 1px solid #f59e0b;
+		color: #f59e0b;
+		padding: 4px 10px;
+		border-radius: var(--radius-md);
+		font-size: 0.8rem;
+		font-weight: 600;
 	}
 
 	.screenshots-grid {

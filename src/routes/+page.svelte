@@ -7,7 +7,6 @@
 	import Icon from '@iconify/svelte'
 	import ListItem from './ListItem.svelte'
 	import GridItem from './GridItem.svelte'
-	import CompactItem from './CompactItem.svelte'
 	import TableItem from './TableItem.svelte'
 	import GalleryItem from './GalleryItem.svelte'
 	import DetailedItem from './DetailedItem.svelte'
@@ -37,7 +36,7 @@
 	let regionFilter = $state('')
 	let selectedSort = $state('date-desc')
 	let currentPage = $state(1)
-	/** @type {"list" | "grid" | "table" | "detailed" | "gallery" | "compact" | "activity"} */
+	/** @type {"list" | "grid" | "table" | "detailed" | "gallery" | "activity"} */
 	let viewMode = $state('grid')
 	let preferredRegion = $state('US')
 	let isViewPickerOpen = $state(false)
@@ -67,7 +66,6 @@
 			'table',
 			'detailed',
 			'gallery',
-			'compact',
 			'activity',
 		]
 		if (savedView && validModes.includes(savedView))
@@ -126,8 +124,6 @@
 				return 320 + GRID_GAP
 			case 'list':
 				return 110 + FLEX_GAP
-			case 'compact':
-				return 48 + FLEX_GAP
 			case 'table':
 				return 49 // 48px + 1px border
 			case 'gallery':
@@ -320,8 +316,6 @@
 									? 'mdi:view-grid'
 									: viewMode === 'table'
 										? 'mdi:table'
-										: viewMode === 'compact'
-											? 'mdi:view-headline'
 											: viewMode === 'detailed'
 												? 'mdi:text-box-search-outline'
 												: viewMode === 'gallery'
@@ -390,14 +384,6 @@
 									<span>Gallery</span>
 								</button>
 								<button
-									class:active={viewMode === 'compact'}
-									onclick={() => (viewMode = 'compact')}
-									role="menuitem"
-								>
-									<Icon icon="mdi:view-headline" />
-									<span>Compact</span>
-								</button>
-								<button
 									class:active={viewMode === 'activity'}
 									onclick={() => (viewMode = 'activity')}
 									role="menuitem"
@@ -437,8 +423,6 @@
 							<ListItem titleData={item} query={search} />
 						{:else if viewMode === 'grid'}
 							<GridItem titleData={item} query={search} />
-						{:else if viewMode === 'compact'}
-							<CompactItem titleData={item} query={search} />
 						{:else if viewMode === 'table'}
 							<TableItem titleData={item} query={search} />
 						{:else if viewMode === 'gallery'}
@@ -759,7 +743,6 @@
 	}
 
 	.results-container.list,
-	.results-container.compact,
 	.results-container.activity,
 	.results-container.detailed {
 		display: flex;
@@ -863,73 +846,95 @@
 		margin-left: 0.25rem;
 	}
 
-	.picker-menu {
-		position: absolute;
-		top: calc(100% + 0.5rem);
-		right: 0;
-		width: 200px;
-		background: var(--surface-color);
-		border: 1px solid var(--border-color);
-		border-radius: 12px;
-		box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-		overflow: hidden;
-		animation: slideUp 0.15s ease-out;
-	}
+.picker-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    width: 220px; /* Slightly wider so "Detailed View" doesn't feel cramped */
+    padding: 0.5rem; /* MAGIC FIX: Inner padding so buttons float away from edges */
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    animation: slideUp 0.15s ease-out;
+  }
 
-	@keyframes slideUp {
-		from {
-			opacity: 0;
-			transform: translateY(10px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
 
-	.menu-section {
-		padding: 0.5rem 0;
-	}
+  .menu-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* Super tight gap between buttons so they feel grouped */
+  }
 
-	.menu-section:not(:last-child) {
-		border-bottom: 1px solid var(--border-color);
-	}
+  .menu-section:not(:last-child) {
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.25rem;
+  }
 
-	.section-title {
-		display: block;
-		padding: 0.25rem 1rem;
-		font-size: 0.65rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		opacity: 0.5;
-	}
+  .section-title {
+    display: block;
+    padding: 0.25rem 0.5rem; /* Aligned with the new button padding */
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    letter-spacing: 0.05em;
+  }
 
-	.menu-section button {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.6rem 1rem;
-		border: none;
-		background: none;
-		color: var(--text-primary);
-		font-size: 0.875rem;
-		cursor: pointer;
-		transition: all 0.15s ease;
-		text-align: left;
-	}
+  .menu-section button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.6rem; /* Balanced touch target */
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 8px; /* Rounds the hover state inside the menu */
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
 
-	.menu-section button:hover {
-		background: var(--input-bg);
-		color: var(--primary-color);
-	}
+  /* Keep icons perfectly sized so text aligns perfectly in a column */
+  .menu-section button :global(svg) {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+  }
 
-	.menu-section button.active {
-		background: color-mix(in srgb, var(--primary-color) 10%, transparent);
-		color: var(--primary-color);
-		font-weight: 700;
-	}
+  .menu-section button:hover {
+    background: var(--input-bg);
+    color: var(--primary-color);
+  }
+
+  .menu-section button:hover :global(svg) {
+    opacity: 1;
+  }
+
+  .menu-section button.active {
+    background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+    color: var(--primary-color);
+    font-weight: 700;
+  }
+
+  .menu-section button.active :global(svg) {
+    opacity: 1;
+  }
 
 	.picker-label {
 		white-space: nowrap;

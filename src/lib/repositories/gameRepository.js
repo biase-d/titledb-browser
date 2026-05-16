@@ -1,5 +1,5 @@
-import { games, performanceProfiles, graphicsSettings, gameGroups, youtubeLinks } from '$lib/db/schema'
-import { desc, eq, sql, inArray, and } from 'drizzle-orm'
+import { games, performanceProfiles, graphicsSettings, gameGroups, youtubeLinks, submissions } from '$lib/db/schema'
+import { desc, eq, sql, inArray, and, or } from 'drizzle-orm'
 
 /**
  * Find a single game by ID
@@ -32,10 +32,10 @@ export async function getGameDetails (db, titleId) {
 
 	const { groupId } = game
 
-	const [groupInfo, allTitlesInGroup, allPerformanceProfiles, graphics, links] = await Promise.all([
+	const [groupInfo, allTitlesInGroup, allPerformanceProfiles, graphics, links, pendingSubmissions] = await Promise.all([
 		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
 		db.query.games.findMany({
-			where: eq(games.groupId, groupId),
+			where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
 			columns: { id: true, names: true, regions: true }
 		}),
 		db.query.performanceProfiles.findMany({
@@ -46,7 +46,10 @@ export async function getGameDetails (db, titleId) {
 		}),
 		db.query.youtubeLinks.findMany({
 			where: and(eq(youtubeLinks.groupId, groupId), eq(youtubeLinks.status, 'approved'))
-		})
+		}),
+		db.select().from(submissions).where(
+			and(eq(submissions.groupId, groupId), eq(submissions.status, 'pending'))
+		)
 	])
 
 	// Sort profiles by semantic version
@@ -65,20 +68,37 @@ export async function getGameDetails (db, titleId) {
 		return 0
 	})
 
+	// Flatten pending performance submissions into profile-shaped objects
+	const pendingProfiles = pendingSubmissions
+		.filter(s => s.type === 'performance' && Array.isArray(s.data))
+		.flatMap(s => s.data.map(profile => ({
+			id: `pending-${s.id}-${profile.gameVersion}`,
+			gameVersion: profile.gameVersion,
+			suffix: profile.suffix || '',
+			profiles: profile.profiles || {},
+			contributor: profile.contributor || [],
+			sourcePrUrl: null,
+			lastUpdated: s.createdAt,
+			isPending: true
+		})))
+
 	const latestProfile = allPerformanceProfiles[0] || null
 
 	const gameData = {
 		...game,
 		graphics: graphics || null,
-		performanceHistory: allPerformanceProfiles.map(p => ({
-			id: p.id,
-			gameVersion: p.gameVersion,
-			suffix: p.suffix || '',
-			profiles: p.profiles,
-			contributor: p.contributor,
-			sourcePrUrl: p.sourcePrUrl,
-			lastUpdated: p.lastUpdated
-		})),
+		performanceHistory: [
+			...allPerformanceProfiles.map(p => ({
+				id: p.id,
+				gameVersion: p.gameVersion,
+				suffix: p.suffix || '',
+				profiles: p.profiles,
+				contributor: p.contributor,
+				sourcePrUrl: p.sourcePrUrl,
+				lastUpdated: p.lastUpdated
+			})),
+			...pendingProfiles
+		],
 		contributor: latestProfile?.contributor,
 		sourcePrUrl: latestProfile?.sourcePrUrl
 	}

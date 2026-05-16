@@ -1,18 +1,4 @@
 <script>
-  import {
-    Chart as ChartJS,
-    Title,
-    Tooltip,
-    Legend,
-    BarElement,
-    CategoryScale,
-    LinearScale,
-    BarController,
-    LineElement,
-    PointElement,
-    LineController,
-    Filler,
-  } from 'chart.js'
   import BarChart from './BarChart.svelte'
   import LineChart from './LineChart.svelte'
   import { goto } from '$app/navigation'
@@ -75,19 +61,16 @@
     }
   })
 
-	// --- Theme Reactivity for Chart.js ---
   let isDarkMode = $state(true)
 
   $effect(() => {
     if (!browser) return
 
-    // Check initial state (looks for a standard .dark class or OS preference)
     const checkTheme = () => {
       isDarkMode = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches
     }
     checkTheme()
 
-    // Watch for manual theme toggles on the html element
     const observer = new MutationObserver(checkTheme)
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 
@@ -109,7 +92,6 @@ const chartData = $derived(
                 fill: true,
                 tension: 0.4,
                 pointBackgroundColor: '#3b82f6',
-                // Explicitly use dark/light hex instead of var(--surface-color)
                 pointBorderColor: isDarkMode ? '#171717' : '#ffffff', 
                 pointHoverRadius: 6,
               },
@@ -145,7 +127,7 @@ const chartData = $derived(
       : null,
   )
 
-  // Use $derived so these react to the isDarkMode changes
+
   const chartOptions = $derived({
     responsive: true,
     maintainAspectRatio: false,

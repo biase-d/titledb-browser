@@ -54,6 +54,7 @@
 		"@fontsource-variable/caveat": "^5.2.6",
 		"@fontsource-variable/inter": "^5.2.6",
 		"@fontsource/fira-mono": "^5.2.6",
+		"@fontsource/noto-sans-jp": "^5.2.9",
 		"@neondatabase/serverless": "^1.0.2",
 		"@octokit/rest": "^22.0.0",
 		"@vercel/blob": "^2.0.0",

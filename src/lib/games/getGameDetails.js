@@ -1,6 +1,6 @@
 import { db } from '$lib/db'
 import { games, performanceProfiles, graphicsSettings, youtubeLinks, gameGroups } from '$lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, or, sql } from 'drizzle-orm'
 
 /**
  * Fetches comprehensive details for a single game title, including its full performance history
@@ -23,7 +23,7 @@ export async function getGameDetails (titleId) {
 		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
 		// Explicitly select regions for the group members too
 		db.query.games.findMany({
-			where: eq(games.groupId, groupId),
+			where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
 			columns: { id: true, names: true, regions: true }
 		}),
 		db.query.performanceProfiles.findMany({ where: eq(performanceProfiles.groupId, groupId) }),

@@ -71,6 +71,13 @@
       "when": 1771096812013,
       "tag": "0009_loud_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778946982190,
+      "tag": "0010_red_menace",
+      "breakpoints": true
     }
   ]
 }

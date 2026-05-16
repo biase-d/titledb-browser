@@ -98,13 +98,13 @@ export async function prepareGroupUpdate (path, submittedIds) {
  * @param {string} prDetails.prTitle
  * @param {string} prDetails.prBody
  * @param {Array<{path: string, content: string|null, encoding?: string}>} prDetails.files - Files to create/update
- * @param {string} username
+ * @param {{ id: string, login: string }} user
  * @param {any} dbConnection
  * @param {boolean} [isBetaEnabled=false]
  * @returns {Promise<{success: boolean, url?: string, number?: number, error?: string}>}
  */
-export async function submitContribution (prDetails, username, dbConnection, isBetaEnabled = false) {
+export async function submitContribution (prDetails, user, dbConnection, isBetaEnabled = false) {
 	const strategy = getContributionStrategy(isBetaEnabled)
 
-	return await strategy.submit(prDetails, username, dbConnection)
+	return await strategy.submit(prDetails, user, dbConnection)
 }

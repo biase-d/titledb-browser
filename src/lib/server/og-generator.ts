@@ -90,8 +90,18 @@ export async function generateOgImage (data: OgData): Promise<Response> {
 		throw new Error('Failed to load base fonts')
 	}
 
-	const titleFont = await getTitleFont(data.title, interBold)
-	logger.info('Fonts loaded for OG image', { titleFont: titleFont.name })
+	const [titleFont, publisherFont] = await Promise.all([
+		getTitleFont(data.title, interBold),
+		getTitleFont(data.publisher || '', interBold)
+	])
+	logger.info('Fonts loaded for OG image', { titleFont: titleFont.name, publisherFont: publisherFont.name })
+
+	// Build deduplicated font list — satori errors if the same name is registered twice
+	const extraFonts: Array<{ name: string; data: ArrayBuffer; weight: number; style: 'normal' }> = []
+	extraFonts.push({ name: titleFont.name, data: titleFont.data as ArrayBuffer, weight: 700, style: 'normal' })
+	if (publisherFont.name !== titleFont.name) {
+		extraFonts.push({ name: publisherFont.name, data: publisherFont.data as ArrayBuffer, weight: 700, style: 'normal' })
+	}
 
 	const htmlString = `
     <div style="display: flex; width: 1200px; height: 630px; background-color: #0d1117; position: relative; overflow: hidden;">
@@ -100,7 +110,7 @@ export async function generateOgImage (data: OgData): Promise<Response> {
         <div style="display: flex; flex-direction: column; justify-content: flex-end; width: 100%; height: 100%; padding: 60px; position: relative;">
             <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 24px; padding: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
                 <div style="display: flex; align-items: center; margin-bottom: 16px;">
-                    <div style="display: flex; background: #3b82f6; color: white; padding: 6px 16px; border-radius: 50px; font-size: 20px; font-weight: 700; font-family: 'Inter';">
+                    <div style="display: flex; background: #3b82f6; color: white; padding: 6px 16px; border-radius: 50px; font-size: 20px; font-weight: 700; font-family: '${publisherFont.name}';">
                         ${data.publisher || 'Nintendo Switch'}
                     </div>
                 </div>
@@ -143,12 +153,7 @@ export async function generateOgImage (data: OgData): Promise<Response> {
 		width: 1200,
 		height: 630,
 		fonts: [
-			{
-				name: titleFont.name,
-				data: titleFont.data as ArrayBuffer,
-				weight: 700,
-				style: 'normal',
-			},
+			...extraFonts,
 			{
 				name: 'Inter',
 				data: interRegular,

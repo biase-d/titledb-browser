@@ -1,11 +1,13 @@
 <script>
+    import { browser } from '$app/environment'
     import Icon from '@iconify/svelte'
     import { slide } from 'svelte/transition'
     import { getRegionLabel } from '$lib/regions'
-    import { createImageSet } from '$lib/image'
+    import { createImageSet, proxyImage } from '$lib/image'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
     import TextHighlight from '$lib/components/TextHighlight.svelte'
+    import { extractTheme } from '$lib/utils/theme'
 
     let { titleData, query = '' } = $props()
 
@@ -40,11 +42,43 @@
         if (s.length !== 8) return s
         return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
     }
+
+    // --- Theme Extraction State ---
+    /** @type {HTMLElement | undefined} */
+    let cardElement = $state()
+    let dynamicTheme = $state(null)
+    let hasExtracted = false
+
+    // Lazy load the theme only when the detailed item approaches the viewport
+    $effect(() => {
+        if (!browser || !cardElement || hasExtracted) return
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.isIntersecting) {
+                hasExtracted = true
+                observer.disconnect()
+                
+                // Use a tiny 50px image purely for performance-friendly color extraction
+                const targetUrl = proxyImage(iconUrl || bannerUrl, 50)
+                
+                if (targetUrl) {
+                    extractTheme(targetUrl).then(theme => {
+                        dynamicTheme = theme
+                    })
+                }
+            }
+        }, { rootMargin: '200px' })
+
+        observer.observe(cardElement)
+        return () => observer.disconnect()
+    })
 </script>
 
 <a
+    bind:this={cardElement}
     href={`/title/${id}`}
     class="detailed-item"
+    style:--card-primary={dynamicTheme?.primary || 'var(--primary-color)'}
     transition:slide|local
     data-sveltekit-preload-data="tap"
 >
@@ -134,17 +168,30 @@
         border: 1px solid var(--border-color);
         border-radius: var(--radius-lg);
         padding: 1.5rem;
-        transition: all 0.2s ease;
+        transition: 
+            border-color 0.4s ease, 
+            background-color 0.4s ease, 
+            transform 0.2s ease,
+            box-shadow 0.4s ease;
     }
 
-    .detailed-item:hover {
-        border-color: var(--primary-color);
+    .detailed-item:hover,
+    .detailed-item:focus-visible {
+        border-color: var(--card-primary);
+        /* Gives the detailed block a very subtle tint of the primary color */
         background-color: color-mix(
             in srgb,
-            var(--primary-color) 2%,
+            var(--card-primary) 3%,
             var(--surface-color)
         );
+        /* Glowing shadow based on the game's theme */
+        box-shadow: 0 8px 24px color-mix(in srgb, var(--card-primary) 12%, rgba(0,0,0,0.1));
         transform: scale(1.005);
+    }
+
+    .detailed-item:focus-visible {
+        outline: 2px solid var(--card-primary);
+        outline-offset: 2px;
     }
 
     .main-layout {
@@ -163,6 +210,11 @@
         object-fit: cover;
         background-color: var(--input-bg);
         border: 1px solid var(--border-color);
+        transition: transform 0.3s ease;
+    }
+
+    .detailed-item:hover .detail-icon {
+        transform: scale(1.05);
     }
 
     .info-column {
@@ -186,6 +238,13 @@
         font-weight: 800;
         color: var(--text-primary);
         line-height: 1.2;
+        transition: color 0.3s ease;
+    }
+
+    /* Transition the title to the game's theme color on hover */
+    .detailed-item:hover .title-text,
+    .detailed-item:focus-visible .title-text {
+        color: var(--card-primary);
     }
 
     .title-id-badge {
@@ -242,7 +301,8 @@
     }
 
     .perf-row :global(svg) {
-        color: var(--primary-color);
+        color: var(--card-primary);
+        transition: color 0.4s ease;
     }
 
     .mode-label {

@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { sql, eq } from 'drizzle-orm';
 import { simpleGit } from 'simple-git';
-import { games, gameGroups, youtubeLinks, dataRequests } from '../../src/lib/db/schema.js';
+import { games, gameGroups, youtubeLinks, dataRequests } from '../db/schema.js';
 import { DATA_SOURCES } from './config.js';
 import { discoverDataSources, parseSizeToBytes, getBaseId } from './data-sources.js';
 

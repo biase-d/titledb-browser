@@ -64,7 +64,35 @@ export const actions = {
 			const currentGroupId = formData.get('currentGroupId')
 
 			const performanceData = JSON.parse(formData.get('performanceData'))
-			const graphicsData = JSON.parse(formData.get('graphicsData'))
+			const rawGraphicsData = JSON.parse(formData.get('graphicsData'))
+			
+			// Format partial graphics data (e.g. from bots or older forms)
+			const formatGraphicsMode = (mode) => {
+				if (!mode) return mode
+				const formatted = { ...mode }
+				
+				if (formatted.dynamic_resolution === true) {
+					formatted.resolution = formatted.resolution || {}
+					formatted.resolution.resolutionType = 'Dynamic'
+					delete formatted.dynamic_resolution
+				}
+				
+				if (formatted.triple_buffer === 'unlocked') {
+					formatted.framerate = formatted.framerate || {}
+					formatted.framerate.lockType = 'Unlocked'
+					formatted.framerate.apiBuffering = 'Triple'
+					delete formatted.triple_buffer
+				}
+				
+				return formatted
+			}
+			
+			const graphicsData = {
+				...rawGraphicsData,
+				docked: formatGraphicsMode(rawGraphicsData?.docked),
+				handheld: formatGraphicsMode(rawGraphicsData?.handheld)
+			}
+			
 			const youtubeLinks = JSON.parse(formData.get('youtubeLinks'))
 			const updatedGroupData = JSON.parse(formData.get('updatedGroupData'))
 			const originalGroupData = JSON.parse(formData.get('originalGroupData'))
@@ -261,7 +289,7 @@ export const actions = {
 			}
 
 			const isBetaEnabled = cookies.get('beta_flow') === 'true'
-			const result = await submitContribution(prDetails, user.login, locals.db, isBetaEnabled)
+			const result = await submitContribution(prDetails, user, locals.db, isBetaEnabled)
 
 			if (result.success) {
 				return { success: true, prUrl: result.url }
