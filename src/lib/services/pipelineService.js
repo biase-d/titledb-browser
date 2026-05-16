@@ -65,10 +65,10 @@ async function setupExtensions(sqlClient) {
  * Run the unified build/sync pipeline.
  * @param {import('$lib/database/types').DatabaseAdapter} db
  */
-export async function runPipeline(drizzleDb) {
+export async function runPipeline(drizzleDb, connectionStringOverride) {
   // If the passed db object exposes a native client, we can use it.
   // Otherwise we can create our own raw postgres client for schema commands.
-  const connectionString = process.env.POSTGRES_URL;
+  const connectionString = connectionStringOverride || process.env.POSTGRES_URL;
   if (!connectionString) throw new Error('POSTGRES_URL environment variable is required');
   
   const sqlClient = postgres(connectionString, { max: 1 });

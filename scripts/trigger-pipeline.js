@@ -6,7 +6,7 @@ const PIPELINE_SECRET = process.env.PIPELINE_SECRET;
 
 const GITHUB_BOT_TOKEN = process.env.GITHUB_BOT_TOKEN;
 const REPO_OWNER = 'biase-d'; // Based on the other files in the project
-const REPO_NAME = 'nx-performance-ui'; // Wait, what is the repo name? The package.json says `nx-performance-ui`.
+const REPO_NAME = 'titledb-browser';
 
 async function triggerFailoverWorkflow(isFullRebuild) {
   console.log('Triggering GitHub Actions Failover workflow...');

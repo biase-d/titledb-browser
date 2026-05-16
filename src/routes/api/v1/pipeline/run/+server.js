@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { POSTGRES_URL } from '$env/static/private';
 import * as pipelineService from '$lib/services/pipelineService.js';
 
 export async function POST({ request, locals }) {
@@ -29,7 +30,8 @@ export async function POST({ request, locals }) {
             process.env.PIPELINE_FULL_REBUILD = 'false';
         }
 
-        await pipelineService.runPipeline(locals.db);
+        const connectionString = env.POSTGRES_URL || process.env.POSTGRES_URL || POSTGRES_URL;
+        await pipelineService.runPipeline(locals.db, connectionString);
         return json({ success: true });
     } catch (e) {
         console.error(e);

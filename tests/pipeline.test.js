@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '../src/routes/api/v1/pipeline/run/+server.js';
 import * as pipelineService from '../src/lib/services/pipelineService.js';
 
+vi.mock('$env/dynamic/private', () => ({
+    env: {
+        PIPELINE_SECRET: 'test-secret'
+    }
+}));
+
 vi.mock('../src/lib/services/pipelineService.js', () => ({
     runPipeline: vi.fn().mockResolvedValue({ success: true })
 }));
