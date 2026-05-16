@@ -125,9 +125,10 @@ export async function runPipeline(drizzleDb) {
       await setBuildPhase(sqlClient, 'syncing-data');
       const dbInstance = drizzle(sqlClient);
 
+      let syncStats = { games: 0, profiles: 0, graphics: 0, videos: 0 };
       await dbInstance.transaction(async (tx) => {
         await tx.execute(sql.raw(`SET search_path TO "${standbySchema}"`));
-        await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+        syncStats = await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
       });
 
       await setBuildPhase(sqlClient, 'swapping-schemas');
@@ -139,10 +140,10 @@ export async function runPipeline(drizzleDb) {
 
       printBuildSummary({
         mode: 'Full Rebuild',
-        games: 0,
-        profiles: 0,
-        graphics: 0,
-        videos: 0,
+        games: syncStats.games,
+        profiles: syncStats.profiles,
+        graphics: syncStats.graphics,
+        videos: syncStats.videos,
         schemaSwap: `${activeSchema} → ${standbySchema}`,
         duration: (Date.now() - buildStart) / 1000
       });
@@ -153,19 +154,20 @@ export async function runPipeline(drizzleDb) {
 
       const dbInstance = drizzle(sqlClient);
 
+      let syncStats = { games: 0, profiles: 0, graphics: 0, videos: 0 };
       await dbInstance.transaction(async (tx) => {
         await tx.execute(sql.raw(`SET search_path TO "${activeSchema}"`));
-        await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
+        syncStats = await syncDatabase(tx, REPOS, contributorMap, dateMap, metadata, groupsChanged);
       });
 
       await promoteSubmissions(drizzleDb || dbInstance, getPrNumbersFromMap(contributorMap));
 
       printBuildSummary({
         mode: 'Incremental',
-        games: 0,
-        profiles: 0,
-        graphics: 0,
-        videos: 0,
+        games: syncStats.games,
+        profiles: syncStats.profiles,
+        graphics: syncStats.graphics,
+        videos: syncStats.videos,
         duration: (Date.now() - buildStart) / 1000
       });
     }

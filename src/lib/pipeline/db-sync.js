@@ -24,15 +24,16 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
   }
 
   // Sync the base game data from titledb_filtered
-  await syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata);
+  const gamesUpserted = await syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata);
 
   // Sync the performance, graphics, video, and group data from nx-performance
   const affectedGroupIds = new Set();
   const groupLatestUpdate = new Map();
+  const upsertCounts = { performance: 0, graphics: 0, videos: 0, groups: 0 };
 
   for (const [type, config] of Object.entries(DATA_SOURCES)) {
     const filesToProcess = discoveredFiles[type] || [];
-    await syncDataType({ db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds, groupLatestUpdate, filesToProcess });
+    upsertCounts[type] = await syncDataType({ db, REPOS, type, config, contributorMap, dateMap, affectedGroupIds, groupLatestUpdate, filesToProcess });
   }
 
   await syncDataRequests(db, REPOS);
@@ -51,6 +52,12 @@ export async function syncDatabase(db, REPOS, contributorMap, dateMap, metadata)
   }
 
   console.log('Database synchronization complete.');
+  return {
+    games: gamesUpserted || 0,
+    profiles: upsertCounts.performance || 0,
+    graphics: upsertCounts.graphics || 0,
+    videos: upsertCounts.videos || 0
+  };
 }
 
 /**
@@ -189,6 +196,8 @@ async function syncDataType(context) {
       }
     }
   }
+
+  return recordsToUpsert.length;
 }
 
 /**
@@ -243,4 +252,6 @@ async function syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata)
       });
     }
   }
+
+  return gamesToUpsert.length;
 }
