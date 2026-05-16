@@ -9,6 +9,7 @@ vi.mock('../src/lib/services/pipelineService.js', () => ({
 describe('Pipeline API Route', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        process.env.PIPELINE_SECRET = 'test-secret';
     });
 
     it('should reject requests with missing authorization', async () => {

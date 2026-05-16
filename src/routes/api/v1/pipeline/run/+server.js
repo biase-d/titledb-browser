@@ -8,10 +8,16 @@ export async function POST({ request, locals }) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const secret = env.PIPELINE_SECRET || process.env.PIPELINE_SECRET;
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const secret = (env.PIPELINE_SECRET || process.env.PIPELINE_SECRET || '').trim();
+
+    if (!secret) {
+        console.error('PIPELINE_SECRET is not configured on the server.');
+        return json({ error: 'Server configuration error' }, { status: 500 });
+    }
 
     if (token !== secret) {
+        console.warn(`Unauthorized pipeline attempt. Expected secret length: ${secret.length}, received token length: ${token.length}`);
         return json({ error: 'Forbidden' }, { status: 403 });
     }
 
