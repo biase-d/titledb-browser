@@ -818,7 +818,6 @@
 	/* --- View Picker Dropdown --- */
 	.view-picker {
 		position: relative;
-		z-index: 100;
 	}
 
 	.picker-btn {
