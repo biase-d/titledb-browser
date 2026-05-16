@@ -1,19 +1,24 @@
-import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex, primaryKey } from 'drizzle-orm/pg-core'
+import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex, primaryKey, pgSchema } from 'drizzle-orm/pg-core'
 
 export const resolutionTypeEnum = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed'])
 export const fpsBehaviorEnum = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unstable', 'Very Unstable'])
 export const contributionStatusEnum = pgEnum('contribution_status', ['pending', 'approved', 'rejected'])
 
-export const gameGroups = pgTable('game_groups', {
+const dummySchema = pgSchema('drizzle_dummy')
+const PgSchemaClass = dummySchema.constructor
+// @ts-ignore
+export const publicSchema = new PgSchemaClass('public')
+
+export const gameGroups = publicSchema.table('active_game_groups', {
 	id: text('id').primaryKey(),
 	platformId: integer('platform_id').notNull().default(1),
 	youtubeContributors: text('youtube_contributors').array(),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-export const games = pgTable('games', {
+export const games = publicSchema.table('active_games', {
 	id: text('id').primaryKey(),
-	groupId: text('group_id').notNull().references(() => gameGroups.id),
+	groupId: text('group_id').notNull(),
 	names: text('names').array().notNull(),
 	regions: text('regions').array(),
 	publisher: text('publisher'),
@@ -25,9 +30,9 @@ export const games = pgTable('games', {
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-export const performanceProfiles = pgTable('performance_profiles', {
+export const performanceProfiles = publicSchema.table('active_performance_data', {
 	id: serial('id').primaryKey(),
-	groupId: text('group_id').notNull().references(() => gameGroups.id),
+	groupId: text('group_id').notNull(),
 	platformId: integer('platform_id').notNull().default(1),
 	gameVersion: text('game_version').notNull(),
 	suffix: text('suffix'),
@@ -43,8 +48,8 @@ export const performanceProfiles = pgTable('performance_profiles', {
 	}
 })
 
-export const graphicsSettings = pgTable('graphics_settings', {
-	groupId: text('group_id').primaryKey().references(() => gameGroups.id),
+export const graphicsSettings = publicSchema.table('active_graphics_settings', {
+	groupId: text('group_id').primaryKey(),
 	platformId: integer('platform_id').notNull().default(1),
 	settings: jsonb('settings').notNull(),
 	contributor: text('contributor').array(),
@@ -53,9 +58,9 @@ export const graphicsSettings = pgTable('graphics_settings', {
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-export const youtubeLinks = pgTable('youtube_links', {
+export const youtubeLinks = publicSchema.table('active_youtube_links', {
 	id: serial('id').primaryKey(),
-	groupId: text('group_id').notNull().references(() => gameGroups.id),
+	groupId: text('group_id').notNull(),
 	url: text('url').notNull(),
 	notes: text('notes'),
 	submittedBy: text('submitted_by'),
@@ -64,8 +69,8 @@ export const youtubeLinks = pgTable('youtube_links', {
 	submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow()
 })
 
-export const dataRequests = pgTable('data_requests', {
-	gameId: text('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+export const dataRequests = publicSchema.table('data_requests', {
+	gameId: text('game_id').notNull(),
 	userId: text('user_id').notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
 }, (table) => {
@@ -74,9 +79,9 @@ export const dataRequests = pgTable('data_requests', {
 	}
 })
 
-export const favorites = pgTable('favorites', {
+export const favorites = publicSchema.table('favorites', {
 	userId: text('user_id').notNull(),
-	gameId: text('game_id').notNull().references(() => games.id, { onDelete: 'cascade' }),
+	gameId: text('game_id').notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
 }, (table) => {
 	return {
@@ -84,17 +89,15 @@ export const favorites = pgTable('favorites', {
 	}
 })
 
-export const userPreferences = pgTable('user_preferences', {
+export const userPreferences = publicSchema.table('user_preferences', {
 	userId: text('user_id').primaryKey(),
 	hasOnboarded: integer('has_onboarded').default(0),
 	preferredRegion: text('preferred_region'),
-	featuredGameId: text('featured_game_id').references(() => games.id, { onDelete: 'set null' }),
+	featuredGameId: text('featured_game_id'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
 
-// User table in public schema — survives schema swaps.
-// Populated on first authenticated action; karma unlocks optimistic approval.
-export const users = pgTable('users', {
+export const users = publicSchema.table('users', {
 	id: text('id').primaryKey(),
 	login: text('login').notNull(),
 	karma: integer('karma').notNull().default(0),
@@ -102,9 +105,7 @@ export const users = pgTable('users', {
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow()
 })
 
-// Submission tracking — lives in public schema, survives schema swaps.
-// 'data' holds the raw JSON payload; cleared once the PR is promoted into the main schema.
-export const submissions = pgTable('submissions', {
+export const submissions = publicSchema.table('submissions', {
 	id: serial('id').primaryKey(),
 	userId: text('user_id').notNull(),
 	githubPrNumber: integer('github_pr_number'),

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { sql, eq, inArray, notInArray, and } from 'drizzle-orm';
-import { games, performanceProfiles, graphicsSettings, youtubeLinks } from '../db/schema.js';
+import { games, performanceProfiles, graphicsSettings, youtubeLinks } from './pipeline.schema.js';
 
 export const DATA_SOURCES = {
   performance: {
@@ -78,7 +78,6 @@ export const DATA_SOURCES = {
     getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
     getKeyFromRecord: (r) => r.groupId,
     buildRecord: (keyParts, content, metadata, lastUpdated) => {
-      // Videos represent multiple rows, so we return an array of records
       return content.filter(e => e.url).map(entry => ({
         groupId: keyParts[0],
         url: entry.url,
