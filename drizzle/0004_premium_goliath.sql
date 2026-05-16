@@ -1,1 +1,0 @@
-ALTER TABLE "game_groups" ADD COLUMN "youtube_contributors" text[];

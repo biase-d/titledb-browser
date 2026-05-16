@@ -1,0 +1,674 @@
+diff --git a/src/hooks.server.js b/src/hooks.server.js
+index b6d2e81..79ce469 100644
+--- a/src/hooks.server.js
++++ b/src/hooks.server.js
+@@ -3,6 +3,7 @@ import GitHub from '@auth/sveltekit/providers/github'
+ import { GITHUB_ID, GITHUB_SECRET } from '$env/static/private'
+ import { sequence } from '@sveltejs/kit/hooks'
+ import { db } from '$lib/db'
++import { sql } from 'drizzle-orm'
+ 
+ /** @type {import('@sveltejs/kit').Handle} */
+ const dbHandler = async ({ event, resolve }) => {
+diff --git a/src/lib/db/index.js b/src/lib/db/index.js
+index 5dd2163..31aceba 100644
+--- a/src/lib/db/index.js
++++ b/src/lib/db/index.js
+@@ -3,5 +3,9 @@ import * as schema from './schema'
+ import postgres from 'postgres'
+ import { drizzle } from 'drizzle-orm/postgres-js'
+ 
+-const client = postgres(POSTGRES_URL)
++const client = postgres(POSTGRES_URL, {
++	parameters: {
++		search_path: 'public, extensions'
++	}
++})
+ export const db = drizzle(client, { schema })
+diff --git a/src/lib/db/schema.js b/src/lib/db/schema.js
+index 9b6aa6c..bf0e95d 100644
+--- a/src/lib/db/schema.js
++++ b/src/lib/db/schema.js
+@@ -1,22 +1,25 @@
+-import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex, primaryKey, pgSchema } from 'drizzle-orm/pg-core'
++import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex, primaryKey } from 'drizzle-orm/pg-core'
+ 
+ export const resolutionTypeEnum = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed'])
+ export const fpsBehaviorEnum = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unstable', 'Very Unstable'])
+ export const contributionStatusEnum = pgEnum('contribution_status', ['pending', 'approved', 'rejected'])
+ 
+-const dummySchema = pgSchema('drizzle_dummy')
+-const PgSchemaClass = dummySchema.constructor
+-// @ts-ignore
+-export const publicSchema = new PgSchemaClass('public')
++/**
++ * Web application tables bound to public schema views.
++ * These views are refreshed by the build pipeline to point at the active layer (A or B).
++ * 
++ * NOTE: We rely on the connection pool's search_path being set to 'public, extensions'
++ * to resolve these without explicit qualification, which avoids Drizzle 'public' schema restrictions.
++ */
+ 
+-export const gameGroups = publicSchema.table('active_game_groups', {
++export const gameGroups = pgTable('active_game_groups', {
+ 	id: text('id').primaryKey(),
+ 	platformId: integer('platform_id').notNull().default(1),
+ 	youtubeContributors: text('youtube_contributors').array(),
+ 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
+ })
+ 
+-export const games = publicSchema.table('active_games', {
++export const games = pgTable('active_games', {
+ 	id: text('id').primaryKey(),
+ 	groupId: text('group_id').notNull(),
+ 	names: text('names').array().notNull(),
+@@ -30,7 +33,7 @@ export const games = publicSchema.table('active_games', {
+ 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
+ })
+ 
+-export const performanceProfiles = publicSchema.table('active_performance_data', {
++export const performanceProfiles = pgTable('active_performance_data', {
+ 	id: serial('id').primaryKey(),
+ 	groupId: text('group_id').notNull(),
+ 	platformId: integer('platform_id').notNull().default(1),
+@@ -48,7 +51,7 @@ export const performanceProfiles = publicSchema.table('active_performance_data',
+ 	}
+ })
+ 
+-export const graphicsSettings = publicSchema.table('active_graphics_settings', {
++export const graphicsSettings = pgTable('active_graphics_settings', {
+ 	groupId: text('group_id').primaryKey(),
+ 	platformId: integer('platform_id').notNull().default(1),
+ 	settings: jsonb('settings').notNull(),
+@@ -58,7 +61,7 @@ export const graphicsSettings = publicSchema.table('active_graphics_settings', {
+ 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
+ })
+ 
+-export const youtubeLinks = publicSchema.table('active_youtube_links', {
++export const youtubeLinks = pgTable('active_youtube_links', {
+ 	id: serial('id').primaryKey(),
+ 	groupId: text('group_id').notNull(),
+ 	url: text('url').notNull(),
+@@ -69,7 +72,11 @@ export const youtubeLinks = publicSchema.table('active_youtube_links', {
+ 	submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow()
+ })
+ 
+-export const dataRequests = publicSchema.table('data_requests', {
++/**
++ * Persistent tables in the public schema.
++ */
++
++export const dataRequests = pgTable('data_requests', {
+ 	gameId: text('game_id').notNull(),
+ 	userId: text('user_id').notNull(),
+ 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+@@ -79,7 +86,7 @@ export const dataRequests = publicSchema.table('data_requests', {
+ 	}
+ })
+ 
+-export const favorites = publicSchema.table('favorites', {
++export const favorites = pgTable('favorites', {
+ 	userId: text('user_id').notNull(),
+ 	gameId: text('game_id').notNull(),
+ 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+@@ -89,7 +96,7 @@ export const favorites = publicSchema.table('favorites', {
+ 	}
+ })
+ 
+-export const userPreferences = publicSchema.table('user_preferences', {
++export const userPreferences = pgTable('user_preferences', {
+ 	userId: text('user_id').primaryKey(),
+ 	hasOnboarded: integer('has_onboarded').default(0),
+ 	preferredRegion: text('preferred_region'),
+@@ -97,7 +104,7 @@ export const userPreferences = publicSchema.table('user_preferences', {
+ 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
+ })
+ 
+-export const users = publicSchema.table('users', {
++export const users = pgTable('users', {
+ 	id: text('id').primaryKey(),
+ 	login: text('login').notNull(),
+ 	karma: integer('karma').notNull().default(0),
+@@ -105,7 +112,7 @@ export const users = publicSchema.table('users', {
+ 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow()
+ })
+ 
+-export const submissions = publicSchema.table('submissions', {
++export const submissions = pgTable('submissions', {
+ 	id: serial('id').primaryKey(),
+ 	userId: text('user_id').notNull(),
+ 	githubPrNumber: integer('github_pr_number'),
+diff --git a/src/lib/games/searchGames.js b/src/lib/games/searchGames.js
+index 1edf90d..7e3e2cc 100644
+--- a/src/lib/games/searchGames.js
++++ b/src/lib/games/searchGames.js
+@@ -1,8 +1,7 @@
+ import { db } from '$lib/db'
+-import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
+-import { desc, eq, sql, or, and, count, countDistinct, gte, lt } from 'drizzle-orm'
+-
+-const PAGE_SIZE = 50
++import { performanceProfiles } from '$lib/db/schema'
++import { sql, count } from 'drizzle-orm'
++import { searchGames as repoSearch } from '$lib/repositories/searchRepository'
+ 
+ /**
+  * Maps graphics settings (from graphics_settings table) to the performance profile structure
+@@ -50,159 +49,12 @@ function isPerformanceValid (perf) {
+ 	return hasDocked || hasHandheld
+ }
+ 
++/**
++ * Proxy to the repository search with additional frontend mapping
++ * @param {URLSearchParams} searchParams
++ */
+ export async function searchGames (searchParams) {
+-	const page = parseInt(searchParams.get('page') || '1', 10)
+-	const q = searchParams.get('q') || ''
+-	const publisher = searchParams.get('publisher')
+-	const dockedFps = searchParams.get('docked_fps')
+-	const handheldFps = searchParams.get('handheld_fps')
+-	const resolutionType = searchParams.get('res_type')
+-	const minSizeMB = searchParams.get('minSizeMB')
+-	const maxSizeMB = searchParams.get('maxSizeMB')
+-	const sort = searchParams.get('sort') || (q ? 'relevance-desc' : 'date-desc')
+-
+-	const preferredRegion = searchParams.get('region') || 'US'
+-	const regionFilter = searchParams.get('region_filter')
+-
+-	const latestProfileSubquery = db.$with('latest_profile').as(
+-		db.selectDistinctOn([performanceProfiles.groupId], {
+-			groupId: performanceProfiles.groupId,
+-			profiles: performanceProfiles.profiles
+-		}).from(performanceProfiles).orderBy(performanceProfiles.groupId, desc(performanceProfiles.gameVersion))
+-	)
+-
+-	const whereClauses = []
+-	const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q)
+-
+-	if (q) {
+-		if (isTitleIdSearch) {
+-			whereClauses.push(eq(games.id, q.toUpperCase()))
+-		} else {
+-			const searchWords = q.split(' ').filter(word => word.length > 0)
+-			const allWordsCondition = and(
+-				...searchWords.map(word => sql`extensions.unaccent(array_to_string(${games.names}, ' ')) ILIKE extensions.unaccent(${'%' + word + '%'})`)
+-			)
+-			whereClauses.push(allWordsCondition)
+-		}
+-	}
+-
+-	if (publisher) {
+-		whereClauses.push(sql`extensions.unaccent(${games.publisher}) ILIKE extensions.unaccent(${publisher})`)
+-	}
+-
+-	if (regionFilter) {
+-		if (regionFilter.length === 2) {
+-			whereClauses.push(sql`${games.regions} @> ARRAY[${regionFilter}]::text[]`)
+-		} else if (regionFilter === 'Europe') {
+-			const euCodes = ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU', 'IE', 'IL', 'LT', 'LU', 'LV', 'MT', 'NO', 'PL', 'RO', 'SE', 'SI', 'SK']
+-			whereClauses.push(sql`${games.regions} && ARRAY[${euCodes}]::text[]`)
+-		} else if (regionFilter === 'Asia') {
+-			const asiaCodes = ['HK', 'TW', 'KR', 'CN', 'MO', 'JP', 'SG', 'TH', 'MY']
+-			whereClauses.push(sql`${games.regions} && ARRAY[${asiaCodes}]::text[]`)
+-		} else if (regionFilter === 'Americas') {
+-			const amCodes = ['US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE']
+-			whereClauses.push(sql`${games.regions} && ARRAY[${amCodes}]::text[]`)
+-		}
+-	}
+-
+-	if (dockedFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'docked'->>'target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps') = ${dockedFps}`)
+-	if (handheldFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'handheld'->>'target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps') = ${handheldFps}`)
+-
+-	if (resolutionType) whereClauses.push(sql`${latestProfileSubquery.profiles}->'docked'->>'resolution_type' = ${resolutionType} OR ${latestProfileSubquery.profiles}->'handheld'->>'resolution_type' = ${resolutionType}`)
+-
+-	if (minSizeMB) {
+-		whereClauses.push(gte(games.sizeInBytes, parseInt(minSizeMB, 10) * 1024 * 1024))
+-	}
+-	if (maxSizeMB) {
+-		whereClauses.push(lt(games.sizeInBytes, parseInt(maxSizeMB, 10) * 1024 * 1024))
+-	}
+-
+-	const isSearchingOrFiltering = q || publisher || regionFilter || dockedFps || handheldFps || resolutionType || minSizeMB || maxSizeMB
+-
+-	if (!isSearchingOrFiltering) {
+-		const hasGraphics = sql`${graphicsSettings.groupId} IS NOT NULL`
+-		const hasMeaningfulPerformance = sql`(${latestProfileSubquery.groupId} IS NOT NULL AND ${latestProfileSubquery.profiles}::text != '{}')`
+-		whereClauses.push(or(hasGraphics, hasMeaningfulPerformance))
+-	}
+-
+-	const where = whereClauses.length > 0 ? and(...whereClauses) : undefined
+-
+-	const regionPriority = sql`
+-		CASE 
+-			WHEN ${games.regions} @> ARRAY[${preferredRegion}]::text[] THEN 0 
+-			WHEN ${games.regions} @> ARRAY['US']::text[] THEN 1
+-			ELSE 2 
+-		END
+-	`
+-
+-	const innerQuery = db.with(latestProfileSubquery)
+-		.selectDistinctOn([games.groupId], {
+-			id: games.id,
+-			groupId: games.groupId,
+-			names: games.names,
+-			regions: games.regions,
+-			iconUrl: games.iconUrl,
+-			bannerUrl: games.bannerUrl,
+-			publisher: games.publisher,
+-			releaseDate: games.releaseDate,
+-			lastUpdated: games.lastUpdated,
+-			groupLastUpdated: sql`MAX(${games.lastUpdated}) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
+-			sizeInBytes: games.sizeInBytes,
+-			dockedFps: sql`COALESCE(
+-				(${latestProfileSubquery.profiles}->'docked'->>'target_fps'), 
+-				(${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'),
+-				(${graphicsSettings.settings}->'docked'->'framerate'->>'lockType')
+-			)`.as('dockedFps'),
+-			handheldFps: sql`COALESCE(
+-				(${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), 
+-				(${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+-				(${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+-			)`.as('handheldFps'),
+-			performance: latestProfileSubquery.profiles,
+-			graphics: graphicsSettings.settings
+-		})
+-		.from(games)
+-		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
+-		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+-		.where(where)
+-		.orderBy(games.groupId, regionPriority, desc(games.lastUpdated))
+-		.as('grouped_games')
+-
+-	const finalQuery = db.select({
+-		id: innerQuery.id,
+-		groupId: innerQuery.groupId,
+-		names: innerQuery.names,
+-		regions: innerQuery.regions,
+-		iconUrl: innerQuery.iconUrl,
+-		bannerUrl: innerQuery.bannerUrl,
+-		publisher: innerQuery.publisher,
+-		releaseDate: innerQuery.releaseDate,
+-		lastUpdated: innerQuery.lastUpdated,
+-		groupLastUpdated: innerQuery.groupLastUpdated,
+-		sizeInBytes: innerQuery.sizeInBytes,
+-		performance: innerQuery.performance,
+-		graphics: innerQuery.graphics,
+-		performanceSummary: sql`jsonb_build_object(
+-			'docked', jsonb_build_object('target_fps', ${innerQuery.dockedFps}),
+-			'handheld', jsonb_build_object('target_fps', ${innerQuery.handheldFps})
+-		)`
+-	})
+-		.from(innerQuery)
+-
+-	if (isTitleIdSearch) {
+-		finalQuery.orderBy(desc(innerQuery.id))
+-	} else if (q) {
+-		finalQuery.orderBy(sql`extensions.word_similarity(extensions.unaccent(array_to_string(${innerQuery.names}, ' ')), extensions.unaccent(${q})) DESC`)
+-	} else {
+-		switch (sort) {
+-			case 'name-asc': finalQuery.orderBy(sql`${innerQuery.names}[1] ASC`); break
+-			case 'size-desc': finalQuery.orderBy(desc(innerQuery.sizeInBytes)); break
+-			case 'date-desc':
+-			default: finalQuery.orderBy(desc(innerQuery.groupLastUpdated)); break
+-		}
+-	}
+-
+-	const results = await finalQuery.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE)
++	const { results, pagination } = await repoSearch(db, searchParams)
+ 
+ 	const mappedResults = results.map(r => {
+ 		// Fallback Logic: If performance profile is missing or empty, try to use graphics settings
+@@ -226,15 +78,8 @@ export async function searchGames (searchParams) {
+ 		}
+ 	})
+ 
+-	const countResult = await db.with(latestProfileSubquery)
+-		.select({ count: countDistinct(games.groupId) })
+-		.from(games)
+-		.leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
+-		.leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+-		.where(where)
+-
+ 	const mainStatsQuery = db.select({
+-		totalGames: countDistinct(performanceProfiles.groupId),
++		totalGames: sql`count(distinct ${performanceProfiles.groupId})`,
+ 		totalProfiles: count()
+ 	}).from(performanceProfiles)
+ 
+@@ -247,15 +92,23 @@ export async function searchGames (searchParams) {
+ 		uniqueContributorsQuery
+ 	])
+ 
++	const isSearchingOrFiltering = searchParams.get('q') || 
++                                   searchParams.get('publisher') || 
++                                   searchParams.get('region_filter') || 
++                                   searchParams.get('docked_fps') || 
++                                   searchParams.get('handheld_fps') || 
++                                   searchParams.get('res_type')
++
+ 	let recentUpdates = []
+-	if (page === 1 && !isSearchingOrFiltering && sort === 'date-desc') {
++    const sort = searchParams.get('sort') || (searchParams.get('q') ? 'relevance-desc' : 'date-desc')
++	if (parseInt(searchParams.get('page') || '1', 10) === 1 && !isSearchingOrFiltering && sort === 'date-desc') {
+ 		recentUpdates = mappedResults.slice(0, 15)
+ 	}
+ 
+ 	return {
+ 		results: mappedResults,
+ 		recentUpdates,
+-		pagination: { currentPage: page, totalPages: Math.ceil((countResult[0]?.count || 0) / PAGE_SIZE), totalItems: countResult[0]?.count || 0 },
++		pagination,
+ 		stats: {
+ 			totalGames: mainStatsResult[0]?.totalGames || 0,
+ 			totalProfiles: mainStatsResult[0]?.totalProfiles || 0,
+diff --git a/src/lib/repositories/searchRepository.js b/src/lib/repositories/searchRepository.js
+index 4012c6c..8324d58 100644
+--- a/src/lib/repositories/searchRepository.js
++++ b/src/lib/repositories/searchRepository.js
+@@ -1,26 +1,44 @@
+ import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
+-import { desc, eq, sql, inArray, or, and, countDistinct, isNotNull, exists } from 'drizzle-orm'
++import { desc, eq, sql, or, and, countDistinct, isNotNull, exists } from 'drizzle-orm'
++import { calculatePlayabilityScore } from '$lib/playability'
+ 
+ const PAGE_SIZE = 50
+ 
+ /**
+- * Get all games in a group
+- * @param {import('$lib/database/types').DatabaseAdapter} db
+- * @param {string} groupId - Group ID
+- * @returns {Promise<Array<any>>}
++ * Maps graphics settings to the performance profile structure
+  */
+-export async function getGamesByGroup (db, groupId) {
+-    return await db.query.games.findMany({
+-        where: eq(games.groupId, groupId),
+-        columns: { id: true, names: true, regions: true }
+-    })
++function mapGraphicsToPerformance (graphics) {
++	if (!graphics) return null
++	const mapMode = (gMode) => {
++		if (!gMode) return {}
++		const res = gMode.resolution || {}
++		const fps = gMode.framerate || {}
++		return {
++			resolution_type: res.resolutionType,
++			resolution: res.fixedResolution,
++			min_res: res.minResolution,
++			max_res: res.maxResolution,
++			resolutions: res.multipleResolutions?.join(', '),
++			target_fps: fps.targetFps || (fps.lockType === 'Unlocked' ? 'Unlocked' : null),
++			fps_behavior: fps.lockType === 'API' ? 'Locked' : 'Stable'
++		}
++	}
++	return { docked: mapMode(graphics.docked), handheld: mapMode(graphics.handheld) }
++}
++
++function isPerformanceValid (perf) {
++	if (!perf) return false
++	const keys = Object.keys(perf)
++	if (keys.length === 0 || (keys.length === 1 && keys[0] === 'contributor')) return false
++	const hasDocked = perf.docked && (perf.docked.resolution_type || perf.docked.target_fps)
++	const hasHandheld = perf.handheld && (perf.handheld.resolution_type || perf.handheld.target_fps)
++	return hasDocked || hasHandheld
+ }
+ 
+ /**
+- * Search games with filters
++ * Search games with filters and mapping
+  * @param {import('$lib/database/types').DatabaseAdapter} db
+- * @param {URLSearchParams} searchParams - Search parameters
+- * @returns {Promise<Object>} Search results with pagination
++ * @param {URLSearchParams} searchParams
+  */
+ export async function searchGames (db, searchParams) {
+     const page = parseInt(searchParams.get('page') || '1', 10)
+@@ -30,7 +48,6 @@ export async function searchGames (db, searchParams) {
+     const handheldFps = searchParams.get('handheld_fps')
+     const resolutionType = searchParams.get('res_type')
+     const sort = searchParams.get('sort') || (q ? 'relevance-desc' : 'date-desc')
+-
+     const preferredRegion = searchParams.get('region') || 'US'
+     const regionFilter = searchParams.get('region_filter')
+ 
+@@ -43,50 +60,33 @@ export async function searchGames (db, searchParams) {
+     )
+ 
+     const whereClauses = []
+-    const isTitleIdSearch = /^[0-9A-F]{16}$/i.test(q)
+-
+     if (q) {
+-        if (isTitleIdSearch) {
++        if (/^[0-9A-F]{16}$/i.test(q)) {
+             whereClauses.push(eq(games.id, q.toUpperCase()))
+         } else {
+             const searchWords = q.split(' ').filter(word => word.length > 0)
+-            const allWordsCondition = and(
+-                ...searchWords.map(word => sql`extensions.unaccent(array_to_string(${games.names}, ' ')) ILIKE extensions.unaccent(${'%' + word + '%'})`)
+-            )
+-            whereClauses.push(allWordsCondition)
++            whereClauses.push(and(...searchWords.map(word => sql`extensions.unaccent(array_to_string(${games.names}, ' ')) ILIKE extensions.unaccent(${'%' + word + '%'})`)))
+         }
+     }
+-
+-    if (publisher) {
+-        whereClauses.push(sql`extensions.unaccent(${games.publisher}) ILIKE extensions.unaccent(${publisher})`)
+-    }
+-
++    if (publisher) whereClauses.push(sql`extensions.unaccent(${games.publisher}) ILIKE extensions.unaccent(${publisher})`)
++    
+     if (regionFilter) {
+         if (regionFilter.length === 2) {
+             whereClauses.push(sql`${games.regions} @> ARRAY[${regionFilter}]::text[]`)
+-        } else if (regionFilter === 'Europe') {
+-            const euCodes = ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU', 'IE', 'IL', 'LT', 'LU', 'LV', 'MT', 'NO', 'PL', 'RO', 'SE', 'SI', 'SK']
+-            whereClauses.push(sql`${games.regions} && ARRAY[${euCodes}]::text[]`)
+-        } else if (regionFilter === 'Asia') {
+-            const asiaCodes = ['HK', 'TW', 'KR', 'CN', 'MO', 'JP', 'SG', 'TH', 'MY']
+-            whereClauses.push(sql`${games.regions} && ARRAY[${asiaCodes}]::text[]`)
+-        } else if (regionFilter === 'Americas') {
+-            const amCodes = ['US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE']
+-            whereClauses.push(sql`${games.regions} && ARRAY[${amCodes}]::text[]`)
++        } else {
++            const regions = regionFilter === 'Europe' ? ['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU', 'IE', 'IL', 'LT', 'LU', 'LV', 'MT', 'NO', 'PL', 'RO', 'SE', 'SI', 'SK'] :
++                            regionFilter === 'Asia' ? ['HK', 'TW', 'KR', 'CN', 'MO', 'JP', 'SG', 'TH', 'MY'] :
++                            regionFilter === 'Americas' ? ['US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE'] : []
++            whereClauses.push(sql`${games.regions} && ARRAY[${regions}]::text[]`)
+         }
+     }
+ 
+     if (dockedFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'docked'->>'target_fps', ${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps') = ${dockedFps}`)
+     if (handheldFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'handheld'->>'target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps') = ${handheldFps}`)
+-
+     if (resolutionType) whereClauses.push(sql`${latestProfileSubquery.profiles}->'docked'->>'resolution_type' = ${resolutionType} OR ${latestProfileSubquery.profiles}->'handheld'->>'resolution_type' = ${resolutionType}`)
+ 
+-    const isSearchingOrFiltering = q || publisher || regionFilter || dockedFps || handheldFps || resolutionType
+-
+-    if (!isSearchingOrFiltering) {
+-        const hasGraphics = sql`${graphicsSettings.groupId} IS NOT NULL`
+-        const hasMeaningfulPerformance = sql`(${latestProfileSubquery.groupId} IS NOT NULL AND ${latestProfileSubquery.profiles}::text != '{}')`
+-        whereClauses.push(or(hasGraphics, hasMeaningfulPerformance))
++    if (!(q || publisher || regionFilter || dockedFps || handheldFps || resolutionType)) {
++        whereClauses.push(or(sql`${graphicsSettings.groupId} IS NOT NULL`, sql`(${latestProfileSubquery.groupId} IS NOT NULL AND ${latestProfileSubquery.profiles}::text != '{}')`))
+     }
+ 
+     const baseWhere = whereClauses.length > 0 ? and(...whereClauses) : undefined
+@@ -96,13 +96,7 @@ export async function searchGames (db, searchParams) {
+     )
+     const where = and(baseWhere, statusFilters)
+ 
+-    const regionPriority = sql`
+-		CASE 
+-			WHEN ${games.regions} @> ARRAY[${preferredRegion}]::text[] THEN 0 
+-			WHEN ${games.regions} @> ARRAY['US']::text[] THEN 1
+-			ELSE 2 
+-		END
+-	`
++    const regionPriority = sql`CASE WHEN ${games.regions} @> ARRAY[${preferredRegion}]::text[] THEN 0 WHEN ${games.regions} @> ARRAY['US']::text[] THEN 1 ELSE 2 END`
+ 
+     const innerQuery = db.with(latestProfileSubquery)
+         .selectDistinctOn([games.groupId], {
+@@ -113,20 +107,14 @@ export async function searchGames (db, searchParams) {
+             iconUrl: games.iconUrl,
+             bannerUrl: games.bannerUrl,
+             publisher: games.publisher,
++            releaseDate: games.releaseDate,
+             lastUpdated: games.lastUpdated,
++            groupLastUpdated: sql`MAX(${games.lastUpdated}) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
+             sizeInBytes: games.sizeInBytes,
+-            dockedFps: sql`COALESCE(
+-				(${latestProfileSubquery.profiles}->'docked'->>'target_fps'), 
+-				(${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'),
+-				(${graphicsSettings.settings}->'docked'->'framerate'->>'lockType')
+-			)`.as('dockedFps'),
+-            handheldFps: sql`COALESCE(
+-				(${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), 
+-				(${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+-				(${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+-			)`.as('handheldFps'),
+-            fullProfiles: latestProfileSubquery.profiles,
+-            graphicsSettings: graphicsSettings.settings
++            dockedFps: sql`COALESCE((${latestProfileSubquery.profiles}->'docked'->>'target_fps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType'))`.as('dockedFps'),
++            handheldFps: sql`COALESCE((${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType'))`.as('handheldFps'),
++            performance: latestProfileSubquery.profiles,
++            graphics: graphicsSettings.settings
+         })
+         .from(games)
+         .leftJoin(latestProfileSubquery, eq(games.groupId, latestProfileSubquery.groupId))
+@@ -143,43 +131,32 @@ export async function searchGames (db, searchParams) {
+         iconUrl: innerQuery.iconUrl,
+         bannerUrl: innerQuery.bannerUrl,
+         publisher: innerQuery.publisher,
++        releaseDate: innerQuery.releaseDate,
+         lastUpdated: innerQuery.lastUpdated,
+-        performance: innerQuery.fullProfiles,
+-        graphics: innerQuery.graphicsSettings,
+-        performanceSummary: sql`jsonb_build_object(
+-			'docked', jsonb_build_object('target_fps', ${innerQuery.dockedFps}),
+-			'handheld', jsonb_build_object('target_fps', ${innerQuery.handheldFps})
+-		)`
+-    })
+-        .from(innerQuery)
++        groupLastUpdated: innerQuery.groupLastUpdated,
++        sizeInBytes: innerQuery.sizeInBytes,
++        performance: innerQuery.performance,
++        graphics: innerQuery.graphics,
++        performanceSummary: sql`jsonb_build_object('docked', jsonb_build_object('target_fps', ${innerQuery.dockedFps}), 'handheld', jsonb_build_object('target_fps', ${innerQuery.handheldFps}))`
++    }).from(innerQuery)
+ 
+-    if (isTitleIdSearch) {
+-        finalQuery.orderBy(desc(innerQuery.id))
+-    } else if (q) {
++    if (q) {
+         finalQuery.orderBy(sql`extensions.word_similarity(extensions.unaccent(array_to_string(${innerQuery.names}, ' ')), extensions.unaccent(${q})) DESC`)
+     } else {
+         switch (sort) {
+             case 'name-asc': finalQuery.orderBy(sql`${innerQuery.names}[1] ASC`); break
+             case 'size-desc': finalQuery.orderBy(desc(innerQuery.sizeInBytes)); break
+             case 'date-desc':
+-            default: finalQuery.orderBy(desc(innerQuery.lastUpdated)); break
++            default: finalQuery.orderBy(desc(innerQuery.groupLastUpdated)); break
+         }
+     }
+ 
+     const results = await finalQuery.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE)
+     const mappedResults = results.map(r => {
+-        let finalPerformance = r.performance
+-
+-        if (!finalPerformance) {
+-            finalPerformance = r.performanceSummary
+-        }
+-
+-        return {
+-            ...r,
+-            performance: finalPerformance,
+-            graphics: undefined,
+-            performanceSummary: undefined
+-        }
++        let perf = r.performance
++        if (!isPerformanceValid(perf) && r.graphics) perf = mapGraphicsToPerformance(r.graphics)
++        if (!perf) perf = r.performanceSummary
++        return { ...r, performance: perf, graphics: undefined, performanceSummary: undefined }
+     })
+ 
+     const countResult = await db.with(latestProfileSubquery)
+@@ -189,66 +166,22 @@ export async function searchGames (db, searchParams) {
+         .leftJoin(graphicsSettings, eq(games.groupId, graphicsSettings.groupId))
+         .where(where)
+ 
+-    return {
+-        results: mappedResults,
+-        pagination: {
+-            currentPage: page,
+-            totalPages: Math.ceil((countResult[0]?.count || 0) / PAGE_SIZE),
+-            totalItems: countResult[0]?.count || 0
+-        }
+-    }
++    return { results: mappedResults, pagination: { currentPage: page, totalPages: Math.ceil((countResult[0]?.count || 0) / PAGE_SIZE), totalItems: countResult[0]?.count || 0 } }
+ }
+ 
+-/**
+- * Find multiple games by their IDs
+- * @param {import('$lib/database/types').DatabaseAdapter} db
+- * @param {string[]} ids - Array of game IDs
+- * @returns {Promise<Array<any>>}
+- */
+-export async function findGamesByIds (db, ids) {
+-    if (!ids || ids.length === 0) {
+-        return []
+-    }
+-
+-    return await db.select({
+-        id: games.id,
+-        names: games.names
+-    })
+-        .from(games)
+-        .where(inArray(games.id, ids))
+-}
+-
+-/**
+- * Get random games for discovery
+- * @param {import('$lib/database/types').DatabaseAdapter} db
+- * @param {number} [limit=12] - Number of random games to fetch
+- * @returns {Promise<Array<any>>}
+- */
+ export async function getRandomGames (db, limit = 12) {
+-    return await db.select({
+-        id: games.id,
+-        names: games.names,
+-        iconUrl: games.iconUrl,
+-        publisher: games.publisher
+-    })
++    return await db.select({ id: games.id, names: games.names, iconUrl: games.iconUrl, publisher: games.publisher })
+         .from(games)
+-        .where(
+-            and(
+-                isNotNull(games.iconUrl),
+-                or(
+-                    exists(
+-                        db.select({ one: sql`1` })
+-                            .from(performanceProfiles)
+-                            .where(eq(performanceProfiles.groupId, games.groupId))
+-                    ),
+-                    exists(
+-                        db.select({ one: sql`1` })
+-                            .from(graphicsSettings)
+-                            .where(eq(graphicsSettings.groupId, games.groupId))
+-                    )
+-                )
+-            )
+-        )
++        .where(and(isNotNull(games.iconUrl), or(exists(db.select({ one: sql`1` }).from(performanceProfiles).where(eq(performanceProfiles.groupId, games.groupId))), exists(db.select({ one: sql`1` }).from(graphicsSettings).where(eq(graphicsSettings.groupId, games.groupId))))))
+         .orderBy(sql`RANDOM()`)
+         .limit(limit)
+ }
++
++export async function getGamesByGroup (db, groupId) {
++    return await db.select({ id: games.id, names: games.names, regions: games.regions }).from(games).where(eq(games.groupId, groupId))
++}
++
++export async function findGamesByIds (db, ids) {
++    if (!ids || ids.length === 0) return []
++    return await db.select({ id: games.id, names: games.names }).from(games).where(inArray(games.id, ids))
++}

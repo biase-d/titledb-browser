@@ -1,1 +1,0 @@
-ALTER TABLE "performance_profiles" ALTER COLUMN "contributor" SET DATA TYPE text[] USING ARRAY[contributor];

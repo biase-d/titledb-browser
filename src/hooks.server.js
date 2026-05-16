@@ -3,6 +3,7 @@ import GitHub from '@auth/sveltekit/providers/github'
 import { GITHUB_ID, GITHUB_SECRET } from '$env/static/private'
 import { sequence } from '@sveltejs/kit/hooks'
 import { db } from '$lib/db'
+import { sql } from 'drizzle-orm'
 
 /** @type {import('@sveltejs/kit').Handle} */
 const dbHandler = async ({ event, resolve }) => {

@@ -1,25 +1,14 @@
 import { pgTable, text, bigint, integer, timestamp, serial, jsonb, pgEnum, uniqueIndex, primaryKey } from 'drizzle-orm/pg-core'
-
 export const resolutionTypeEnum = pgEnum('resolution_type', ['Fixed', 'Dynamic', 'Multiple Fixed'])
 export const fpsBehaviorEnum = pgEnum('fps_behavior', ['Locked', 'Stable', 'Unstable', 'Very Unstable'])
 export const contributionStatusEnum = pgEnum('contribution_status', ['pending', 'approved', 'rejected'])
-
-/**
- * Web application tables bound to public schema views.
- * These views are refreshed by the build pipeline to point at the active layer (A or B).
- * 
- * NOTE: We rely on the connection pool's search_path being set to 'public, extensions'
- * to resolve these without explicit qualification, which avoids Drizzle 'public' schema restrictions.
- */
-
-export const gameGroups = pgTable('active_game_groups', {
+export const gameGroups = pgTable('game_groups', {
 	id: text('id').primaryKey(),
 	platformId: integer('platform_id').notNull().default(1),
 	youtubeContributors: text('youtube_contributors').array(),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
-
-export const games = pgTable('active_games', {
+export const games = pgTable('games', {
 	id: text('id').primaryKey(),
 	groupId: text('group_id').notNull(),
 	names: text('names').array().notNull(),
@@ -32,8 +21,7 @@ export const games = pgTable('active_games', {
 	screenshots: text('screenshots').array(),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
-
-export const performanceProfiles = pgTable('active_performance_data', {
+export const performanceProfiles = pgTable('performance_profiles', {
 	id: serial('id').primaryKey(),
 	groupId: text('group_id').notNull(),
 	platformId: integer('platform_id').notNull().default(1),
@@ -50,8 +38,7 @@ export const performanceProfiles = pgTable('active_performance_data', {
 		groupId_version_unq: uniqueIndex('groupId_version_unq').on(table.groupId, table.gameVersion, table.suffix)
 	}
 })
-
-export const graphicsSettings = pgTable('active_graphics_settings', {
+export const graphicsSettings = pgTable('graphics_settings', {
 	groupId: text('group_id').primaryKey(),
 	platformId: integer('platform_id').notNull().default(1),
 	settings: jsonb('settings').notNull(),
@@ -60,8 +47,7 @@ export const graphicsSettings = pgTable('active_graphics_settings', {
 	prNumber: integer('pr_number'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
-
-export const youtubeLinks = pgTable('active_youtube_links', {
+export const youtubeLinks = pgTable('youtube_links', {
 	id: serial('id').primaryKey(),
 	groupId: text('group_id').notNull(),
 	url: text('url').notNull(),
@@ -71,11 +57,6 @@ export const youtubeLinks = pgTable('active_youtube_links', {
 	prNumber: integer('pr_number'),
 	submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow()
 })
-
-/**
- * Persistent tables in the public schema.
- */
-
 export const dataRequests = pgTable('data_requests', {
 	gameId: text('game_id').notNull(),
 	userId: text('user_id').notNull(),
@@ -85,7 +66,6 @@ export const dataRequests = pgTable('data_requests', {
 		pk: primaryKey({ columns: [table.gameId, table.userId] })
 	}
 })
-
 export const favorites = pgTable('favorites', {
 	userId: text('user_id').notNull(),
 	gameId: text('game_id').notNull(),
@@ -95,7 +75,6 @@ export const favorites = pgTable('favorites', {
 		pk: primaryKey({ columns: [table.userId, table.gameId] })
 	}
 })
-
 export const userPreferences = pgTable('user_preferences', {
 	userId: text('user_id').primaryKey(),
 	hasOnboarded: integer('has_onboarded').default(0),
@@ -103,7 +82,6 @@ export const userPreferences = pgTable('user_preferences', {
 	featuredGameId: text('featured_game_id'),
 	lastUpdated: timestamp('last_updated', { withTimezone: true }).defaultNow()
 })
-
 export const users = pgTable('users', {
 	id: text('id').primaryKey(),
 	login: text('login').notNull(),
@@ -111,7 +89,6 @@ export const users = pgTable('users', {
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow()
 })
-
 export const submissions = pgTable('submissions', {
 	id: serial('id').primaryKey(),
 	userId: text('user_id').notNull(),

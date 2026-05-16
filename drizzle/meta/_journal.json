@@ -5,78 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1754097769533,
-      "tag": "0000_nifty_doctor_spectrum",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1754119957483,
-      "tag": "0001_windy_energizer",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1754322365036,
-      "tag": "0002_first_iron_lad",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1754328279161,
-      "tag": "0003_icy_deadpool",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1754335801281,
-      "tag": "0004_premium_goliath",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1754544492586,
-      "tag": "0005_salty_shiver_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1763809217260,
-      "tag": "0006_yellow_matthew_murdock",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1763885655435,
-      "tag": "0007_pink_nightmare",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1771064473024,
-      "tag": "0008_supreme_stryfe",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1771096812013,
-      "tag": "0009_loud_whirlwind",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1778946982190,
-      "tag": "0010_red_menace",
+      "when": 1778966588813,
+      "tag": "0000_big_shaman",
       "breakpoints": true
     }
   ]
