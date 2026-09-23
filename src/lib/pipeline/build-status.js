@@ -8,7 +8,7 @@
  * @param {import('postgres').Sql} sqlClient
  * @param {string} phase - Current build phase
  */
-export async function setBuildStarted(sqlClient, phase = 'starting') {
+export async function setBuildStarted (sqlClient, phase = 'starting') {
     await sqlClient.unsafe(`
 		UPDATE public.build_status
 		SET is_building = TRUE, phase = '${phase}', started_at = now(), completed_at = NULL
@@ -21,7 +21,7 @@ export async function setBuildStarted(sqlClient, phase = 'starting') {
  * @param {import('postgres').Sql} sqlClient
  * @param {string} phase
  */
-export async function setBuildPhase(sqlClient, phase) {
+export async function setBuildPhase (sqlClient, phase) {
     await sqlClient.unsafe(`
 		UPDATE public.build_status
 		SET phase = '${phase}'
@@ -33,7 +33,7 @@ export async function setBuildPhase(sqlClient, phase) {
  * Mark the build as complete
  * @param {import('postgres').Sql} sqlClient
  */
-export async function setBuildComplete(sqlClient) {
+export async function setBuildComplete (sqlClient) {
     await sqlClient.unsafe(`
 		UPDATE public.build_status
 		SET is_building = FALSE, phase = 'complete', completed_at = now()

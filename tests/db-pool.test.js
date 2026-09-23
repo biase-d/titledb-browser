@@ -7,15 +7,15 @@ import { ensureSchemas, swapSchemas } from '../src/lib/pipeline/schema-manager.j
 
 const DATABASE_URL = process.env.POSTGRES_URL
 
-describe('Database Connection Pool Isolation', () => {
+// Integration test, and a destructive one: it creates schemas and calls
+// swapSchemas, which repoints the live layer. Only ever aim POSTGRES_URL at a
+// throwaway database when running this. It is skipped rather than failed when
+// the variable is absent, so `npm test` stays meaningful without a database
+describe.skipIf(!DATABASE_URL)('Database Connection Pool Isolation', () => {
     let sqlClient
     let db
 
     beforeAll(async () => {
-        if (!DATABASE_URL) {
-            throw new Error('POSTGRES_URL is required for integration tests')
-        }
-
         sqlClient = postgres(DATABASE_URL, { max: 2 })
         db = drizzle(sqlClient, { schema })
 

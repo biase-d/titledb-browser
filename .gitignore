@@ -2,6 +2,9 @@ node_modules
 data/
 temp/
 
+# Generated (see scripts/build-flag-icons.js)
+src/lib/generated/
+
 # Output
 .output
 .vercel

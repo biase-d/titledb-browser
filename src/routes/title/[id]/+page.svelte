@@ -19,6 +19,7 @@
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte'
 	import RegionPopover from './RegionPopover.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
+	import { toggleDataRequest } from '$lib/remote/game-requests.remote.js'
 
 	let { data } = $props()
 
@@ -126,23 +127,17 @@
 		hasGraphicsData(game?.graphics?.settings),
 	)
 
-	/**
-	 * Check if a performance profile has actual performance data (FPS, resolution)
-	 * not just graphics settings
-	 * @param {Object} profile
-	 * @returns {boolean}
-	 */
 	function hasActualPerformanceData (profile) {
 		if (!profile) return false
 
 		const { docked, handheld } = profile
 
-		// Check if either mode has FPS data
+		
 		if (docked?.target_fps || handheld?.target_fps) {
 			return true
 		}
 
-		// Check if either mode has resolution data
+		
 		if (docked?.resolution_type || handheld?.resolution_type) {
 			return true
 		}
@@ -174,7 +169,7 @@
 
 	let preferredRegion = $state(data.preferredRegion || 'US')
 
-	// Sync with client-side store
+	
 	preferences.subscribe((p) => {
 		if (p.region) preferredRegion = p.region
 	})
@@ -185,16 +180,10 @@
 	)
 
 	let isDetailsCollapsed = $state(true)
-	/** @type {{label: string, href?: string}[]} */
-	let breadcrumbItems = $state([{ label: '' }])
+	let breadcrumbItems = $derived.by(() => {
+		const items = [{ label: 'Home', href: '/' }]
 
-	onMount(() => {
 		if (browser) {
-			if (window.innerWidth >= 1024) {
-				isDetailsCollapsed = false
-			}
-
-			// Smart breadcrumbs
 			const referrer = document.referrer
 			if (referrer && referrer.includes(window.location.origin)) {
 				const refUrl = new URL(referrer)
@@ -202,30 +191,35 @@
 				const search = refUrl.search
 
 				if (path === '/' && search) {
-					breadcrumbItems = [
+					return [
+						...items,
 						{ label: 'Search Results', href: `/${search}` },
 						{ label: name },
 					]
 				} else if (path.startsWith('/publisher/')) {
 					const publisherName = decodeURIComponent(
 						path.split('/publisher/')[1],
-					).split('?')[0] // Handle case where there might be query params
-					breadcrumbItems = [
+					).split('?')[0]
+					return [
+						...items,
 						{ label: publisherName, href: path + search },
 						{ label: name },
 					]
 				} else if (path === '/favorites') {
-					breadcrumbItems = [
+					return [
+						...items,
 						{ label: 'Favorites', href: '/favorites' },
 						{ label: name },
 					]
 				} else if (path === '/stats') {
-					breadcrumbItems = [
+					return [
+						...items,
 						{ label: 'Insights', href: '/stats' },
 						{ label: name },
 					]
 				} else if (path === '/pending-verification') {
-					breadcrumbItems = [
+					return [
+						...items,
 						{
 							label: 'Pending Verification',
 							href: '/pending-verification',
@@ -234,37 +228,33 @@
 					]
 				} else if (path.startsWith('/profile/')) {
 					const username = path.split('/profile/')[1]
-					breadcrumbItems = [
+					return [
+						...items,
 						{ label: username, href: path },
 						{ label: name },
 					]
-				} else {
-					// Fallback to standard check if no specific match
-					if (game.publisher && game.publisher !== 'N/A') {
-						breadcrumbItems = [
-							{
-								label: game.publisher,
-								href: `/publisher/${encodeURIComponent(game.publisher)}`,
-							},
-							{ label: name },
-						]
-					} else {
-						breadcrumbItems = [{ label: name }]
-					}
 				}
-			} else {
-				// No referrer or external referrer
-				if (game.publisher && game.publisher !== 'N/A') {
-					breadcrumbItems = [
-						{
-							label: game.publisher,
-							href: `/publisher/${encodeURIComponent(game.publisher)}`,
-						},
-						{ label: name },
-					]
-				} else {
-					breadcrumbItems = [{ label: name }]
-				}
+			}
+		}
+
+		if (game.publisher && game.publisher !== 'N/A') {
+			return [
+				...items,
+				{
+					label: game.publisher,
+					href: `/publisher/${encodeURIComponent(game.publisher)}`,
+				},
+				{ label: name },
+			]
+		}
+
+		return [...items, { label: name }]
+	})
+
+	onMount(() => {
+		if (browser) {
+			if (window.innerWidth >= 1024) {
+				isDetailsCollapsed = false
 			}
 		}
 	})
@@ -296,14 +286,8 @@
 
 		isRequesting = true
 		try {
-			const res = await fetch('/api/v1/requests', {
-				method: 'POST',
-				body: JSON.stringify({ gameId: id }),
-			})
-			if (res.ok) {
-				const result = await res.json()
-				hasRequested = result.requested
-			}
+			const result = await toggleDataRequest(id)
+			hasRequested = result.requested
 		} catch (e) {
 			console.error(e)
 		} finally {
@@ -341,7 +325,7 @@
 		property="og:description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="og:image" content="{url.origin}/api/og/{id}.png" />
+	<meta property="og:image" content="{url.origin}/api/og/{id}.png?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
 	<meta property="og:site_name" content="Switch Performance" />
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={url.href} />
@@ -350,12 +334,12 @@
 		property="twitter:description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="twitter:image" content="{url.origin}/api/og/{id}.png" />
+	<meta property="twitter:image" content="{url.origin}/api/og/{id}.png?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
 
 	{#if game}
 		{@html `<script type="application/ld+json">
 		{
-			"@context": "https://schema.org",
+			"@context": "https:
 			"@type": "VideoGame",
 			"name": "${name.replace(/"/g, '\\"')}",
 			"gamePlatform": "Nintendo Switch",
@@ -380,7 +364,8 @@
 </svelte:head>
 
 {#if game}
-	<div class="page-container" in:fade={{ duration: 200 }}>
+	{#key id}
+		<div class="page-container" in:fade={{ duration: 200 }}>
 		<Breadcrumbs items={breadcrumbItems} />
 
 		<div class="banner-header">
@@ -875,6 +860,7 @@
 			</aside>
 		</div>
 	</div>
+	{/key}
 {:else}
 	<p class="loading-message">Loading title details...</p>
 {/if}
@@ -912,13 +898,13 @@
 
 	.banner-header {
 		position: relative;
-		/* Removed overflow: hidden to allow popover to display */
+		
 		color: white;
 		margin: 1.5rem 0;
-		z-index: 10; /* Ensure header is above content if popover drops down */
+		z-index: 10; 
 	}
 
-	/* New wrapper for the background elements that need clipping */
+	
 	.banner-bg-wrapper {
 		position: absolute;
 		inset: 0;
@@ -1447,7 +1433,7 @@
 		overflow: hidden;
 		border: 1px solid var(--border-color);
 		aspect-ratio: 16 / 9;
-		/* Fix for Safari overflow clipping during transform */
+		
 		-webkit-mask-image: -webkit-radial-gradient(white, black);
 		mask-image: -webkit-radial-gradient(white, black);
 		transform: translateZ(0);

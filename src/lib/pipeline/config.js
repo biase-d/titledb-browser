@@ -1,6 +1,6 @@
-import path from 'node:path';
-import { sql, eq, inArray, notInArray, and } from 'drizzle-orm';
-import { games, performanceProfiles, graphicsSettings, youtubeLinks } from './pipeline.schema.js';
+import path from 'node:path'
+import { sql, eq, inArray, notInArray, and } from 'drizzle-orm'
+import { games, performanceProfiles, graphicsSettings, youtubeLinks } from './pipeline.schema.js'
 
 export const DATA_SOURCES = {
   performance: {
@@ -8,20 +8,20 @@ export const DATA_SOURCES = {
     path: 'profiles',
     isHierarchical: true,
     getKey: (groupId, file) => {
-      const baseName = path.basename(file.name, '.json');
-      const [gameVersion, ...suffixParts] = baseName.split('$');
-      const suffix = suffixParts.join('$');
-      const key = suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`;
-      const parts = [groupId, gameVersion, suffix || ''];
-      return { key, parts };
+      const baseName = path.basename(file.name, '.json')
+      const [gameVersion, ...suffixParts] = baseName.split('$')
+      const suffix = suffixParts.join('$')
+      const key = suffix ? `${groupId}-${gameVersion}-${suffix}` : `${groupId}-${gameVersion}`
+      const parts = [groupId, gameVersion, suffix || '']
+      return { key, parts }
     },
      getKeyFromRecord: (r) => (r.suffix ? `${r.groupId}-${r.gameVersion}-${r.suffix}` : `${r.groupId}-${r.gameVersion}`),
      buildRecord: (keyParts, content, metadata, lastUpdated) => {
-       const localContent = content || {};
-       const { contributor, ...profiles } = localContent;
-       const fileContributors = contributor ? (Array.isArray(contributor) ? contributor : [contributor]) : [];
-       const gitContributors = metadata.contributors || [];
-       const allContributors = [...new Set([...fileContributors, ...gitContributors])];
+       const localContent = content || {}
+       const { contributor, ...profiles } = localContent
+       const fileContributors = contributor ? (Array.isArray(contributor) ? contributor : [contributor]) : []
+       const gitContributors = metadata.contributors || []
+       const allContributors = [...new Set([...fileContributors, ...gitContributors])]
 
        return {
          groupId: keyParts[0],
@@ -31,7 +31,7 @@ export const DATA_SOURCES = {
          contributor: allContributors,
          sourcePrUrl: metadata.sourcePrUrl,
          lastUpdated
-       };
+       }
      },
      upsert: (db, record) => db.insert(performanceProfiles).values(record).onConflictDoUpdate({
       target: [performanceProfiles.groupId, performanceProfiles.gameVersion, performanceProfiles.suffix],
@@ -50,17 +50,17 @@ export const DATA_SOURCES = {
       getKey: (groupId, file) => ({ key: groupId, parts: [groupId] }),
       getKeyFromRecord: (r) => r.groupId,
       buildRecord: (keyParts, content, metadata, lastUpdated) => {
-        const { contributor, ...settings } = content;
-        const fileContributors = contributor ? (Array.isArray(contributor) ? contributor : [contributor]) : [];
-        const gitContributors = metadata.contributors || [];
-        const allContributors = [...new Set([...fileContributors, ...gitContributors])];
+        const { contributor, ...settings } = content
+        const fileContributors = contributor ? (Array.isArray(contributor) ? contributor : [contributor]) : []
+        const gitContributors = metadata.contributors || []
+        const allContributors = [...new Set([...fileContributors, ...gitContributors])]
 
         return {
           groupId: keyParts[0],
           settings,
           contributor: allContributors,
           lastUpdated
-        };
+        }
       },
       upsert: (db, record) => db.insert(graphicsSettings).values(record).onConflictDoUpdate({
         target: graphicsSettings.groupId,
@@ -84,13 +84,13 @@ export const DATA_SOURCES = {
         notes: entry.notes,
         submittedBy: entry.submittedBy,
         submittedAt: lastUpdated, // Use the file's last update time as the submission time
-      }));
+      }))
     },
     // Videos use a special "delete-then-insert" sync strategy
     upsert: async (db, records, groupId) => {
-      await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId));
+      await db.delete(youtubeLinks).where(eq(youtubeLinks.groupId, groupId))
       if (Array.isArray(records) && records.length > 0) {
-        await db.insert(youtubeLinks).values(records);
+        await db.insert(youtubeLinks).values(records)
       }
     }
   },
@@ -105,20 +105,20 @@ export const DATA_SOURCES = {
       return {
         customGroupId: keyParts[0],
         titleIds: Array.isArray(content) ? content : [],
-      };
+      }
     },
     
     upsert: async (db, record) => {
-      const { customGroupId, titleIds } = record;
+      const { customGroupId, titleIds } = record
       
-      const updatePromises = [];
+      const updatePromises = []
 
       if (titleIds.length > 0) {
         updatePromises.push(
           db.update(games)
             .set({ groupId: customGroupId })
             .where(inArray(games.id, titleIds))
-        );
+        )
       }
       
       // This handles cases where a title is removed from a group file
@@ -129,9 +129,9 @@ export const DATA_SOURCES = {
             eq(games.groupId, customGroupId),
             titleIds.length > 0 ? notInArray(games.id, titleIds) : undefined
           ))
-      );
+      )
       
-      await Promise.all(updatePromises);
+      await Promise.all(updatePromises)
     }
   }
-};
+}

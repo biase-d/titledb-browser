@@ -2,7 +2,7 @@
     import { fade, scale } from 'svelte/transition'
     import Icon from '@iconify/svelte'
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
-    import { getFlagIcon } from '$lib/flags'
+    import CountryFlag from '$lib/components/CountryFlag.svelte'
     import { uiStore } from '$lib/stores/ui.svelte'
     import { tick } from 'svelte'
     import { getCountryName } from '$lib/flags'
@@ -84,10 +84,9 @@
                             onclick={() => (showCountryGrid = !showCountryGrid)}
                         >
                             <div class="selection-info">
-                                <Icon
-                                    icon={getFlagIcon(currentRegion)}
-                                    width="24"
-                                    height="24"
+                                <CountryFlag
+                                    code={currentRegion}
+                                    size={24}
                                 />
                                 <div class="text">
                                     <span class="label">Preferred Country</span>
@@ -129,12 +128,9 @@
                                                     }}
                                                     title={country.label}
                                                 >
-                                                    <Icon
-                                                        icon={getFlagIcon(
-                                                            country.id,
-                                                        )}
-                                                        width="24"
-                                                        height="24"
+                                                    <CountryFlag
+                                                        code={country.id}
+                                                        size={24}
                                                     />
                                                     <span class="code"
                                                         >{country.id}</span

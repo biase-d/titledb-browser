@@ -33,7 +33,7 @@
 			isSearching = !isHomepage
 			searchDebounce = setTimeout(async () => {
 				if (isHomepage) {
-					const url = new URL(window.location.href)
+		const url = new URL(window.location.href)
 					if (searchValue) url.searchParams.set('q', searchValue)
 					else url.searchParams.delete('q')
 					url.searchParams.delete('page')
@@ -69,6 +69,8 @@
 		isSearchFocused = false
 		isMobileMenuOpen = false
 
+		// Local to this handler, never reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const url = new URL(window.location.href)
 		url.pathname = '/'
 		url.searchParams.set('q', searchValue)

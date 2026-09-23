@@ -15,7 +15,12 @@ const config = {
 	},
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter()
+		adapter: adapter(),
+		experimental: {
+			// Still flagged experimental upstream: the API may change between
+			// minor Kit releases. Used by the *.remote.js files under src/lib/remote
+			remoteFunctions: true
+		}
 	}
 };
 

@@ -1,12 +1,9 @@
 import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
-import { desc, eq, sql, or, and, countDistinct, isNotNull, exists } from 'drizzle-orm'
+import { desc, eq, sql, or, and, countDistinct, isNotNull, exists, inArray } from 'drizzle-orm'
 import { calculatePlayabilityScore } from '$lib/playability'
 
 const PAGE_SIZE = 50
 
-/**
- * Maps graphics settings to the performance profile structure
- */
 function mapGraphicsToPerformance (graphics) {
 	if (!graphics) return null
 	const mapMode = (gMode) => {
@@ -35,11 +32,6 @@ function isPerformanceValid (perf) {
 	return hasDocked || hasHandheld
 }
 
-/**
- * Search games with filters and mapping
- * @param {import('$lib/database/types').DatabaseAdapter} db
- * @param {URLSearchParams} searchParams
- */
 export async function searchGames (db, searchParams) {
     const page = parseInt(searchParams.get('page') || '1', 10)
     const q = searchParams.get('q') || ''
@@ -55,7 +47,8 @@ export async function searchGames (db, searchParams) {
         db.selectDistinctOn([performanceProfiles.groupId], {
             groupId: performanceProfiles.groupId,
             profiles: performanceProfiles.profiles,
-            status: performanceProfiles.status
+            status: performanceProfiles.status,
+            lastUpdated: performanceProfiles.lastUpdated
         }).from(performanceProfiles).orderBy(performanceProfiles.groupId, desc(performanceProfiles.gameVersion))
     )
 
@@ -109,7 +102,7 @@ export async function searchGames (db, searchParams) {
             publisher: games.publisher,
             releaseDate: games.releaseDate,
             lastUpdated: games.lastUpdated,
-            groupLastUpdated: sql`MAX(${games.lastUpdated}) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
+            groupLastUpdated: sql`MAX(GREATEST(${games.lastUpdated}, COALESCE(${latestProfileSubquery.lastUpdated}, '1970-01-01'), COALESCE(${graphicsSettings.lastUpdated}, '1970-01-01'))) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
             sizeInBytes: games.sizeInBytes,
             dockedFps: sql`COALESCE((${latestProfileSubquery.profiles}->'docked'->>'target_fps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType'))`.as('dockedFps'),
             handheldFps: sql`COALESCE((${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType'))`.as('handheldFps'),

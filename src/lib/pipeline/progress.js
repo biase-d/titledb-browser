@@ -14,12 +14,12 @@ const BOX = {
  * @param {number} [total] - Total items (if known)
  * @returns {{ update: (current: number) => void, finish: () => void }}
  */
-export function createPhaseTracker(label, total) {
+export function createPhaseTracker (label, total) {
     const start = Date.now()
     let lastLoggedPercent = -1
 
     return {
-        update(current) {
+        update (current) {
             if (total) {
                 const percent = Math.floor((current / total) * 100)
                 // Only log at 10% intervals to avoid spam
@@ -29,7 +29,7 @@ export function createPhaseTracker(label, total) {
                 }
             }
         },
-        finish() {
+        finish () {
             const elapsed = ((Date.now() - start) / 1000).toFixed(1)
             console.log(`  [${label}] Done in ${elapsed}s`)
             return parseFloat(elapsed)
@@ -48,7 +48,7 @@ export function createPhaseTracker(label, total) {
  * @param {string} [stats.schemaSwap] - e.g. 'layer_a → layer_b'
  * @param {number} stats.duration - Total seconds
  */
-export function printBuildSummary(stats) {
+export function printBuildSummary (stats) {
     const width = 40
     const hr = BOX.horizontal.repeat(width)
     const pad = (str) => {

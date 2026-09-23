@@ -1,27 +1,20 @@
 <script>
 	import '@fontsource-variable/caveat'
 	import { onMount } from 'svelte'
+	import { browser } from '$app/environment'
+	import { getSystemStatus } from '$lib/remote/status.remote.js'
 
 	const currentYear = new Date().getFullYear()
 
-	let isBuilding = $state(false)
-	let buildPhase = $state('')
+	// Browser-only on purpose: the footer renders on every page, so querying
+	// during SSR would put a database round trip in front of every response
+	const status = browser ? getSystemStatus() : null
 
-	async function checkBuildStatus () {
-		try {
-			const res = await fetch('/api/v1/status')
-			const health = await res.json()
-			const build = health.services?.build
-			isBuilding = build?.isBuilding || false
-			buildPhase = build?.phase || ''
-		} catch {
-			// Silently ignore — don't block the footer
-		}
-	}
+	let isBuilding = $derived(status?.current?.isBuilding ?? false)
+	let buildPhase = $derived(status?.current?.buildPhase ?? '')
 
 	onMount(() => {
-		checkBuildStatus()
-		const interval = setInterval(checkBuildStatus, 30_000)
+		const interval = setInterval(() => status?.refresh(), 30_000)
 		return () => clearInterval(interval)
 	})
 </script>
@@ -31,7 +24,9 @@
 		<div class="build-banner-inner">
 			<span class="build-dot"></span>
 			<span
-				>Database syncing{buildPhase ? ` (${buildPhase})` : ''}...</span
+				>Updating game data{buildPhase
+					? ` (${buildPhase})`
+					: ''}. Some titles may be missing for a few minutes.</span
 			>
 		</div>
 	</div>

@@ -14,7 +14,7 @@ const CONTENT_TABLES = ['game_groups', 'games', 'performance_profiles', 'graphic
  * Safe to call multiple times (idempotent).
  * @param {import('postgres').Sql} sqlClient - Raw postgres.js client
  */
-export async function ensureSchemas(sqlClient) {
+export async function ensureSchemas (sqlClient) {
     console.log('[SchemaManager] Ensuring schemas and control table exist...')
 
     await sqlClient.unsafe(`CREATE SCHEMA IF NOT EXISTS "${SCHEMA_A}"`)
@@ -102,7 +102,7 @@ export async function ensureSchemas(sqlClient) {
  * @param {import('postgres').Sql} sqlClient
  * @returns {Promise<string>}
  */
-export async function getActiveSchema(sqlClient) {
+export async function getActiveSchema (sqlClient) {
     const [row] = await sqlClient`SELECT active_schema FROM public.schema_state WHERE id = 1`
     return row?.active_schema || SCHEMA_A
 }
@@ -112,7 +112,7 @@ export async function getActiveSchema(sqlClient) {
  * @param {import('postgres').Sql} sqlClient
  * @returns {Promise<string>}
  */
-export async function getStandbySchema(sqlClient) {
+export async function getStandbySchema (sqlClient) {
     const active = await getActiveSchema(sqlClient)
     return active === SCHEMA_A ? SCHEMA_B : SCHEMA_A
 }
@@ -123,7 +123,7 @@ export async function getStandbySchema(sqlClient) {
  * @param {import('postgres').Sql} sqlClient
  * @param {string} schema - The target schema (e.g., layer_a)
  */
-export async function ensurePhysicalTables(sqlClient, schema) {
+export async function ensurePhysicalTables (sqlClient, schema) {
     console.log(`[SchemaManager] Ensuring physical tables exist in schema: ${schema}`)
 
     // Recreate tables using the same DDL as public, but in the target schema
@@ -227,7 +227,7 @@ export async function ensurePhysicalTables(sqlClient, schema) {
  * @param {import('postgres').Sql} sqlClient
  * @param {string} schema - The standby schema to prepare
  */
-export async function prepareStandbySchema(sqlClient, schema) {
+export async function prepareStandbySchema (sqlClient, schema) {
     console.log(`[SchemaManager] Preparing standby schema for full rebuild: ${schema}`)
 
     // Drop content tables in reverse dependency order
@@ -260,7 +260,7 @@ const PUBLIC_VIEWS = [
  * @param {import('postgres').Sql} sqlClient
  * @param {string} activeSchema
  */
-export async function ensurePublicViews(sqlClient, activeSchema) {
+export async function ensurePublicViews (sqlClient, activeSchema) {
     for (const { view, table } of PUBLIC_VIEWS) {
         await sqlClient.unsafe(`
 			CREATE OR REPLACE VIEW public."${view}" AS
@@ -275,7 +275,7 @@ export async function ensurePublicViews(sqlClient, activeSchema) {
  * @param {import('postgres').Sql} sqlClient
  * @param {string} newActiveSchema - The schema to make active
  */
-export async function swapSchemas(sqlClient, newActiveSchema) {
+export async function swapSchemas (sqlClient, newActiveSchema) {
     console.log(`[SchemaManager] Swapping active schema to: ${newActiveSchema}`)
 
     // Safety: refuse to swap if the new active schema has no game data

@@ -1,7 +1,8 @@
 <script>
     import Icon from '@iconify/svelte'
     import { scale } from 'svelte/transition'
-    import { getFlagIcon, getCountryName } from '$lib/flags'
+    import CountryFlag from '$lib/components/CountryFlag.svelte'
+    import { getCountryName } from '$lib/flags'
     import { getRegionLabel } from '$lib/regions'
 
     let { regions = [] } = $props()
@@ -60,7 +61,7 @@
             <div class="flags-grid">
                 {#each sortedRegions as code}
                     <div class="flag-item" title={getCountryName(code)}>
-                        <Icon icon={getFlagIcon(code)} width="24" height="24" />
+                        <CountryFlag {code} size={24} />
                         <span class="code">{code}</span>
                     </div>
                 {/each}

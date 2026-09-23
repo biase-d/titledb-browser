@@ -9,11 +9,24 @@ import logger from '$lib/services/loggerService'
 import { getBuildStatus } from '$lib/repositories/buildStatusRepository'
 
 /**
+ * @typedef {Object} HealthReport
+ * @property {string} status - 'healthy' when the database answered, else 'degraded'
+ * @property {number} latency
+ * @property {{
+ *   database: { status: string, latency: string },
+ *   storage: { status: string },
+ *   platform: any,
+ *   build: { isBuilding: boolean, phase: string|null }
+ * }} services
+ * @property {string} timestamp
+ */
+
+/**
  * Check health of all system components
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @param {import('$lib/storage/types').StorageAdapter|null} storage
- * @param {Object} platform
- * @returns {Promise<Object>}
+ * @param {Object} [platform] - Adapter platform context, when the host provides one
+ * @returns {Promise<HealthReport>}
  */
 export async function checkHealth (db, storage, platform) {
 	const start = globalThis.performance.now()
