@@ -2,7 +2,7 @@
     import { fade, scale } from 'svelte/transition'
     import Icon from '@iconify/svelte'
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
-    import { getFlagIcon } from '$lib/flags'
+    import CountryFlag from '$lib/components/CountryFlag.svelte'
     import { onMount } from 'svelte'
     import { isBot } from '$lib/utils/bot'
 
@@ -89,10 +89,9 @@
                                                 (selectedRegion = country.id)}
                                             title={country.label}
                                         >
-                                            <Icon
-                                                icon={getFlagIcon(country.id)}
-                                                width="24"
-                                                height="24"
+                                            <CountryFlag
+                                                code={country.id}
+                                                size={24}
                                             />
                                             <span class="code"
                                                 >{country.id}</span

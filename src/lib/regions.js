@@ -1,3 +1,32 @@
+const northAmerica = new Set(['US', 'CA', 'MX'])
+const southAmerica = new Set(['BR', 'AR', 'CL', 'CO', 'PE', 'CR', 'GT', 'HN', 'NI', 'PA', 'PY', 'UY', 'EC', 'SV', 'BO', 'DO'])
+
+const nordic = new Set(['SE', 'NO', 'DK', 'FI'])
+const dach = new Set(['DE', 'AT', 'CH'])
+const benelux = new Set(['BE', 'NL', 'LU'])
+const iberia = new Set(['ES', 'PT'])
+const britishIsles = new Set(['GB', 'IE'])
+
+const oceania = new Set(['AU', 'NZ'])
+const eastAsia = new Set(['HK', 'TW', 'KR', 'CN', 'MO', 'JP'])
+const southeastAsia = new Set(['SG', 'TH', 'MY'])
+const africa = new Set(['ZA'])
+
+const americas = new Set([...northAmerica, ...southAmerica])
+const europe = new Set(['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU', 'IE', 'IL', 'LT', 'LU', 'LV', 'MT', 'NO', 'PL', 'RO', 'SE', 'SI', 'SK'])
+
+/**
+ * Every country code this app groups or labels. The flag icon bundle is
+ * generated from this list, so anything added here is bundled automatically
+ * (see scripts/build-flag-icons.js); codes outside it still resolve, just via
+ * the Iconify API at runtime
+ * @type {string[]}
+ */
+export const KNOWN_REGION_CODES = [...new Set([
+	...americas, ...europe, ...nordic, ...dach, ...benelux, ...iberia,
+	...britishIsles, ...oceania, ...eastAsia, ...southeastAsia, ...africa
+])].sort()
+
 /**
  * Maps country codes to human-readable
  * Prioritizes specific sub-regions and common cross-regional pairings
@@ -20,23 +49,6 @@ export function getRegionLabel (regions) {
 		const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(code)
 		return name || code
 	}
-
-	const northAmerica = new Set(['US', 'CA', 'MX'])
-	const southAmerica = new Set(['BR', 'AR', 'CL', 'CO', 'PE', 'CR', 'GT', 'HN', 'NI', 'PA', 'PY', 'UY', 'EC', 'SV', 'BO', 'DO'])
-
-	const nordic = new Set(['SE', 'NO', 'DK', 'FI'])
-	const dach = new Set(['DE', 'AT', 'CH'])
-	const benelux = new Set(['BE', 'NL', 'LU'])
-	const iberia = new Set(['ES', 'PT'])
-	const britishIsles = new Set(['GB', 'IE'])
-
-	const oceania = new Set(['AU', 'NZ'])
-	const eastAsia = new Set(['HK', 'TW', 'KR', 'CN', 'MO', 'JP'])
-	const southeastAsia = new Set(['SG', 'TH', 'MY'])
-	const africa = new Set(['ZA'])
-
-	const americas = new Set([...northAmerica, ...southAmerica])
-	const europe = new Set(['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'BE', 'BG', 'CH', 'CY', 'CZ', 'DK', 'EE', 'FI', 'GR', 'HR', 'HU', 'IE', 'IL', 'LT', 'LU', 'LV', 'MT', 'NO', 'PL', 'RO', 'SE', 'SI', 'SK'])
 
 	const isStrict = (/** @type {Set<string>} */ targetSet) => regions.every(r => targetSet.has(r))
 
