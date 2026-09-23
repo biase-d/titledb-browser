@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit'
 import { getDatabase } from '$lib/database/context'
 import { getStorage } from '$lib/storage/context'
 import { checkHealth } from '$lib/services/healthService'
+import logger from '$lib/services/loggerService'
 
 /** @type {import('./$types').RequestHandler} */
 export const GET = async ({ locals, platform }) => {
@@ -21,10 +22,12 @@ export const GET = async ({ locals, platform }) => {
 		// We'll return 200 with status field.
 		return json(health)
 	} catch (err) {
-		console.error('Health check failed:', err)
+		// The raw error goes to the logs, not to the caller: this endpoint is
+		// public, and exception text tends to name hosts, users and drivers
+		logger.error('Health check failed', err instanceof Error ? err : new Error(String(err)))
 		return json({
 			status: 'error',
-			error: err.message,
+			message: 'We could not check system status just now. Please try again shortly.',
 			timestamp: new Date().toISOString()
 		}, { status: 500 })
 	}

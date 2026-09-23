@@ -43,9 +43,17 @@ function createDraftsStore () {
 	const { subscribe, set } = writable([])
 
 	async function init () {
-		if (browser) {
-			const draftsFromDB = await getAllDrafts()
-			set(draftsFromDB)
+		if (!browser) return
+
+		try {
+			set(await getAllDrafts())
+		} catch (e) {
+			// IndexedDB can be unavailable rather than merely empty: private
+			// windows, blocked site data, a failed version upgrade. This runs at
+			// module load, so a rejection here surfaces as an unhandled rejection
+			// on every page view. Drafts are a convenience - degrade to "none"
+			console.warn('[drafts] unavailable, continuing without saved drafts:', e)
+			set([])
 		}
 	}
 

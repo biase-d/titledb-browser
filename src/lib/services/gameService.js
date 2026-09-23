@@ -46,7 +46,7 @@ export async function searchGames (db, searchParams) {
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @param {string} userId - User ID
  * @param {string} gameId - Game ID
- * @returns {Promise<{success: boolean, message: string}>}
+ * @returns {Promise<{ requested: boolean }>} Whether the game is now requested
  */
 export async function requestGameData (db, userId, gameId) {
 	if (!userId) {

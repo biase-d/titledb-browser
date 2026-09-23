@@ -1,56 +1,78 @@
 <script>
 	import { page } from '$app/state'
-	import { onMount } from 'svelte'
+	import { browser } from '$app/environment'
+	import { getSystemStatus } from '$lib/remote/status.remote.js'
 
-	let healthPromise = $state(new Promise(() => {}))
+	// Browser-only: an error page should never depend on a server round trip
+	// that might be failing for the same reason we are here
+	const status = browser ? getSystemStatus() : null
 
-	onMount(() => {
-		healthPromise = fetch('/api/v1/status').then((r) => r.json())
+	// SvelteKit replaces the text of an unexpected server error with
+	// 'Internal Error' before it reaches the browser. That is a label for us,
+	// not an explanation for the reader. Messages we raised deliberately -
+	// 'Game not found' and the like - are worth showing as they are
+	let message = $derived.by(() => {
+		if (page.status === 404) {
+			return 'We could not find that page. It may have moved or never existed.'
+		}
+
+		const raw = page.error?.message
+		if (!raw || raw === 'Internal Error' || raw === 'Not Found') {
+			return 'Something went wrong on our end. Nothing is wrong with your device.'
+		}
+
+		return raw
 	})
 </script>
 
 <div class="error-container">
 	<div class="error-card">
 		<h1>{page.status}</h1>
-		<p class="message">{page.error?.message || 'Something went wrong'}</p>
+		<p class="message">{message}</p>
 
 		<div class="status-summary">
-			{#await healthPromise}
+			{#if status?.error}
+				<div class="status-item is-down">
+					<span class="dot"></span>
+					<span class="label"
+						>We could not check whether the site is healthy right
+						now.</span
+					>
+				</div>
+			{:else if !status?.ready}
 				<div class="status-loading">Checking system status...</div>
-			{:then health}
-				{@const dbDown =
-					health.services?.database?.status !== 'healthy'}
-				{@const isBuilding = health.services?.build?.isBuilding}
+			{:else}
+				{@const dbDown = !status.current.databaseHealthy}
+				{@const isBuilding = status.current.isBuilding}
 
 				{#if isBuilding}
 					<div class="status-item is-building">
 						<span class="dot"></span>
 						<span class="label"
-							>Database is currently being rebuilt. This page will
-							work again shortly.</span
+							>Game data is being updated. This page should work
+							again in a few minutes.</span
 						>
 					</div>
 					<p class="rebuild-hint">
-						The page will automatically refresh when the rebuild
-						completes.
+						Nothing is wrong on your end - try again shortly.
 					</p>
 				{:else if dbDown}
 					<div class="status-item is-down">
 						<span class="dot"></span>
-						<span class="label">Database is currently offline</span>
+						<span class="label"
+							>Game data is unavailable right now. We are looking
+							into it.</span
+						>
 					</div>
 				{:else}
 					<div class="status-item">
 						<span class="dot"></span>
-						<span class="label">Systems are operational</span>
+						<span class="label"
+							>Everything else is running normally.</span
+						>
 					</div>
 				{/if}
-			{:catch}
-				<div class="status-item is-down">
-					<span class="dot"></span>
-					<span class="label">Could not reach status service</span>
-				</div>
-			{/await}
+			{/if}
 		</div>
 
 		<div class="actions">
