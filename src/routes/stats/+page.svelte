@@ -199,6 +199,8 @@ const chartData = $derived(
   }
 
   function createHomeUrl () {
+    // Local to this function, never reactive state
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const params = new URLSearchParams()
     
     if (filters.publisher) {

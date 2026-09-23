@@ -55,6 +55,8 @@
 
 	function hasDifference (metric, mode) {
 		if (comparisonData.length <= 1) return false
+		// Local to this comparison, never reactive state
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const values = new Set()
 		for (const profile of comparisonData) {
 			const data = profile.profiles?.[mode]

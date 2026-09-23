@@ -1,5 +1,5 @@
 import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
-import { desc, eq, sql, or, and, countDistinct, isNotNull, exists } from 'drizzle-orm'
+import { desc, eq, sql, or, and, countDistinct, isNotNull, exists, inArray } from 'drizzle-orm'
 import { calculatePlayabilityScore } from '$lib/playability'
 
 const PAGE_SIZE = 50

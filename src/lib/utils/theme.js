@@ -5,7 +5,7 @@ import { Vibrant } from 'node-vibrant/browser'
  * @param {string} imageUrl
  * @returns {Promise<{ primary: string, accent: string, overlay: string } | null>}
  */
-export async function extractTheme(imageUrl) {
+export async function extractTheme (imageUrl) {
 	if (typeof window === 'undefined') return null
 	if (!imageUrl) return null
 
