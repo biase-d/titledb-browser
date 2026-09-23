@@ -7,6 +7,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import nodemailer from 'nodemailer'
 import { env } from '$env/dynamic/private'
+import { notify } from '$lib/services/notifyService'
 
 const LOG_DIR = path.resolve('data/logs')
 const EMAIL_THROTTLE_MS = 5 * 60 * 1000 // 5 minutes
@@ -148,6 +149,15 @@ const logger = {
 
         await writeToFile(entry)
         await sendEmailAlert(message, error, context)
+
+        // notify() never rejects, so a missing or broken webhook cannot turn
+        // logging an error into a second error
+        await notify({
+            event: 'error',
+            title: message,
+            detail: error instanceof Error ? error.stack ?? error.message : errorMsg,
+            context
+        })
     }
 }
 

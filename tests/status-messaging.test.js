@@ -92,3 +92,31 @@ describe('status messaging', () => {
         }
     });
 });
+
+describe('status summary for monitors', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+            new Response(null, { status: 200 })
+        );
+    });
+
+    it('is up when everything answers', async () => {
+        const health = await getSystemHealth(healthyDb);
+        expect(health.status).toBe('up');
+    });
+
+    it('is down when the database is unreachable', async () => {
+        const health = await getSystemHealth(throwingDb(DRIVER_ERROR));
+        expect(health.status).toBe('down');
+    });
+
+    it('is only degraded when a dependency fails but the database is fine', async () => {
+        vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('fetch failed'));
+
+        const health = await getSystemHealth(healthyDb);
+
+        // Losing artwork or contributions is not the site being down
+        expect(health.status).toBe('degraded');
+    });
+});

@@ -49,9 +49,25 @@ function toError (e) {
 }
 
 /**
+ * @typedef {Object} ServiceCheck
+ * @property {'up'|'degraded'|'down'} status
+ * @property {number} latency
+ * @property {string} [message] - Present only on failure, and written for readers
+ */
+
+/**
+ * @typedef {Object} SystemHealth
+ * @property {'up'|'degraded'|'down'} status - Overall verdict, for monitors
+ * @property {string} timestamp
+ * @property {number} latency_ms
+ * @property {{ database: ServiceCheck, nintendoCdn: ServiceCheck, github: ServiceCheck }} services
+ * @property {Object} system
+ */
+
+/**
  * Get comprehensive system health report
  * @param {import('$lib/database/types').DatabaseAdapter} db
- * @returns {Promise<Object>}
+ * @returns {Promise<SystemHealth>}
  */
 export async function getSystemHealth (db) {
     const start = Date.now()
@@ -74,6 +90,11 @@ export async function getSystemHealth (db) {
         })
 
     return {
+        // One field for a monitor to branch on. The database being unreachable
+        // means the site cannot serve anything, so that alone is 'down'; a
+        // failing CDN or GitHub costs artwork or contributions but leaves the
+        // site usable, so those only ever degrade it
+        status: summarise({ database, nintendoCdn, github }),
         timestamp: new Date().toISOString(),
         latency_ms: Date.now() - start,
         services: {
@@ -87,6 +108,20 @@ export async function getSystemHealth (db) {
             memory: process.memoryUsage()
         }
     }
+}
+
+/**
+ * Roll the individual checks up into one overall state
+ * @param {{ database: { status: string }, nintendoCdn: { status: string }, github: { status: string } }} services
+ * @returns {'up'|'degraded'|'down'}
+ */
+function summarise (services) {
+	if (services.database.status === 'down') return 'down'
+
+	const others = [services.database, services.nintendoCdn, services.github]
+	if (others.some(s => s.status !== 'up')) return 'degraded'
+
+	return 'up'
 }
 
 /**
