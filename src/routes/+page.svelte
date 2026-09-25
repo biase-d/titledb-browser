@@ -20,6 +20,7 @@
 	import { navigating } from '$app/stores'
 
 	import { isFeatureEnabled } from '$lib/services/versionService'
+	import { serializeJsonLd } from '$lib/jsonLd'
 
 	let { data } = $props()
 	let { randomGames = [] } = $derived(data)
@@ -205,6 +206,20 @@
 			return 'All Titles'
 		})(),
 	)
+
+	let websiteJsonLd = $derived({
+		'@context': 'https://schema.org',
+		'@type': 'WebSite',
+		name: 'Switch Performance',
+		url: page.url.origin,
+		description:
+			'Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles.',
+		potentialAction: {
+			'@type': 'SearchAction',
+			target: `${page.url.origin}/?q={search_term_string}`,
+			'query-input': 'required name=search_term_string',
+		},
+	})
 </script>
 
 <svelte:head>
@@ -233,20 +248,10 @@
 			href={proxyImage(recentUpdates[0].bannerUrl, 1000)}
 		/>
 	{/if}
-	{@html `<script type="application/ld+json">
-	{
-		"@context": "https://schema.org",
-		"@type": "WebSite",
-		"name": "Switch Performance",
-		"url": "${page.url.origin}",
-		"description": "Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles.",
-		"potentialAction": {
-			"@type": "SearchAction",
-			"target": "${page.url.origin}/?q={search_term_string}",
-			"query-input": "required name=search_term_string"
-		}
-	}
-	${'<'}/script>`}
+	<!-- JSON-LD must be raw script content. serializeJsonLd escapes `<`, so no
+	     value can close the tag early -->
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html `<script type="application/ld+json">${serializeJsonLd(websiteJsonLd)}${'<'}/script>`}
 </svelte:head>
 
 <svelte:window onscroll={handleScroll} onresize={handleResize} />

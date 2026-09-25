@@ -20,6 +20,7 @@
 	import RegionPopover from './RegionPopover.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
 	import { toggleDataRequest } from '$lib/remote/game-requests.remote.js'
+	import { serializeJsonLd } from '$lib/jsonLd'
 
 	let { data } = $props()
 
@@ -309,6 +310,35 @@
 			themeStore.clearTheme()
 		}
 	})
+
+	let gameJsonLd = $derived.by(() => {
+		if (!game) return null
+
+		/** @type {Record<string, any>} */
+		const data = {
+			'@context': 'https://schema.org',
+			'@type': 'VideoGame',
+			name,
+			gamePlatform: 'Nintendo Switch',
+			applicationCategory: 'Game',
+			operatingSystem: 'Nintendo Switch OS',
+			image: `${url.origin}${proxyImage(game.iconUrl || game.bannerUrl, 300)}`,
+			url: url.href,
+			genre: 'Action, Adventure',
+			description: `View performance profiles and graphics settings for ${name} on Switch Performance`,
+		}
+
+		if (game.publisher && game.publisher !== 'N/A') {
+			data.publisher = { '@type': 'Organization', name: game.publisher }
+		}
+
+		if (game.releaseDate) {
+			const raw = game.releaseDate.toString()
+			data.datePublished = `${raw.substring(0, 4)}-${raw.substring(4, 6)}-${raw.substring(6, 8)}`
+		}
+
+		return data
+	})
 </script>
 
 <svelte:head>
@@ -336,30 +366,11 @@
 	/>
 	<meta property="twitter:image" content="{url.origin}/api/og/{id}.png?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
 
-	{#if game}
-		{@html `<script type="application/ld+json">
-		{
-			"@context": "https:
-			"@type": "VideoGame",
-			"name": "${name.replace(/"/g, '\\"')}",
-			"gamePlatform": "Nintendo Switch",
-			"applicationCategory": "Game",
-			"operatingSystem": "Nintendo Switch OS",
-			"image": "${url.origin}${proxyImage(game.iconUrl || game.bannerUrl, 300)}",
-			"url": "${url.href}",
-			${
-				game.publisher && game.publisher !== 'N/A'
-					? `"publisher": {
-				"@type": "Organization",
-				"name": "${game.publisher.replace(/"/g, '\\"')}"
-			},`
-					: ''
-			}
-			${game.releaseDate ? `"datePublished": "${game.releaseDate.toString().substring(0, 4)}-${game.releaseDate.toString().substring(4, 6)}-${game.releaseDate.toString().substring(6, 8)}",` : ''}
-			"genre": "Action, Adventure",
-			"description": "View performance profiles and graphics settings for ${name.replace(/"/g, '\\"')} on Switch Performance"
-		}
-		${'<'}/script>`}
+	{#if gameJsonLd}
+		<!-- JSON-LD must be raw script content. serializeJsonLd escapes `<`, so no
+		     value can close the tag early -->
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html `<script type="application/ld+json">${serializeJsonLd(gameJsonLd)}${'<'}/script>`}
 	{/if}
 </svelte:head>
 
