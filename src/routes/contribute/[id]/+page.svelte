@@ -11,7 +11,6 @@
 		isGraphicsEmpty,
 	} from '$lib/utils.js'
 
-	import { preferences } from '$lib/stores/preferences'
 	import Icon from '@iconify/svelte'
 	import PerformanceTab from './components/PerformanceTab.svelte'
 	import GraphicsTab from './components/GraphicsTab.svelte'
@@ -435,21 +434,18 @@
 		Suggesting edits for <strong class="game-name">{name}</strong> ({id})
 	</p>
 
-	{#if $preferences.betaFlow}
-		<div class="beta-banner">
-			<div class="beta-icon">
-				<Icon icon="mdi:flask-outline" width="24" />
-			</div>
-			<div class="beta-content">
-				<h3>Beta Contribution Flow Active</h3>
-				<p>
-					Your contribution will be saved to our database immediately
-					and appear as <strong>"Pending"</strong> on the site while the
-					GitHub Pull Request is reviewed.
-				</p>
-			</div>
+	<div class="flow-note">
+		<div class="flow-icon">
+			<Icon icon="mdi:clock-outline" width="24" />
 		</div>
-	{/if}
+		<div class="flow-content">
+			<h3>What happens when you submit</h3>
+			<p>
+				Your contribution appears on the site straight away, marked
+				<strong>"Pending"</strong>, and a pull request opens for review.
+			</p>
+		</div>
+	</div>
 
 	{#if form?.success}
 		<div class="success-message" role="alert">
@@ -826,7 +822,7 @@
 	}
 
 	/* --- Beta Banner --- */
-	.beta-banner {
+	.flow-note {
 		display: flex;
 		gap: 1rem;
 		background: color-mix(
@@ -842,7 +838,7 @@
 		align-items: center;
 	}
 
-	.beta-icon {
+	.flow-icon {
 		color: var(--primary-color);
 		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 		padding: 0.75rem;
@@ -852,20 +848,20 @@
 		justify-content: center;
 	}
 
-	.beta-content h3 {
+	.flow-content h3 {
 		margin: 0 0 0.25rem 0;
 		font-size: 1.1rem;
 		color: var(--text-primary);
 	}
 
-	.beta-content p {
+	.flow-content p {
 		margin: 0;
 		font-size: 0.95rem;
 		color: var(--text-secondary);
 		line-height: 1.4;
 	}
 
-	.beta-content strong {
+	.flow-content strong {
 		color: var(--primary-color);
 	}
 

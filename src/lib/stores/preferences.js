@@ -71,10 +71,6 @@ function createPreferencesStore () {
 		? (localStorage.getItem('adaptive_theme') !== 'false')
 		: true
 
-	const initialBetaFlow = browser
-		? (localStorage.getItem('beta_flow') === 'true')
-		: false
-
 	const initialHighResImages = browser
 		? (localStorage.getItem('high_res_images') === 'true')
 		: false
@@ -86,7 +82,6 @@ function createPreferencesStore () {
 	const { subscribe, update } = writable({
 		region: initialRegion,
 		adaptiveTheme: initialAdaptiveTheme,
-		betaFlow: initialBetaFlow,
 		highResImages: initialHighResImages,
 		favoriteColor: initialFavoriteColor
 	})
@@ -121,21 +116,6 @@ function createPreferencesStore () {
 				document.cookie = `adaptive_theme=${enabled}; path=/; max-age=31536000; SameSite=Lax`
 				return newState
 			})
-		},
-		/**
-		 * Toggles the beta contribution flow preference
-		 * @param {boolean} enabled
-		 */
-		setBetaFlow: (enabled) => {
-			if (!browser) return
-
-			update(state => {
-				const newState = { ...state, betaFlow: enabled }
-				localStorage.setItem('beta_flow', enabled.toString())
-				document.cookie = `beta_flow=${enabled}; path=/; max-age=31536000; SameSite=Lax`
-				return newState
-			})
-			invalidateAll()
 		},
 		/**
 		 * Toggles the high resolution images preference

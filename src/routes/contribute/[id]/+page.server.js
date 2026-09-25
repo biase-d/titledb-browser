@@ -50,7 +50,7 @@ export const load = async ({ params, parent }) => {
 
 /** @type {import('./$types').Actions} */
 export const actions = {
-	default: async ({ request, locals, cookies }) => {
+	default: async ({ request, locals }) => {
 		try {
 			const session = await locals.getSession()
 			const user = session?.user
@@ -301,8 +301,7 @@ export const actions = {
 				rawYoutube: changedYoutubeLinks.length > 0 ? changedYoutubeLinks : null
 			}
 
-			const isBetaEnabled = cookies.get('beta_flow') === 'true'
-			const result = await submitContribution(prDetails, user, locals.db, isBetaEnabled)
+			const result = await submitContribution(prDetails, user, locals.db)
 
 			if (result.success) {
 				return { success: true, prUrl: result.url }
