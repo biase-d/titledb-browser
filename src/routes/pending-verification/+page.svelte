@@ -223,8 +223,8 @@
 
     .glass-panel {
         background: color-mix(in srgb, var(--surface-color) 70%, transparent);
-        backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(20px);
         border: 1px solid var(--border-color);
     }
 

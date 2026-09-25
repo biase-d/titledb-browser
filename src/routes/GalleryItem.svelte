@@ -205,8 +205,8 @@
         background: color-mix(in srgb, var(--card-primary) 15%, rgba(0,0,0,0.4));
         padding: 2px 8px;
         border-radius: 99px;
-        backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
         border: 1px solid color-mix(in srgb, var(--card-primary) 30%, rgba(255,255,255,0.1));
         transition: all 0.4s ease;
         color: #ffffff; /* Force white text */

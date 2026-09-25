@@ -610,8 +610,8 @@ const chartData = $derived(
 
   .active-filters-glass {
     background: color-mix(in srgb, var(--surface-color) 40%, transparent);
-    backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
     padding: 1rem;
     border-radius: 1rem;
@@ -677,8 +677,8 @@ const chartData = $derived(
 
   .glass-panel {
     background: color-mix(in srgb, var(--surface-color) 40%, transparent);
-    backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
     border-radius: 24px;
   }

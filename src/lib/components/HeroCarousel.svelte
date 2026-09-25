@@ -325,8 +325,8 @@
         border-radius: 12px;
         font-size: 0.85rem;
         font-weight: 600;
-        backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
         /* Subtle themed border */
         border: 1px solid color-mix(in srgb, var(--dynamic-primary) 40%, rgba(255, 255, 255, 0.15));
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);

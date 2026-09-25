@@ -342,8 +342,8 @@
 			var(--surface-color) 80%,
 			transparent
 		);
-		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
+		backdrop-filter: blur(20px);
 		border-bottom: 1px solid var(--border-color);
 	}
 
