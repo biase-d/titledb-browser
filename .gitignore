@@ -1,8 +1,10 @@
 node_modules
-data/
-temp/
+# Anchored to the repo root. Unanchored, these match any directory of the same
+# name at any depth - `storage/` silently excluded src/lib/storage/adapters/s3.js
+/data/
+/temp/
 # Development filesystem storage fallback (production uses Garage)
-storage/
+/storage/
 
 # Generated (see scripts/build-icons.js)
 src/lib/generated/
