@@ -79,26 +79,68 @@ rather than the site.
 Garage holds the derived-asset caches: artwork resized by `/api/v1/proxy/image`
 and the OG cards from `/api/og/[id].jpg`. Both are recomputable, so storage is
 optional — with none configured every request recomputes, which is slower but
-never wrong.
+never wrong. Bring the app up first and add this afterwards if you prefer.
 
-Create a bucket and a key:
+**1. Run Garage.** As its own resource in the Coolify project, so it shares the
+network with the app. Minimal `garage.toml`:
 
-```sh
-garage bucket create titledb-assets
-garage key create titledb-browser
-garage bucket allow --read --write titledb-assets --key titledb-browser
+```toml
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+replication_factor = 1          # single node
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "<64 hex chars: openssl rand -hex 32>"
+
+[s3_api]
+s3_region = "garage"            # this is S3_REGION below
+api_bind_addr = "[::]:3900"     # this is the port in S3_ENDPOINT
+root_domain = ".s3.garage.localhost"
 ```
 
-Then set `S3_ENDPOINT` (e.g. `http://garage:3900`), `S3_BUCKET`,
-`S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `S3_REGION` to whatever region the
-cluster was configured with — it is not an AWS region and only has to match the
-server. Addressing is path-style, so no wildcard DNS is needed.
-
-Check the connection from inside the running container:
+**2. Assign a layout.** A fresh node reports `NO ROLE ASSIGNED` and refuses
+everything until it has one — this is the step that looks like a broken install:
 
 ```sh
-docker exec -it <container> node scripts/check-storage.js
+docker exec -it <garage-container> /garage status        # copy the node id
+docker exec -it <garage-container> /garage layout assign -z dc1 -c 10G <node-id>
+docker exec -it <garage-container> /garage layout apply --version 1
 ```
+
+**3. Create the bucket and key**, then read the secret back — `key create`
+prints it once, `key info --show-secret` prints it again later:
+
+```sh
+docker exec -it <garage-container> /garage bucket create titledb-assets
+docker exec -it <garage-container> /garage key create titledb-browser
+docker exec -it <garage-container> /garage bucket allow --read --write titledb-assets --key titledb-browser
+docker exec -it <garage-container> /garage key info titledb-browser --show-secret
+```
+
+**4. Set the variables** on the app, from what those commands gave you:
+
+| Variable | Where it comes from |
+| --- | --- |
+| `S3_ENDPOINT` | `http://<garage-service-name>:3900` — the service name on the Docker network, never `localhost`, which inside the app container means the app itself |
+| `S3_BUCKET` | the name from `bucket create`, e.g. `titledb-assets` |
+| `S3_ACCESS_KEY_ID` | `Key ID` from `key info` (starts `GK…`) |
+| `S3_SECRET_ACCESS_KEY` | `Secret key` from `key info --show-secret` |
+| `S3_REGION` | `s3_region` in `garage.toml`, e.g. `garage`. Not an AWS region; it only has to match the server |
+
+Addressing is path-style, so no wildcard DNS is needed.
+
+**5. Check it**, from inside the app container so it uses the same network and
+the same variables the app reads:
+
+```sh
+docker exec -it <app-container> node scripts/check-storage.js
+```
+
+Run on the host instead and it reads `.env`, which on a Coolify deployment does
+not hold these — Coolify injects them into the container. That is what
+"Not configured. Missing: S3_ENDPOINT…" means: the variables exist where the app
+runs, not in the shell you typed into.
 
 It writes, reads back, lists and deletes one object under `healthcheck/`, using
 the same variables the app reads, and names which step failed rather than
