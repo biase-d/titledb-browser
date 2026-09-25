@@ -49,7 +49,30 @@ the auth callback as cross-site, which breaks sign-in and every contribution.
 The resized-artwork and OG-image caches are *not* on disk — they live in the
 object store, so they survive redeploys on their own.
 
-**Scheduled task.** Add one on the app resource:
+**Syncing on push.** The data repository calls the server directly, so a sync is
+a local clone and a local database socket instead of a GitHub runner cloning both
+repositories and then writing every row across the internet.
+
+In `nx-performance` → Settings → Webhooks:
+
+| Field | Value |
+| --- | --- |
+| Payload URL | `https://your-domain/api/v1/internal/pipeline` |
+| Content type | `application/json` |
+| Secret | the same string as `PIPELINE_WEBHOOK_SECRET` on the app |
+| Events | Just the push event |
+
+The request is answered in milliseconds with `202` and the sync runs as its own
+process — a webhook that waited for it would time out after ten seconds, and a
+sync inside the web server could take the site down with it when it fails. Its
+output goes to `data/logs/pipeline-<date>.log`, and a non-zero exit alerts.
+
+Pushes to branches other than the data branch are ignored, an unsigned or
+wrongly signed request is rejected, and a trigger arriving while a sync is
+running is a no-op rather than a second sync.
+
+**Scheduled task.** Still worth keeping as a backstop, in case a webhook is
+missed while the server is down. Add one on the app resource:
 
 ```
 0 */12 * * *   node scripts/build.js

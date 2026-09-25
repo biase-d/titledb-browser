@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit'
 import { env } from '$env/dynamic/private'
 import * as contributionRepo from '$lib/repositories/contributionRepository'
+import { verifyGitHubSignature } from '$lib/server/webhookSignature'
 
 /**
  * @file GitHub Webhook Handler
@@ -21,23 +22,10 @@ export async function POST ({ request, locals }) {
 		return json({ error: 'Server configuration error' }, { status: 500 })
 	}
 
+	// The raw bytes, not re-serialised JSON: the signature covers what was sent
 	const body = await request.text()
-	const hmac = await crypto.subtle.importKey(
-		'raw',
-		new TextEncoder().encode(secret),
-		{ name: 'HMAC', hash: 'SHA-256' },
-		false,
-		['sign']
-	)
-	const signatureBuffer = new TextEncoder().encode(body)
-	const signedBuffer = await crypto.subtle.sign('HMAC', hmac, signatureBuffer)
-	const signedHex = Array.from(new Uint8Array(signedBuffer))
-		.map(b => b.toString(16).padStart(2, '0'))
-		.join('')
 
-	const expectedSignature = `sha256=${signedHex}`
-
-	if (signature !== expectedSignature) {
+	if (!verifyGitHubSignature(body, signature, secret)) {
 		console.error('Webhook signature mismatch')
 		return json({ error: 'Invalid signature' }, { status: 401 })
 	}
