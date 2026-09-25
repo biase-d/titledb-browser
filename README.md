@@ -228,5 +228,23 @@ occurrence retries. If `N8N_WEBHOOK_URL` is unset the whole thing is skipped,
 and a broken webhook is never allowed to turn logging an error into a second
 error.
 
-The same errors still go to `data/logs/` and, if SMTP is configured, to
-`ALERT_EMAIL_TO`. See `.env.example`.
+### 3. Mail — the two messages worth waking up for
+
+With SMTP configured, `ALERT_EMAIL_TO` gets a message when the verdict changes:
+
+| Subject | When |
+| --- | --- |
+| `[DOWN] Switch Performance is not serving` | the verdict becomes `down`, naming what failed |
+| `[RECOVERED] Switch Performance is serving again` | it stops being `down` |
+
+Sent on the **change**, not on every check, so an outage is one message rather
+than one a minute for as long as it lasts. Nothing is sent on the first check
+after a restart, or a deploy landing during a blip would mail every time.
+
+`degraded` deliberately does not mail. It means a feature is lost — artwork,
+submitting a contribution, image caching — while the site still serves, and
+mailing on it is how an inbox becomes something you stop reading. Those still
+reach `data/logs/` and the webhook.
+
+Individual `logger.error` calls still mail, throttled to one per distinct
+message per 5 minutes. See `.env.example`.

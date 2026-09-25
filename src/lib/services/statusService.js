@@ -4,8 +4,77 @@
  */
 
 import { sql } from 'drizzle-orm'
-import logger from '$lib/services/loggerService'
+import logger, { sendAlertEmail } from '$lib/services/loggerService'
+import { notify } from '$lib/services/notifyService'
 import { probeStorage } from '$lib/storage/health'
+
+/**
+ * The last verdict this process reported, so an outage is announced when it
+ * starts rather than on every poll. A monitor hitting /api/v1/status every
+ * minute would otherwise mean a mail every minute for as long as it lasted
+ *
+ * Per-process, which is right for a single container: were this ever scaled,
+ * each replica would announce the outage it can see, which is still the truth
+ * from where it sits
+ * @type {'up'|'degraded'|'down'|null}
+ */
+let lastVerdict = null
+
+/**
+ * Mail on the way down and on the way back up
+ *
+ * Only for `down` - the site unable to serve at all. Degrading costs a feature:
+ * artwork, or submitting a contribution, or image caching. Those are already
+ * logged, and already reach the webhook when a check errors, and mailing on
+ * them is how an inbox becomes something you stop reading
+ *
+ * @param {'up'|'degraded'|'down'} verdict
+ * @param {Record<string, { status: string, message?: string }>} services
+ */
+async function announceVerdictChange (verdict, services) {
+	const previous = lastVerdict
+	lastVerdict = verdict
+
+	// First check after a restart: nothing to compare against. Announcing an
+	// outage here would fire on every deploy that lands while a dependency is
+	// briefly unreachable
+	if (previous === null) return
+
+	if (verdict === 'down' && previous !== 'down') {
+		const broken = Object.entries(services)
+			.filter(([, check]) => check.status === 'down')
+			.map(([name, check]) => `  ${name}: ${check.message ?? 'unreachable'}`)
+			.join('\n')
+
+		await sendAlertEmail({
+			subject: '[DOWN] Switch Performance is not serving',
+			text: `The site cannot serve requests.\n\nFailing:\n${broken}\n\n`
+				+ `Checked at ${new Date().toISOString()}\n\n`
+				+ 'This is sent once when the outage starts, not on every check. '
+				+ 'A recovery message follows when it clears.'
+		})
+		await notify({
+			event: 'dependency_down',
+			title: 'Switch Performance is down',
+			detail: broken,
+			dedupeKey: 'verdict:down'
+		})
+		return
+	}
+
+	if (previous === 'down' && verdict !== 'down') {
+		await sendAlertEmail({
+			subject: '[RECOVERED] Switch Performance is serving again',
+			text: `The site is answering again, now ${verdict}.\n\n`
+				+ `Recovered at ${new Date().toISOString()}`
+		})
+		await notify({
+			event: 'error',
+			title: `Switch Performance recovered (now ${verdict})`,
+			dedupeKey: 'verdict:recovered'
+		})
+	}
+}
 
 /**
  * What a failing check actually means for someone using the site
@@ -98,12 +167,20 @@ export async function getSystemHealth (db, storage = null) {
             return { status: 'down', message: impactOf(service, 'down'), latency: 0 }
         })
 
+    const verdict = summarise({ database, nintendoCdn, github, imageCache })
+
+    // Not awaited: a monitor polling this endpoint should not wait on SMTP.
+    // Node keeps the process alive until it settles, and both paths swallow
+    // their own failures
+    announceVerdictChange(verdict, { database, nintendoCdn, github, imageCache })
+        .catch(() => {})
+
     return {
         // One field for a monitor to branch on. The database being unreachable
         // means the site cannot serve anything, so that alone is 'down'; a
         // failing CDN or GitHub costs artwork or contributions but leaves the
         // site usable, so those only ever degrade it
-        status: summarise({ database, nintendoCdn, github, imageCache }),
+        status: verdict,
         timestamp: new Date().toISOString(),
         latency_ms: Date.now() - start,
         services: {

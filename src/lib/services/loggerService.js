@@ -96,18 +96,32 @@ async function writeToFile (entryFormatted) {
  * @param {Error|Object} [error] 
  * @param {Object} [context] 
  */
-async function sendEmailAlert (message, error, context) {
+/**
+ * Send one operational email, if mail is configured
+ *
+ * Exported because not every alert comes from an exception: the site going down
+ * and coming back are state changes, and they are the two messages most worth
+ * receiving. Never throws - a failure to alert must not become a second failure
+ *
+ * @param {Object} options
+ * @param {string} options.subject
+ * @param {string} options.text
+ * @param {string} [options.throttleKey] - Repeats within 5 minutes are dropped.
+ *   Pass null to send regardless, for state changes that are rare by nature
+ * @returns {Promise<boolean>} Whether a message was actually sent
+ */
+export async function sendAlertEmail ({ subject, text, throttleKey }) {
     const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, ALERT_EMAIL_TO } = env
 
     if (!SMTP_HOST || !SMTP_PORT || !SMTP_USER || !SMTP_PASS || !ALERT_EMAIL_TO) {
-        // Silently skip if mail is not configured (as requested by user for dev)
-        return
+        // Unconfigured is a normal state, not an error
+        return false
     }
 
-    // Throttle emails for the same message to avoid spam
     const now = Date.now()
-    if (emailLastSent.has(message) && (now - emailLastSent.get(message)) < EMAIL_THROTTLE_MS) {
-        return
+    if (throttleKey) {
+        const previous = emailLastSent.get(throttleKey)
+        if (previous && now - previous < EMAIL_THROTTLE_MS) return false
     }
 
     try {
@@ -115,25 +129,39 @@ async function sendEmailAlert (message, error, context) {
             host: SMTP_HOST,
             port: parseInt(SMTP_PORT),
             secure: parseInt(SMTP_PORT) === 465,
-            auth: {
-                user: SMTP_USER,
-                pass: SMTP_PASS
-            }
+            auth: { user: SMTP_USER, pass: SMTP_PASS }
         })
-
-        const errorDetails = error instanceof Error ? `${error.message}\n${error.stack}` : JSON.stringify(error, null, 2)
 
         await transporter.sendMail({
-            from: `"TitleDB Browser Alerts" <${SMTP_USER}>`,
+            from: `"Switch Performance Alerts" <${SMTP_USER}>`,
             to: ALERT_EMAIL_TO,
-            subject: '[ERROR] Alert in TitleDB Browser',
-            text: `Message: ${message}\n\nError Details:\n${errorDetails}\n\nContext:\n${JSON.stringify(context, null, 2)}`
+            subject,
+            text
         })
 
-        emailLastSent.set(message, now)
+        if (throttleKey) emailLastSent.set(throttleKey, now)
+        return true
     } catch (err) {
         console.error('[Logger] Failed to send alert email:', err)
+        return false
     }
+}
+
+/**
+ * @param {string} message
+ * @param {Error|Object} [error]
+ * @param {Object} [context]
+ */
+async function sendEmailAlert (message, error, context) {
+    const errorDetails = error instanceof Error
+        ? `${error.message}\n${error.stack}`
+        : JSON.stringify(error, null, 2)
+
+    await sendAlertEmail({
+        subject: `[ERROR] ${message}`,
+        text: `Message: ${message}\n\nError Details:\n${errorDetails}\n\nContext:\n${JSON.stringify(context, null, 2)}`,
+        throttleKey: message
+    })
 }
 
 const logger = {
