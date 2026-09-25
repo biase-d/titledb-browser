@@ -341,7 +341,7 @@
 							role="menu"
 						>
 							<div class="menu-section">
-								<span class="section-title">Standard</span>
+								<span class="menu-section-title">Standard</span>
 								<button
 									class:active={viewMode === 'grid'}
 									onclick={() => (viewMode = 'grid')}
@@ -360,7 +360,7 @@
 								</button>
 							</div>
 							<div class="menu-section">
-								<span class="section-title">Advanced</span>
+								<span class="menu-section-title">Advanced</span>
 								<button
 									class:active={viewMode === 'table'}
 									onclick={() => (viewMode = 'table')}
@@ -379,7 +379,7 @@
 								</button>
 							</div>
 							<div class="menu-section">
-								<span class="section-title">Specialized</span>
+								<span class="menu-section-title">Specialized</span>
 								<button
 									class:active={viewMode === 'gallery'}
 									onclick={() => (viewMode = 'gallery')}
@@ -884,9 +884,14 @@
     margin-bottom: 0.25rem;
   }
 
-  .section-title {
+  /* Was .section-title, which is also the page heading wrapper further up this
+     same style block. That rule sets margin-bottom: 2rem, and this one only
+     overrode `display`, so every group label in the menu carried 32px of
+     invisible margin - roughly 96px of dead space in a 220px-wide menu */
+  .menu-section-title {
     display: block;
-    padding: 0.25rem 0.5rem; /* Aligned with the new button padding */
+    margin: 0;
+    padding: 0.25rem 0.5rem;
     font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
