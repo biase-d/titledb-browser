@@ -25,14 +25,8 @@
  */
 
 /**
- * @typedef {'postgres' | 'd1' | 'unknown'} DatabaseType
- */
-
-/**
  * @typedef {Object} DatabaseConfig
  * @property {string} [POSTGRES_URL] - PostgreSQL connection string
- * @property {string} [DATABASE_TYPE] - Database type override
- * @property {Object} [platform] - Platform context (Cloudflare Workers)
  */
 
 export { }

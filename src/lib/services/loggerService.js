@@ -11,7 +11,40 @@ import { notify } from '$lib/services/notifyService'
 
 const LOG_DIR = path.resolve('data/logs')
 const EMAIL_THROTTLE_MS = 5 * 60 * 1000 // 5 minutes
+// Per-process, so N replicas would each send their own copy of an alert. Fine
+// for a single container, which is how this is deployed
 const emailLastSent = new Map()
+
+// One file per day, kept for this many days. Without this the directory grows
+// without bound on a long-lived container - it did not matter on a host that
+// threw the filesystem away between requests, and it does now
+const LOG_RETENTION_DAYS = Number(env.LOG_RETENTION_DAYS ?? 14)
+const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000
+let lastPruned = 0
+
+/**
+ * Delete log files older than the retention window. Called on write, but does
+ * its work at most once a day, and never lets a failure surface: losing the
+ * prune is better than losing the log line that triggered it
+ */
+async function pruneOldLogs () {
+	const now = Date.now()
+	if (LOG_RETENTION_DAYS <= 0 || now - lastPruned < PRUNE_INTERVAL_MS) return
+	lastPruned = now
+
+	try {
+		const cutoff = now - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000
+		for (const name of await fs.readdir(LOG_DIR)) {
+			if (!name.endsWith('.log')) continue
+			const stats = await fs.stat(path.join(LOG_DIR, name)).catch(() => null)
+			if (stats && stats.mtimeMs < cutoff) {
+				await fs.unlink(path.join(LOG_DIR, name)).catch(() => {})
+			}
+		}
+	} catch {
+		// Directory may not exist yet
+	}
+}
 
 /**
  * @typedef {('DEBUG'|'INFO'|'WARN'|'ERROR')} LogLevel
@@ -47,6 +80,7 @@ function formatEntry (level, message, context) {
  */
 async function writeToFile (entryFormatted) {
     await ensureLogDir()
+    await pruneOldLogs()
     const date = new Date().toISOString().split('T')[0]
     const logFile = path.join(LOG_DIR, `${date}.log`)
     try {

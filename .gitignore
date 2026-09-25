@@ -1,15 +1,14 @@
 node_modules
 data/
 temp/
+# Development filesystem storage fallback (production uses Garage)
+storage/
 
-# Generated (see scripts/build-flag-icons.js)
+# Generated (see scripts/build-icons.js)
 src/lib/generated/
 
 # Output
 .output
-.vercel
-.netlify
-.wrangler
 /.svelte-kit
 /build
 .cache
@@ -34,6 +33,3 @@ todo.txt
 debug-*
 audit-*
 *.bak
-
-# Deployment
-ecosystem.config.cjs

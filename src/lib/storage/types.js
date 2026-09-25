@@ -6,6 +6,7 @@
 /**
  * @typedef {Object} StorageAdapter
  * @property {Function} upload - Upload a file to storage
+ * @property {Function} get - Fetch bytes and content type in one call, or null when absent
  * @property {Function} download - Download a file from storage
  * @property {Function} delete - Delete a file from storage
  * @property {Function} list - List files in storage
@@ -48,7 +49,7 @@
  */
 
 /**
- * @typedef {'r2' | 'vercel-blob' | 'local' | 'none'} StorageProvider
+ * @typedef {'s3' | 'local' | 'none'} StorageProvider
  */
 
 export { }

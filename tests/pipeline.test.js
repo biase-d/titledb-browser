@@ -1,58 +1,63 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { POST } from '../src/routes/api/v1/pipeline/run/+server.js';
-import * as pipelineService from '../src/lib/services/pipelineService.js';
+import { describe, it, expect, vi } from 'vitest'
+import { acquirePipelineLock, PipelineBusyError } from '../src/lib/pipeline/lock.js'
 
-vi.mock('$env/dynamic/private', () => ({
-    env: {
-        PIPELINE_SECRET: 'test-secret'
-    }
-}));
+/**
+ * These replace the tests for the old POST /api/v1/pipeline/run route. The
+ * pipeline is triggered by a scheduled task running scripts/build.js in the
+ * container now, so the thing worth covering is the lock that keeps two runs
+ * from overlapping — which is what protects the standby-schema swap
+ */
+describe('Pipeline lock', () => {
+	/** @param {boolean} locked */
+	function sqlClientReturning (locked) {
+		return { unsafe: vi.fn().mockResolvedValue([{ locked }]) }
+	}
 
-vi.mock('../src/lib/services/pipelineService.js', () => ({
-    runPipeline: vi.fn().mockResolvedValue({ success: true })
-}));
+	it('takes the lock when no other run holds it', async () => {
+		const sqlClient = sqlClientReturning(true)
 
-describe('Pipeline API Route', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        process.env.PIPELINE_SECRET = 'test-secret';
-    });
+		const release = await acquirePipelineLock(/** @type {any} */ (sqlClient))
 
-    it('should reject requests with missing authorization', async () => {
-        const request = new Request('http://localhost/api/v1/pipeline/run', { method: 'POST' });
-        const response = await POST({ request });
-        
-        expect(response.status).toBe(401);
-        const data = await response.json();
-        expect(data.error).toBe('Unauthorized');
-    });
+		expect(typeof release).toBe('function')
+		expect(sqlClient.unsafe).toHaveBeenCalledWith(expect.stringContaining('pg_try_advisory_lock'))
+	})
 
-    it('should reject requests with invalid authorization', async () => {
-        const request = new Request('http://localhost/api/v1/pipeline/run', { 
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer wrong-token' }
-        });
-        const response = await POST({ request });
-        
-        expect(response.status).toBe(403);
-    });
+	it('throws PipelineBusyError when another run holds it', async () => {
+		const sqlClient = sqlClientReturning(false)
 
-    it('should execute pipeline sequentially on valid request', async () => {
-        const request = new Request('http://localhost/api/v1/pipeline/run', { 
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer test-secret' }
-        });
+		await expect(acquirePipelineLock(/** @type {any} */ (sqlClient)))
+			.rejects.toBeInstanceOf(PipelineBusyError)
+	})
 
-        // Set env variable for test
-        process.env.PIPELINE_SECRET = 'test-secret';
+	it('releases with pg_advisory_unlock', async () => {
+		const sqlClient = sqlClientReturning(true)
 
-        const locals = { db: {} };
-        const response = await POST({ request, locals });
-        
-        expect(response.status).toBe(200);
-        expect(pipelineService.runPipeline).toHaveBeenCalledTimes(1);
-        
-        const data = await response.json();
-        expect(data.success).toBe(true);
-    });
-});
+		const release = await acquirePipelineLock(/** @type {any} */ (sqlClient))
+		await release()
+
+		expect(sqlClient.unsafe).toHaveBeenLastCalledWith(expect.stringContaining('pg_advisory_unlock'))
+	})
+
+	it('uses the same lock key to take and release, or the lock would leak', async () => {
+		const sqlClient = sqlClientReturning(true)
+
+		const release = await acquirePipelineLock(/** @type {any} */ (sqlClient))
+		await release()
+
+		const keyOf = (/** @type {string} */ sql) => sql.match(/\((\d+)\)/)?.[1]
+		const [[acquireSql], [releaseSql]] = sqlClient.unsafe.mock.calls
+		expect(keyOf(acquireSql)).toBe(keyOf(releaseSql))
+	})
+
+	it('swallows a failure to release, since the connection closing frees it anyway', async () => {
+		const sqlClient = {
+			unsafe: vi.fn()
+				.mockResolvedValueOnce([{ locked: true }])
+				.mockRejectedValueOnce(new Error('connection closed'))
+		}
+
+		const release = await acquirePipelineLock(/** @type {any} */ (sqlClient))
+
+		await expect(release()).resolves.toBeUndefined()
+	})
+})

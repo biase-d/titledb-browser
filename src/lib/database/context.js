@@ -3,32 +3,22 @@
  * @description Runtime database access for SvelteKit request handlers
  */
 
-import { createDatabase } from './factory.js'
+import { db } from '$lib/db'
 
 /**
- * Get database instance from SvelteKit request context
- * Lazily creates database connection if not already present
- *
- * @param {Object} locals - SvelteKit event.locals object
- * @returns {import('./types').DatabaseAdapter}
+ * The hook puts the shared pool on locals for every request; this is the
+ * fallback for call sites that run outside that (and it returns the same pool)
+ * @param {any} [locals] - SvelteKit event.locals
+ * @returns {typeof db}
  */
 export function getDatabase (locals) {
-	if (!locals.db) {
-		// Create database from platform environment or process.env
-		const env = locals.platform?.env || process.env
-		const platform = locals.platform
-
-		locals.db = createDatabase(env, platform)
-	}
-
-	return locals.db
+	return locals?.db ?? db
 }
 
 /**
- * Check if database connection exists in context
- * @param {Object} locals - SvelteKit event.locals
+ * @param {any} [locals]
  * @returns {boolean}
  */
 export function hasDatabase (locals) {
-	return locals.db !== undefined && locals.db !== null
+	return Boolean(locals?.db)
 }

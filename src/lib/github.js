@@ -1,8 +1,8 @@
 import { Octokit } from '@octokit/rest'
-import { GITHUB_BOT_TOKEN } from '$env/static/private'
+import { env } from '$env/dynamic/private'
 import logger from '$lib/services/loggerService'
 
-const octokit = new Octokit({ auth: GITHUB_BOT_TOKEN })
+const octokit = new Octokit({ auth: env.GITHUB_BOT_TOKEN })
 
 const REPO_OWNER = 'biase-d'
 const REPO_NAME = 'nx-performance'

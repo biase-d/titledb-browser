@@ -4,7 +4,7 @@ import * as prefRepo from '$lib/repositories/preferencesRepository'
 
 const BADGES = [
 	{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
-	{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:alligator' },
+	{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:shark' },
 	{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
 	{ threshold: 30, name: 'Spooky Robe Guy', color: '#e11d48', icon: 'mdi:ghost' },
 	{ threshold: 50, name: 'Big Buff Croc', color: '#78716c', icon: 'mdi:arm-flex' },

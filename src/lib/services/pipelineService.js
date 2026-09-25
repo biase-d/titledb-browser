@@ -10,6 +10,7 @@ import { syncDatabase } from '../pipeline/db-sync.js'
 import { ensureSchemas, getActiveSchema, getStandbySchema, prepareStandbySchema, swapSchemas } from '../pipeline/schema-manager.js'
 import { setBuildStarted, setBuildPhase, setBuildComplete } from '../pipeline/build-status.js'
 import { printBuildSummary } from '../pipeline/progress.js'
+import { acquirePipelineLock } from '../pipeline/lock.js'
 
 function extractPrNumber (url) {
   const m = url?.match(/\/pull\/(\d+)$/)
@@ -71,12 +72,24 @@ export async function runPipeline (drizzleDb, connectionStringOverride) {
   const connectionString = connectionStringOverride || process.env.POSTGRES_URL
   if (!connectionString) throw new Error('POSTGRES_URL environment variable is required')
   
+  // max: 1 keeps every statement on one session, which is what makes the
+  // advisory lock below cover the whole run
   const sqlClient = postgres(connectionString, { max: 1 })
   const buildStart = Date.now()
   const isFullRebuild = process.env.PIPELINE_FULL_REBUILD === 'true'
   const useCache = process.env.PIPELINE_NO_CACHE !== 'true' && !isFullRebuild
 
   console.log(`--- Starting Data Sync Process (${isFullRebuild ? 'FULL REBUILD' : 'Incremental'}) ---`)
+
+  // Throws PipelineBusyError if another run holds it. Taken before any schema
+  // work so two runs cannot both start preparing the same standby schema
+  let releaseLock
+  try {
+    releaseLock = await acquirePipelineLock(sqlClient)
+  } catch (error) {
+    await sqlClient.end()
+    throw error
+  }
 
   try {
     // Phase 1: Setup
@@ -189,6 +202,7 @@ export async function runPipeline (drizzleDb, connectionStringOverride) {
     try { await setBuildComplete(sqlClient) } catch { /* ignored */ }
     throw error
   } finally {
+    await releaseLock()
     await sqlClient.end()
   }
 }

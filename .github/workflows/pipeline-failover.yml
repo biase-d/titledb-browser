@@ -1,5 +1,7 @@
 name: Pipeline Failover
 
+# Kept as a manual escape hatch: runs the pipeline from a GitHub runner when
+# the app container cannot, e.g. during a host outage
 on:
   workflow_dispatch:
     inputs:

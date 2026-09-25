@@ -1,8 +1,9 @@
 name: Refresh Database
 
+# Manual only. The recurring sync is a Coolify Scheduled Task running
+# `node scripts/build.js` in the app container; a second cron here would race
+# it for the pipeline's advisory lock and one of the two would exit as a no-op
 on:
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:

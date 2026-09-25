@@ -25,10 +25,9 @@ import { getBuildStatus } from '$lib/repositories/buildStatusRepository'
  * Check health of all system components
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @param {import('$lib/storage/types').StorageAdapter|null} storage
- * @param {Object} [platform] - Adapter platform context, when the host provides one
  * @returns {Promise<HealthReport>}
  */
-export async function checkHealth (db, storage, platform) {
+export async function checkHealth (db, storage) {
 	const start = globalThis.performance.now()
 
 	// Check Database
@@ -54,7 +53,7 @@ export async function checkHealth (db, storage, platform) {
 	// Check Build Status
 	const buildStatus = await getBuildStatus(db)
 
-	const info = getPlatformInfo(platform)
+	const info = getPlatformInfo()
 
 	return {
 		status: dbStatus === 'healthy' ? 'healthy' : 'degraded',

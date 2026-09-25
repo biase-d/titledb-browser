@@ -64,7 +64,7 @@
 			threshold: 5,
 			name: 'Grumpy Gator',
 			color: '#16a34a',
-			icon: 'mdi:alligator',
+			icon: 'mdi:shark',
 		},
 		{
 			threshold: 1,

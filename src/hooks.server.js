@@ -1,6 +1,6 @@
 import { SvelteKitAuth } from '@auth/sveltekit'
 import GitHub from '@auth/sveltekit/providers/github'
-import { GITHUB_ID, GITHUB_SECRET } from '$env/static/private'
+import { env } from '$env/dynamic/private'
 import { sequence } from '@sveltejs/kit/hooks'
 import { db } from '$lib/db'
 import { sql } from 'drizzle-orm'
@@ -16,8 +16,8 @@ const authHandler = SvelteKitAuth({
 	trustHost: true,
 	providers: [
 		GitHub({
-			clientId: GITHUB_ID,
-			clientSecret: GITHUB_SECRET,
+			clientId: env.GITHUB_ID,
+			clientSecret: env.GITHUB_SECRET,
 			authorization: {
 				params: {
 					scope: ''

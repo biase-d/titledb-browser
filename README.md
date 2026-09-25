@@ -9,6 +9,95 @@ A community-powered project for browsing and contributing Nintendo Switch perfor
 -   **Personalization**: Mark games as favorites for quick access
 -   **Contributor Profiles**: See all contributions made by community members
 
+## Running it
+
+### Development
+
+```sh
+docker compose up -d          # Postgres on :5432
+cp .env.example .env          # set POSTGRES_URL at least
+npm install
+node scripts/bootstrap-db.js  # creates layer_a/layer_b and applies migrations
+npm run build:index           # first data sync (clones the two data repos)
+npm run dev
+```
+
+With `S3_ENDPOINT` unset the storage layer writes to `./storage`, so no object
+store is needed to work on the app.
+
+### Deployment (Coolify)
+
+Built from the `Dockerfile`. Node 22 on Debian, because `sharp` and
+`@resvg/resvg-js` ship prebuilt glibc binaries.
+
+**Environment.** Every variable is read at runtime through
+`$env/dynamic/private`, so none are needed at build time and none end up in an
+image layer. Set them as runtime variables in Coolify. The ones that are not
+optional: `POSTGRES_URL`, `ORIGIN`, `AUTH_SECRET`, `GITHUB_ID`, `GITHUB_SECRET`,
+`GITHUB_BOT_TOKEN`.
+
+`ORIGIN` must be the public URL. Without it adapter-node rejects form actions and
+the auth callback as cross-site, which breaks sign-in and every contribution.
+
+**Volumes.** Two, or the container loses state that is expensive to rebuild:
+
+| Path | Holds | Cost of losing it |
+| --- | --- | --- |
+| `/app/data` | the `nx-performance` and `titledb_filtered` clones, and `data/logs` | every sync re-clones both repositories |
+| `/app/.cache` | the contributor map and pipeline metadata | every incremental sync degrades into a full rebuild |
+
+The resized-artwork and OG-image caches are *not* on disk — they live in the
+object store, so they survive redeploys on their own.
+
+**Scheduled task.** Add one on the app resource:
+
+```
+0 */12 * * *   node scripts/build.js
+```
+
+It runs the pipeline in the container. `--full-rebuild` rebuilds into the standby
+schema and swaps it in; `--no-cache` ignores the cached contributor map. A run
+takes a Postgres advisory lock first, so an overlapping run exits as a no-op
+rather than corrupting the schema swap. That is also why the GitHub Actions
+workflows no longer carry a cron: `refresh-db.yml` and `pipeline-failover.yml`
+are manual (`workflow_dispatch`) escape hatches for when the host is unavailable.
+
+**First deploy**, once the database is reachable:
+
+```sh
+node scripts/bootstrap-db.js          # schemas, migrations, public views
+node scripts/build.js --full-rebuild  # populate
+```
+
+**Health.** The image declares a `HEALTHCHECK` against
+`/api/v1/status?strict=1`, which answers 503 only when the database is
+unreachable. A GitHub or CDN outage leaves it 200, because those cost a feature
+rather than the site.
+
+### Storage (Garage)
+
+Garage holds the derived-asset caches: artwork resized by `/api/v1/proxy/image`
+and the OG cards from `/api/og/[id].jpg`. Both are recomputable, so storage is
+optional — with none configured every request recomputes, which is slower but
+never wrong.
+
+Create a bucket and a key:
+
+```sh
+garage bucket create titledb-assets
+garage key create titledb-browser
+garage bucket allow --read --write titledb-assets --key titledb-browser
+```
+
+Then set `S3_ENDPOINT` (e.g. `http://garage:3900`), `S3_BUCKET`,
+`S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and `S3_REGION` to whatever region the
+cluster was configured with — it is not an AWS region and only has to match the
+server. Addressing is path-style, so no wildcard DNS is needed.
+
+Nothing prunes these caches. They are content-addressed, so they only grow when
+artwork or game data changes, but a bucket lifecycle rule is worth adding if that
+turns out to matter.
+
 ## Monitoring
 
 Two halves, and you want both.

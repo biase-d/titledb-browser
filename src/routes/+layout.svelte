@@ -1,5 +1,8 @@
 <script>
     import '../app.css'
+    // Side-effect import: registers the bundled icons so every <Icon> renders
+    // from our own bundle, during SSR included, instead of api.iconify.design
+    import '$lib/ui-icons'
     import { page } from '$app/state'
     import { navigating } from '$app/stores'
     import Header from './Header.svelte'

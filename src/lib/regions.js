@@ -18,7 +18,7 @@ const europe = new Set(['GB', 'FR', 'DE', 'IT', 'ES', 'NL', 'PT', 'RU', 'AT', 'B
 /**
  * Every country code this app groups or labels. The flag icon bundle is
  * generated from this list, so anything added here is bundled automatically
- * (see scripts/build-flag-icons.js); codes outside it still resolve, just via
+ * (see scripts/build-icons.js); codes outside it still resolve, just via
  * the Iconify API at runtime
  * @type {string[]}
  */
