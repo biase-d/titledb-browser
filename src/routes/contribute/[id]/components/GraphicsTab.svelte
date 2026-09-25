@@ -10,6 +10,20 @@
 		updateGraphicsKey,
 		removeGraphicsField,
 	} = $props()
+
+	/**
+	 * Drop the target FPS when a lock becomes Unlocked
+	 *
+	 * The input is only hidden when Unlocked is chosen, so a number typed
+	 * before that stayed in the saved JSON. Readers that look at targetFps
+	 * before lockType then reported the stale number as the target - an
+	 * unlocked game that was briefly set to 30 kept showing 30
+	 *
+	 * @param {{ lockType?: string, targetFps?: any }} framerate
+	 */
+	function clearFpsIfUnlocked (framerate) {
+		if (framerate?.lockType === 'Unlocked') framerate.targetFps = null
+	}
 </script>
 
 <section class="form-section">
@@ -118,6 +132,10 @@
 							bind:value={
 								graphicsData.handheld.framerate.lockType
 							}
+							onchange={() =>
+								clearFpsIfUnlocked(
+									graphicsData.handheld.framerate,
+								)}
 						>
 							<option value="Unlocked">Unlocked</option>
 							<option value="API">API</option>
@@ -169,6 +187,7 @@
 							<div class="additional-lock-row">
 								<select
 									bind:value={lock.lockType}
+									onchange={() => clearFpsIfUnlocked(lock)}
 									aria-label="Additional lock type"
 								>
 									<option value="API">API Lock</option>
@@ -353,6 +372,10 @@
 						<label>Default FPS Lock Type</label>
 						<select
 							bind:value={graphicsData.docked.framerate.lockType}
+							onchange={() =>
+								clearFpsIfUnlocked(
+									graphicsData.docked.framerate,
+								)}
 						>
 							<option value="Unlocked">Unlocked</option>
 							<option value="API">API</option>
@@ -404,6 +427,7 @@
 							<div class="additional-lock-row">
 								<select
 									bind:value={lock.lockType}
+									onchange={() => clearFpsIfUnlocked(lock)}
 									aria-label="Additional lock type"
 								>
 									<option value="API">API Lock</option>

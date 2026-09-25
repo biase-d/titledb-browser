@@ -4,7 +4,12 @@ import { calculatePlayabilityScore } from '$lib/playability'
 
 const PAGE_SIZE = 50
 
-function mapGraphicsToPerformance (graphics) {
+/**
+ * Present a graphics record in the shape the list and card components read
+ * Exported for tests: the lockType/targetFps precedence here is easy to get
+ * backwards and the failure is silent - a wrong number, not an error
+ */
+export function mapGraphicsToPerformance (graphics) {
 	if (!graphics) return null
 	const mapMode = (gMode) => {
 		if (!gMode) return {}
@@ -16,7 +21,10 @@ function mapGraphicsToPerformance (graphics) {
 			min_res: res.minResolution,
 			max_res: res.maxResolution,
 			resolutions: res.multipleResolutions?.join(', '),
-			target_fps: fps.targetFps || (fps.lockType === 'Unlocked' ? 'Unlocked' : null),
+			// lockType wins: a record switched to Unlocked can still carry the
+			// targetFps that was set before, and reading that first reports the
+			// stale number as the target
+			target_fps: fps.lockType === 'Unlocked' ? 'Unlocked' : (fps.targetFps || null),
 			fps_behavior: fps.lockType === 'API' ? 'Locked' : 'Stable'
 		}
 	}
@@ -104,8 +112,26 @@ export async function searchGames (db, searchParams) {
             lastUpdated: games.lastUpdated,
             groupLastUpdated: sql`MAX(GREATEST(${games.lastUpdated}, COALESCE(${latestProfileSubquery.lastUpdated}, '1970-01-01'), COALESCE(${graphicsSettings.lastUpdated}, '1970-01-01'))) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
             sizeInBytes: games.sizeInBytes,
-            dockedFps: sql`COALESCE((${latestProfileSubquery.profiles}->'docked'->>'target_fps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType'))`.as('dockedFps'),
-            handheldFps: sql`COALESCE((${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType'))`.as('handheldFps'),
+            // An Unlocked lock has to be read before targetFps: a record moved
+            // from a fixed target to Unlocked can still carry the old number,
+            // and COALESCE would take it and report the game as locked to it
+            dockedFps: sql`COALESCE(
+                (${latestProfileSubquery.profiles}->'docked'->>'target_fps'),
+                CASE WHEN (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType') = 'Unlocked'
+                    THEN 'Unlocked' END,
+                (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'),
+                (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType')
+            )`.as('dockedFps'),
+            // An Unlocked lock has to be read before targetFps: a record moved
+            // from a fixed target to Unlocked can still carry the old number,
+            // and COALESCE would take it and report the game as locked to it
+            handheldFps: sql`COALESCE(
+                (${latestProfileSubquery.profiles}->'handheld'->>'target_fps'),
+                CASE WHEN (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType') = 'Unlocked'
+                    THEN 'Unlocked' END,
+                (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+                (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+            )`.as('handheldFps'),
             performance: latestProfileSubquery.profiles,
             graphics: graphicsSettings.settings
         })

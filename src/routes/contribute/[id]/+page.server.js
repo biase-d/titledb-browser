@@ -83,7 +83,20 @@ export const actions = {
 					formatted.framerate.apiBuffering = 'Triple'
 					delete formatted.triple_buffer
 				}
-				
+
+				// An unlocked framerate has no target. Leaving a stale one in
+				// place is not harmless: readers that check targetFps before
+				// lockType report it as the target, so a game switched from 30
+				// to Unlocked keeps being listed at 30
+				if (formatted.framerate?.lockType === 'Unlocked') {
+					delete formatted.framerate.targetFps
+				}
+				if (Array.isArray(formatted.framerate?.additionalLocks)) {
+					for (const lock of formatted.framerate.additionalLocks) {
+						if (lock?.lockType === 'Unlocked') delete lock.targetFps
+					}
+				}
+
 				return formatted
 			}
 			

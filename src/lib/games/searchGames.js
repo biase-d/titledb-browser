@@ -21,7 +21,10 @@ function mapGraphicsToPerformance (graphics) {
 			min_res: res.minResolution,
 			max_res: res.maxResolution,
 			resolutions: res.multipleResolutions?.join(', '),
-			target_fps: fps.targetFps || (fps.lockType === 'Unlocked' ? 'Unlocked' : null),
+			// lockType wins: a record switched to Unlocked can still carry the
+			// targetFps that was set before, and reading that first reports the
+			// stale number as the target
+			target_fps: fps.lockType === 'Unlocked' ? 'Unlocked' : (fps.targetFps || null),
 			fps_behavior: fps.lockType === 'API' ? 'Locked' : 'Stable' // Approximate mapping
 		}
 	}
