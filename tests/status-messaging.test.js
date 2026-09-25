@@ -84,12 +84,39 @@ describe('status messaging', () => {
     });
 
     it('reports nothing at all when everything is up', async () => {
-        const health = await getSystemHealth(healthyDb);
+        // A reachable object store, so every service has a verdict to give.
+        // Without one imageCache reads 'not-configured', which is a deployment
+        // choice rather than a state this test is about
+        const storage = { list: vi.fn().mockResolvedValue([]) };
+
+        const health = await getSystemHealth(healthyDb, storage);
 
         for (const service of Object.values(health.services)) {
             expect(service.status).toBe('up');
             expect(service.message).toBeUndefined();
         }
+    });
+
+    it('describes a failed image cache without naming the object store', async () => {
+        const storage = { list: vi.fn().mockRejectedValue(new Error('ECONNREFUSED 10.0.0.9:3900')) };
+
+        const health = await getSystemHealth(healthyDb, storage);
+
+        expect(health.services.imageCache.status).toBe('down');
+        // The page is public: no host, port, bucket or product name in the copy
+        expect(health.services.imageCache.message).toBe(
+            'Images are being resized on every request, so pages may load more slowly.'
+        );
+        expect(health.services.imageCache.message).not.toMatch(/garage|s3|bucket|10\.0\.0\.9|3900/i);
+    });
+
+    it('a failed image cache degrades the site rather than downing it', async () => {
+        const storage = { list: vi.fn().mockRejectedValue(new Error('unreachable')) };
+
+        const health = await getSystemHealth(healthyDb, storage);
+
+        // Every image is still served, just recomputed instead of cached
+        expect(health.status).toBe('degraded');
     });
 });
 

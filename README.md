@@ -94,6 +94,18 @@ Then set `S3_ENDPOINT` (e.g. `http://garage:3900`), `S3_BUCKET`,
 cluster was configured with — it is not an AWS region and only has to match the
 server. Addressing is path-style, so no wildcard DNS is needed.
 
+Check the connection from inside the running container:
+
+```sh
+docker exec -it <container> node scripts/check-storage.js
+```
+
+It writes, reads back, lists and deletes one object under `healthcheck/`, using
+the same variables the app reads, and names which step failed rather than
+leaving you with "images seem slow". `/api/health` and `/api/v1/status` probe it
+too, so a broken store shows as `degraded` — never `down`, because every image
+is still served, just recomputed each time.
+
 Nothing prunes these caches. They are content-addressed, so they only grow when
 artwork or game data changes, but a bucket lifecycle rule is worth adding if that
 turns out to matter.

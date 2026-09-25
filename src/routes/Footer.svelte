@@ -1,36 +1,11 @@
 <script>
 	import '@fontsource-variable/caveat'
-	import { onMount } from 'svelte'
-	import { browser } from '$app/environment'
-	import { getSystemStatus } from '$lib/remote/status.remote.js'
 
+	// The "updating game data" notice used to live here. It now renders in
+	// AnnouncementBanner at the top of the page, because a notice about data
+	// being incomplete is worth nothing below the fold
 	const currentYear = new Date().getFullYear()
-
-	// Browser-only on purpose: the footer renders on every page, so querying
-	// during SSR would put a database round trip in front of every response
-	const status = browser ? getSystemStatus() : null
-
-	let isBuilding = $derived(status?.current?.isBuilding ?? false)
-	let buildPhase = $derived(status?.current?.buildPhase ?? '')
-
-	onMount(() => {
-		const interval = setInterval(() => status?.refresh(), 30_000)
-		return () => clearInterval(interval)
-	})
 </script>
-
-{#if isBuilding}
-	<div class="build-banner">
-		<div class="build-banner-inner">
-			<span class="build-dot"></span>
-			<span
-				>Updating game data{buildPhase
-					? ` (${buildPhase})`
-					: ''}. Some titles may be missing for a few minutes.</span
-			>
-		</div>
-	</div>
-{/if}
 
 <footer class="site-footer">
 	<div class="footer-inner">
@@ -228,45 +203,4 @@
 		line-height: 1.4;
 	}
 
-	.build-banner {
-		background: rgba(245, 158, 11, 0.08);
-		border: 1px solid rgba(245, 158, 11, 0.2);
-		border-radius: var(--radius-md);
-		margin: 0 1.5rem 1rem;
-		max-width: 1400px;
-	}
-
-	@media (min-width: 1024px) {
-		.build-banner {
-			margin: 0 auto 1rem;
-		}
-	}
-
-	.build-banner-inner {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		font-size: 0.85rem;
-		color: #f59e0b;
-	}
-
-	.build-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: #f59e0b;
-		animation: build-pulse 1.5s ease-in-out infinite;
-	}
-
-	@keyframes build-pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.3;
-		}
-	}
 </style>

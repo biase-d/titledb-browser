@@ -34,7 +34,11 @@ describe('Health Service', () => {
 
         expect(result.status).toBe('healthy');
         expect(result.services.database.status).toBe('healthy');
-        expect(result.services.storage.status).toBe('configured');
+        // 'up' means the probe actually reached the store. It used to report
+        // 'configured', which only meant an adapter object existed and stayed
+        // true with wrong credentials or an unreachable host
+        expect(result.services.storage.status).toBe('up');
+        expect(storageMock.list).toHaveBeenCalled();
         expect(result.services.platform).toEqual({ type: 'nodejs', runtime: 'node' });
         expect(dbMock.execute).toHaveBeenCalled();
     });
@@ -54,5 +58,16 @@ describe('Health Service', () => {
 
         expect(result.status).toBe('healthy');
         expect(result.services.storage.status).toBe('not-configured');
+    });
+
+    it('reports storage down when the store cannot be reached', async () => {
+        storageMock.list.mockRejectedValue(new Error('ECONNREFUSED'));
+
+        const result = await healthService.checkHealth(dbMock, storageMock);
+
+        expect(result.services.storage.status).toBe('down');
+        // Storage is a cache: losing it costs speed, not correctness, so it
+        // must not drag the overall verdict down with it
+        expect(result.status).toBe('healthy');
     });
 });

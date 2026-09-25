@@ -1,15 +1,50 @@
 <script>
     import { onMount } from 'svelte'
+    import { browser } from '$app/environment'
     import { slide } from 'svelte/transition'
     import Icon from '@iconify/svelte'
     import { getVersionInfo } from '$lib/services/versionService'
+    import { getSystemStatus } from '$lib/remote/status.remote.js'
     import { uiStore } from '$lib/stores/ui.svelte'
+
+    /**
+     * Pipeline phases, said in words a visitor can act on. The raw values are
+     * internal names - "building-maps" told a reader nothing, and this notice
+     * used to sit in the footer where almost nobody scrolled to see it
+     * @type {Record<string, string>}
+     */
+    const PHASE_LABEL = {
+        starting: 'starting up',
+        setup: 'starting up',
+        cloning: 'fetching the latest contributions',
+        'building-maps': 'working out who contributed what',
+        'preparing-standby': 'preparing the new data',
+        'syncing-data': 'writing the new game data',
+        'swapping-schemas': 'switching over to the new data',
+        'promoting-submissions': 'finishing up'
+    }
+
+    // Browser-only: this renders on every page, so querying during SSR would
+    // put a database round trip in front of every response
+    const status = browser ? getSystemStatus() : null
+
+    let buildDismissed = $state(false)
+
+    let isBuilding = $derived(status?.current?.isBuilding ?? false)
+    let buildPhase = $derived(status?.current?.buildPhase ?? '')
+    let phaseLabel = $derived(PHASE_LABEL[buildPhase] ?? '')
+    let showBuildBanner = $derived(isBuilding && !buildDismissed)
 
     /** @typedef {import('$lib/services/versionService').Announcement} Announcement */
 
     /** @type {Announcement | null} */
     let activeAnnouncement = $state(null)
     let isVisible = $state(false)
+
+    onMount(() => {
+        const interval = setInterval(() => status?.refresh(), 30_000)
+        return () => clearInterval(interval)
+    })
 
     onMount(() => {
         let firstVisitStr = localStorage.getItem('first_visit_date')
@@ -84,7 +119,30 @@
     }
 </script>
 
-{#if isVisible && activeAnnouncement}
+<!-- A build is temporary and self-clearing, so it takes the slot for as long
+     as it lasts and the announcement returns underneath it afterwards -->
+{#if showBuildBanner}
+    <div class="banner info" transition:slide={{ duration: 300 }}>
+        <div class="content">
+            <Icon icon="mdi:database-sync" class="icon" />
+            <span class="message">
+                <strong>UPDATING:</strong>
+                New game data is being published{phaseLabel
+                    ? ` - ${phaseLabel}`
+                    : ''}. Some titles may be missing or out of date for a few
+                minutes.
+            </span>
+        </div>
+
+        <button
+            class="dismiss-btn"
+            onclick={() => (buildDismissed = true)}
+            aria-label="Dismiss update notice"
+        >
+            <Icon icon="mdi:close" />
+        </button>
+    </div>
+{:else if isVisible && activeAnnouncement}
     <div
         class="banner {activeAnnouncement.type}"
         transition:slide={{ duration: 300 }}
