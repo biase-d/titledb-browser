@@ -196,6 +196,30 @@ export async function getRandomGames (db, limit = 12) {
         .limit(limit)
 }
 
+/**
+ * Artwork for the signed-out backdrop on the contribute page
+ *
+ * Ordered by recency rather than at random, deliberately. A random set would be
+ * a different thirty images on every request, so their placeholders would never
+ * be cached and the page would look different each time it loaded. This picks
+ * the same set for everyone until the data changes, which keeps it warm - and
+ * quietly shows the games people have been working on
+ *
+ * @param {any} db
+ * @param {number} [limit]
+ */
+export async function getBackdropArtwork (db, limit = 18) {
+    return await db.select({
+        id: games.id,
+        names: games.names,
+        iconUrl: games.iconUrl
+    })
+        .from(games)
+        .where(isNotNull(games.iconUrl))
+        .orderBy(desc(games.lastUpdated))
+        .limit(limit)
+}
+
 export async function getGamesByGroup (db, groupId) {
     return await db.select({ id: games.id, names: games.names, regions: games.regions }).from(games).where(eq(games.groupId, groupId))
 }

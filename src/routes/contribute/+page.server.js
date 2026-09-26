@@ -1,4 +1,6 @@
 import * as contributeService from '$lib/services/contributeService'
+import { getBackdropArtwork } from '$lib/repositories/searchRepository'
+import { withPlaceholders } from '$lib/server/lqip'
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ parent, url, cookies, locals }) => {
@@ -7,7 +9,15 @@ export const load = async ({ parent, url, cookies, locals }) => {
 	const impactStats = await contributeService.getImpactStats(locals.db)
 
 	if (!session?.user) {
-		return { session, games: [], pagination: null, impactStats }
+		// Artwork for the backdrop behind the sign-in call to action. Only for
+		// signed-out visitors: everyone else gets the working view instead, and
+		// fetching it for them would be a query answering nothing
+		const artwork = await withPlaceholders(
+			await getBackdropArtwork(locals.db, 20),
+			['iconUrl']
+		)
+
+		return { session, games: [], pagination: null, impactStats, artwork }
 	}
 
 	const page = parseInt(url.searchParams.get('page') || '1', 10)
@@ -22,6 +32,7 @@ export const load = async ({ parent, url, cookies, locals }) => {
 
 	return {
 		session,
+		artwork: [],
 		games: result.games,
 		sortBy: result.sortBy,
 		pagination: result.pagination,

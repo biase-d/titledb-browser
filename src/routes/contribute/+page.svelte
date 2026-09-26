@@ -1,5 +1,6 @@
 <script>
 	import Icon from '@iconify/svelte'
+	import ArtworkBackdrop from '$lib/components/ArtworkBackdrop.svelte'
 	import { createImageSet } from '$lib/image'
 	import { preferences } from '$lib/stores/preferences'
 	import { goto } from '$app/navigation'
@@ -131,6 +132,7 @@
 	<main class="main-content">
 		{#if !session?.user}
 			<div class="auth-promo" in:fade={{ duration: 1000, delay: 800 }}>
+				<ArtworkBackdrop artwork={data.artwork ?? []} />
 				<div class="promo-content">
 					<h2>Start your Journey</h2>
 					<p>
@@ -451,6 +453,8 @@
 
 	/* --- Auth Promo --- */
 	.auth-promo {
+		/* The artwork backdrop positions itself against this */
+		position: relative;
 		background: var(--surface-color);
 		border: 1px solid var(--border-color);
 		border-radius: 24px;
@@ -458,6 +462,13 @@
 		grid-template-columns: 1.5fr 1fr;
 		overflow: hidden;
 		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+	}
+
+	/* Both cells lift above the backdrop. Without this the mosaic paints over
+	   the text rather than behind it */
+	.auth-promo > :global(*:not(.backdrop)) {
+		position: relative;
+		z-index: 1;
 	}
 
 	.promo-content {
