@@ -320,7 +320,10 @@
 			gamePlatform: 'Nintendo Switch',
 			applicationCategory: 'Game',
 			operatingSystem: 'Nintendo Switch OS',
-			image: `${url.origin}${proxyImage(game.iconUrl || game.bannerUrl, 300)}`,
+			// The rendered OG card, not a 300px icon: Google wants a rich-result
+			// image around 1200px wide, and this one is already generated,
+			// cached and exactly that size
+			image: `${url.origin}/api/og/${id}.jpg`,
 			url: url.href,
 			genre: 'Action, Adventure',
 			description: `View performance profiles and graphics settings for ${name} on Switch Performance`,

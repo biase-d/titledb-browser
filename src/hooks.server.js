@@ -35,8 +35,15 @@ const securityHandler = async ({ event, resolve }) => {
 		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
 		response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
 
-		// Auth and API responses are never worth indexing
-		if (event.url.pathname.startsWith('/auth') || event.url.pathname.startsWith('/api')) {
+		// Auth and API responses are never worth indexing - except the two that
+		// exist to be referenced as page imagery. og:image and the image in the
+		// VideoGame structured data both point at these, and Google requires a
+		// rich-result image to be crawlable *and* indexable, so a noindex here
+		// is enough to have the rich result rejected
+		const isPageImagery = event.url.pathname === '/api/v1/proxy/image' ||
+			event.url.pathname.startsWith('/api/og/')
+
+		if (!isPageImagery && (event.url.pathname.startsWith('/auth') || event.url.pathname.startsWith('/api'))) {
 			response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
 		}
 	} catch {

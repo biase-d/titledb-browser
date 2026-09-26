@@ -7,8 +7,8 @@ Disallow: /api/
 Disallow: /api
 # Googlebot renders a page before judging it, and every piece of artwork on the
 # site is served through the image proxy. Blocking those meant it rendered the
-# pages with the images missing. They still carry X-Robots-Tag: noindex, so they
-# are fetched for rendering without being indexed themselves
+# pages with the images missing. The OG card is also the image named in the
+# VideoGame structured data, which a rich result needs to be able to fetch
 Allow: /api/v1/proxy/image
 Allow: /api/og/
 Disallow: /auth/
