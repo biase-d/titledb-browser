@@ -73,6 +73,10 @@
 >
     <div class="banner-container">
         <img
+            class:lqip={!!(titleData.bannerLqip || titleData.iconLqip)}
+            style:--lqip={titleData.bannerLqip || titleData.iconLqip
+                ? `url("${titleData.bannerLqip || titleData.iconLqip}")`
+                : null}
             src={imageSet?.src || bannerUrl || iconUrl}
             srcset={imageSet?.srcset}
             alt={titleName}

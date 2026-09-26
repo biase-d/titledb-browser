@@ -1,4 +1,5 @@
 import * as gameService from '$lib/services/gameService'
+import { withPlaceholders } from '$lib/server/lqip'
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, url, parent, cookies, locals }) => {
@@ -24,6 +25,7 @@ export const load = async ({ params, url, parent, cookies, locals }) => {
 		session,
 		publisherName,
 		stats,
-		...searchResults
+		...searchResults,
+		results: await withPlaceholders(searchResults.results ?? [], ['iconUrl', 'bannerUrl'])
 	}
 }

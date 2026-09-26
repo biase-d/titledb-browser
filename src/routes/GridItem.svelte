@@ -94,11 +94,14 @@
     <img
       class="card-icon"
       class:fallback-icon={!iconUrl && titleData.bannerUrl}
+      class:lqip={!!titleData.iconLqip}
+      style:--lqip={titleData.iconLqip ? `url("${titleData.iconLqip}")` : null}
       src={imageSet?.src || iconUrl || titleData.bannerUrl}
       srcset={imageSet?.srcset}
       sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
       alt={`Game icon for ${titleName}`}
       loading="lazy"
+      decoding="async"
       width="200"
       height="200"
     />

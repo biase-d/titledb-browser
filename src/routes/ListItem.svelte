@@ -92,6 +92,8 @@
 >
   <div class="icon-wrapper">
     <img
+      class:lqip={!!titleData.iconLqip}
+      style:--lqip={titleData.iconLqip ? `url("${titleData.iconLqip}")` : null}
       src={imageSet?.src || iconUrl || titleData.bannerUrl}
       srcset={imageSet?.srcset}
       alt={`Game icon for ${titleName}${titleData.publisher && titleData.publisher !== 'N/A' ? ` by ${titleData.publisher}` : ''}`}

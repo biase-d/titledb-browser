@@ -85,6 +85,8 @@
     <div class="main-layout">
         <div class="icon-column">
             <img
+                class:lqip={!!titleData.iconLqip}
+                style:--lqip={titleData.iconLqip ? `url("${titleData.iconLqip}")` : null}
                 src={imageSet?.src || iconUrl}
                 srcset={imageSet?.srcset}
                 alt={titleName}

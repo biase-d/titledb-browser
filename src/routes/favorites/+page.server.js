@@ -1,4 +1,5 @@
 import * as gameRepo from '$lib/repositories/gameRepository'
+import { withPlaceholders } from '$lib/server/lqip'
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ cookies, locals }) => {
@@ -18,7 +19,10 @@ export const load = async ({ cookies, locals }) => {
 		return { favoritedGames: [] }
 	}
 
-	const favoritedGames = await gameRepo.getFavoriteGamesWithPerformance(locals.db, ids)
+	const favoritedGames = await withPlaceholders(
+		await gameRepo.getFavoriteGamesWithPerformance(locals.db, ids),
+		['iconUrl', 'bannerUrl']
+	)
 
 	return { favoritedGames }
 }

@@ -1,5 +1,6 @@
 import { searchGames } from '$lib/games/searchGames'
 import * as gameService from '$lib/services/gameService'
+import { withPlaceholders } from '$lib/server/lqip'
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ url, parent, cookies, locals }) => {
@@ -21,10 +22,23 @@ export const load = async ({ url, parent, cookies, locals }) => {
 		isLandingPage ? gameService.getRandomGames(db, 12) : Promise.resolve([])
 	])
 
+	// Blurred hints of the artwork, inlined so the cards have something to show
+	// before the images arrive. A cold cache returns nothing and fills itself in
+	// the background, so this never delays the page
+	const [results, recentUpdates, hero] = await Promise.all([
+		withPlaceholders(searchResults.results ?? [], ['iconUrl']),
+		// The hero carousel shows these as full-width banners, so it needs the
+		// banner placeholder, and it is the first thing on the page
+		withPlaceholders(searchResults.recentUpdates ?? [], ['iconUrl', 'bannerUrl']),
+		withPlaceholders(randomGames, ['bannerUrl', 'iconUrl'])
+	])
+
 	return {
 		session,
 		...searchResults,
-		randomGames,
+		results,
+		recentUpdates,
+		randomGames: hero,
 		preferredRegion,
 		isLandingPage,
 		stats: searchResults.stats

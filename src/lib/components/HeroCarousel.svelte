@@ -116,10 +116,15 @@
                     <div class="hero-bg">
                         {#if bannerSet}
                             <img
+                                class:lqip={!!game.bannerLqip}
+                                style:--lqip={game.bannerLqip
+                                    ? `url("${game.bannerLqip}")`
+                                    : null}
                                 src={bannerSet.src}
                                 srcset={bannerSet.srcset}
                                 alt=""
                                 loading={i === 0 ? 'eager' : 'lazy'}
+                                fetchpriority={i === 0 ? 'high' : 'auto'}
                             />
                         {/if}
                         <div class="hero-overlay"></div>

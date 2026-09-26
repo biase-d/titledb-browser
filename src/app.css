@@ -131,3 +131,23 @@ h6 {
 	font-weight: 600;
 	line-height: 1.3;
 }
+/*
+ * Blurred placeholder while an image loads
+ *
+ * The server inlines a ~16px WebP of the artwork as a data URI in --lqip. Set
+ * as the image's own background it paints with the HTML, so a card shows the
+ * shape and colour of its art immediately instead of a blank box, and the real
+ * image covers it the moment it arrives. Scaling 16px to fill the box is what
+ * makes it blurry - the browser's own smoothing, costing no filter and no
+ * repaint
+ *
+ * A global rule rather than a shared component: every view sizes its own <img>
+ * with its own scoped CSS, and moving those elements into a component would put
+ * them out of reach of the styles that position them
+ */
+img.lqip {
+	background-image: var(--lqip);
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+}
