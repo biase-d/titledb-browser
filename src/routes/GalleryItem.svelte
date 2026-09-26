@@ -87,7 +87,9 @@
             <div class="card-content">
                 <h3 class="card-title">{titleName}</h3>
                 <div class="card-meta">
+                    {#if $preferences.showTitleIds}
                     <span class="game-id">{id}</span>
+                    {/if}
                     {#if docked.target_fps || handheld.target_fps}
                         <div class="perf-mini">
                             {#if docked.target_fps}

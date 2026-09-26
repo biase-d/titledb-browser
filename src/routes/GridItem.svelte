@@ -3,7 +3,7 @@
   import Icon from '@iconify/svelte'
   import { slide } from 'svelte/transition'
   import { createImageSet, proxyImage } from '$lib/image'
-  import { getRegionLabel } from '$lib/regions'
+  import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
   import { preferences } from '$lib/stores/preferences'
   import { getLocalizedName } from '$lib/i18n'
   import TextHighlight from '$lib/components/TextHighlight.svelte'
@@ -33,6 +33,7 @@
 
   let titleName = $derived(getLocalizedName(names, preferredRegion))
   let regionLabel = $derived(getRegionLabel(regions))
+  let regionBadge = $derived(getRegionLabelShort(regions))
   let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide')
 
   let performanceInfo = $derived(
@@ -132,10 +133,12 @@
     <div class="card-meta">
       <div class="meta-main">
         <p class="card-publisher">{publisher}</p>
+        {#if $preferences.showTitleIds}
         <span class="card-id">{id}</span>
+        {/if}
       </div>
       {#if showRegionBadge}
-        <span class="region-badge" title={regionLabel}>{regionLabel}</span>
+        <span class="region-badge" title={regionLabel}>{regionBadge}</span>
       {/if}
     </div>
   </div>
@@ -264,7 +267,8 @@
     border-radius: 4px;
     border: 1px solid var(--border-color);
     white-space: nowrap;
-    max-width: 80px;
+    /* Enough for the compact labels; the full one is in the title */
+    max-width: 110px;
     overflow: hidden;
     text-overflow: ellipsis;
     transition: all 0.3s ease;

@@ -2,7 +2,7 @@
   import { browser } from '$app/environment'
   import Icon from '@iconify/svelte'
   import { slide } from 'svelte/transition'
-  import { getRegionLabel } from '$lib/regions'
+  import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
   import { createImageSet, proxyImage } from '$lib/image'
   import { preferences } from '$lib/stores/preferences'
   import { getLocalizedName } from '$lib/i18n'
@@ -33,6 +33,7 @@
   let titleName = $derived(getLocalizedName(names, preferredRegion))
 
   let regionLabel = $derived(getRegionLabel(regions))
+  let regionBadge = $derived(getRegionLabelShort(regions))
   let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide')
 
   let performanceInfo = $derived(
@@ -119,10 +120,12 @@
       {#if showRegionBadge}
         <span class="region-badge" title="Available in: {regionLabel}">
           <Icon icon="mdi:earth" width="12" height="12" />
-          <span class="badge-text">{regionLabel}</span>
+          <span class="badge-text">{regionBadge}</span>
         </span>
       {/if}
+      {#if $preferences.showTitleIds}
       <span class="title-id">{id}</span>
+      {/if}
 
       {#if docked.target_fps || handheld.target_fps}
         <div class="perf-inline" aria-hidden="true">

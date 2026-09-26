@@ -1,6 +1,6 @@
 <script>
     import Icon from '@iconify/svelte'
-    import { getRegionLabel } from '$lib/regions'
+    import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
     import TextHighlight from '$lib/components/TextHighlight.svelte'
@@ -21,6 +21,7 @@
 
     let titleName = $derived(getLocalizedName(names, preferredRegion))
     let regionLabel = $derived(getRegionLabel(regions))
+    let regionBadge = $derived(getRegionLabelShort(regions))
 </script>
 
 <a href={`/title/${id}`} class="table-row" data-sveltekit-preload-data="tap">
@@ -40,7 +41,7 @@
         <code>{id}</code>
     </div>
     <div class="col col-region">
-        <span class="region-pill">{regionLabel || 'N/A'}</span>
+        <span class="region-pill" title={regionLabel}>{regionBadge || 'N/A'}</span>
     </div>
     <div class="col col-fps">
         <div class="fps-group">

@@ -182,7 +182,10 @@
 
 	let isDetailsCollapsed = $state(true)
 	let breadcrumbItems = $derived.by(() => {
-		const items = [{ label: 'Home', href: '/' }]
+		// Breadcrumbs renders Home itself, as the root with position 1. Adding
+		// it here too produced "Home > Home" on every title page, in the visible
+		// trail and in the BreadcrumbList structured data with it
+		const items = []
 
 		if (browser) {
 			const referrer = document.referrer

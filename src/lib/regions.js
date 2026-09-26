@@ -108,3 +108,43 @@ export function getRegionLabel (regions) {
 
 	return 'Multi-Region'
 }
+
+/**
+ * Compact forms of the labels that do not fit a badge
+ *
+ * The badges are narrow by design - they sit in the corner of a card, not in a
+ * sentence - and the long labels were being cut to stubs like "MAJOR RE…",
+ * "INTERNATI…" and "THE AMER…", which is worse than useless: those appear only
+ * on multi-region titles, so the badge was unreadable in exactly the cases it
+ * exists to explain. Callers keep the full label in a title attribute
+ */
+const SHORT_LABELS = {
+	'Major Regions': 'Major',
+	International: 'Intl.',
+	'The Americas': 'Americas',
+	'North America': 'N. America',
+	'South America': 'S. America',
+	'North America & Japan': 'NA & JP',
+	'Americas & Asia': 'AM & Asia',
+	'Australia & New Zealand': 'ANZ',
+	'Japan & East Asia': 'JP & Asia',
+	'Southeast Asia': 'SE Asia',
+	'East Asia': 'E. Asia',
+	'Europe & Oceania': 'EU & Oceania',
+	'Europe & Asia': 'EU & Asia',
+	'Germany & Austria': 'DE & AT',
+	'UK & Ireland': 'UK & IE',
+	'USA & Japan': 'US & JP'
+}
+
+/**
+ * A label short enough for a badge. Falls back to the full one when it already
+ * fits, so anything not listed above is unaffected
+ * @param {string[]|null|undefined} regions
+ * @returns {string|null}
+ */
+export function getRegionLabelShort (regions) {
+	const label = getRegionLabel(regions)
+	if (!label) return null
+	return SHORT_LABELS[label] ?? label
+}

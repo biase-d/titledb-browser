@@ -378,6 +378,27 @@
 									<span>Detailed View</span>
 								</button>
 							</div>
+							<div class="menu-section options">
+								<span class="menu-section-title">Options</span>
+								<button
+									class="option-row"
+									role="menuitemcheckbox"
+									aria-checked={$preferences.showTitleIds}
+									onclick={() =>
+										preferences.setShowTitleIds(
+											!$preferences.showTitleIds,
+										)}
+								>
+									<Icon icon="mdi:tag-text-outline" />
+									<span>Show title IDs</span>
+									<Icon
+										class="option-check"
+										icon={$preferences.showTitleIds
+											? 'mdi:check-circle'
+											: 'mdi:checkbox-blank-circle-outline'}
+									/>
+								</button>
+							</div>
 							<div class="menu-section">
 								<span class="menu-section-title">Specialized</span>
 								<button
@@ -898,6 +919,15 @@
     color: var(--text-secondary);
     opacity: 0.6;
     letter-spacing: 0.05em;
+  }
+
+  .option-row {
+    justify-content: space-between;
+  }
+
+  .option-row :global(.option-check) {
+    margin-left: auto;
+    opacity: 0.85;
   }
 
   .menu-section button {

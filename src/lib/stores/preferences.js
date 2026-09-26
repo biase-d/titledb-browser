@@ -71,6 +71,13 @@ function createPreferencesStore () {
 		? (localStorage.getItem('adaptive_theme') !== 'false')
 		: true
 
+	// Off by default: a title ID is specialist data, and giving it a line on
+	// every card put it on equal footing with the game's name for the many
+	// people who never need it. Those who do can turn it on in the view menu
+	const initialShowTitleIds = browser
+		? (localStorage.getItem('show_title_ids') === 'true')
+		: false
+
 	const initialHighResImages = browser
 		? (localStorage.getItem('high_res_images') === 'true')
 		: false
@@ -83,6 +90,7 @@ function createPreferencesStore () {
 		region: initialRegion,
 		adaptiveTheme: initialAdaptiveTheme,
 		highResImages: initialHighResImages,
+		showTitleIds: initialShowTitleIds,
 		favoriteColor: initialFavoriteColor
 	})
 
@@ -114,6 +122,19 @@ function createPreferencesStore () {
 				const newState = { ...state, adaptiveTheme: enabled }
 				localStorage.setItem('adaptive_theme', enabled.toString())
 				document.cookie = `adaptive_theme=${enabled}; path=/; max-age=31536000; SameSite=Lax`
+				return newState
+			})
+		},
+		/**
+		 * Shows or hides title IDs on cards
+		 * @param {boolean} enabled
+		 */
+		setShowTitleIds: (enabled) => {
+			if (!browser) return
+
+			update(state => {
+				const newState = { ...state, showTitleIds: enabled }
+				localStorage.setItem('show_title_ids', enabled.toString())
 				return newState
 			})
 		},

@@ -1,7 +1,7 @@
 <script>
     import { browser } from '$app/environment'
     import Icon from '@iconify/svelte'
-    import { getRegionLabel } from '$lib/regions'
+    import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
     import { proxyImage } from '$lib/image'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
@@ -20,6 +20,7 @@
 
     let titleName = $derived(getLocalizedName(names, preferredRegion))
     let regionLabel = $derived(getRegionLabel(regions))
+    let regionBadge = $derived(getRegionLabelShort(regions))
     let showRegionBadge = $derived(regionLabel && regionLabel !== 'Worldwide')
 
     // --- Theme Extraction State ---
@@ -74,9 +75,11 @@
         <TextHighlight text={titleName} {query} />
     </span>
     {#if showRegionBadge}
-        <span class="compact-region" title={regionLabel}>{regionLabel}</span>
+        <span class="compact-region" title={regionLabel}>{regionBadge}</span>
     {/if}
+    {#if $preferences.showTitleIds}
     <span class="compact-id">{id}</span>
+    {/if}
 </a>
 
 <style>

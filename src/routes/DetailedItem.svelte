@@ -101,7 +101,9 @@
                 <h3 class="title-text">
                     <TextHighlight text={titleName} {query} />
                 </h3>
+                {#if $preferences.showTitleIds}
                 <span class="title-id-badge">{id}</span>
+                {/if}
             </div>
 
             <div class="meta-grid">

@@ -14,6 +14,20 @@
     let container = $state()
     let heroIndex = $state(0)
     let isPaused = $state(false)
+
+    /**
+     * Stopped by the reader, as opposed to paused while a pointer rests on it
+     *
+     * Hover was the only way to stop this, which is no way at all on a phone or
+     * from a keyboard - and it advances every 6 seconds through fourteen slides
+     * while someone is trying to read one. WCAG 2.2.2 asks for a way to stop
+     * anything that moves on its own for longer than five seconds
+     */
+    let isStopped = $state(false)
+
+    // Someone who has asked their system for less motion has already answered
+    // the question, so it never starts
+    let prefersReducedMotion = $state(false)
     let dynamicTheme = $state(null)
     
     /** @type {ReturnType<typeof setInterval>} */
@@ -34,7 +48,7 @@
         if (!browser) return
         clearInterval(carouselTimer)
         carouselTimer = setInterval(() => {
-            if (!isPaused && recentUpdates.length > 0) {
+            if (!isPaused && !isStopped && !prefersReducedMotion && recentUpdates.length > 0) {
                 nextHero()
             }
         }, 6000) // 6 seconds per slide
@@ -83,7 +97,16 @@
     }
 
     onMount(() => {
+        // Followed live, not read once: someone can turn it on while the page
+        // is open, and the slideshow should stop when they do
+        const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+        prefersReducedMotion = motion.matches
+        const onMotionChange = () => (prefersReducedMotion = motion.matches)
+        motion.addEventListener('change', onMotionChange)
+
         if (recentUpdates.length > 0) startCarousel()
+
+        return () => motion.removeEventListener('change', onMotionChange)
     })
 
     onDestroy(() => {
@@ -99,6 +122,8 @@
         style:--dynamic-overlay={dynamicTheme?.overlay || 'rgba(0,0,0,0.8)'}
         onmouseenter={() => (isPaused = true)}
         onmouseleave={() => (isPaused = false)}
+        onfocusin={() => (isPaused = true)}
+        onfocusout={() => (isPaused = false)}
         aria-label="Featured recently updated games"
         in:fade
     >
@@ -139,15 +164,21 @@
 
                         {#if perf.docked?.target_fps || perf.handheld?.target_fps}
                             <div class="hero-performance">
+                                <!-- Named, not left to the icon. These two read
+                                     identically - "30 FPS" beside "30 FPS" - and
+                                     which is which was carried entirely by a 16px
+                                     television against a 16px console -->
                                 {#if perf.docked?.target_fps}
-                                    <span class="perf-glass-badge">
+                                    <span class="perf-glass-badge" title="Docked mode">
                                         <Icon icon="mdi:television" width="16" />
+                                        <span class="perf-mode">Docked</span>
                                         {perf.docked.target_fps === 'Unlocked' ? '60' : perf.docked.target_fps} FPS
                                     </span>
                                 {/if}
                                 {#if perf.handheld?.target_fps}
-                                    <span class="perf-glass-badge">
+                                    <span class="perf-glass-badge" title="Handheld mode">
                                         <Icon icon="mdi:nintendo-switch" width="16" />
+                                        <span class="perf-mode">Handheld</span>
                                         {perf.handheld.target_fps === 'Unlocked' ? '60' : perf.handheld.target_fps} FPS
                                     </span>
                                 {/if}
@@ -171,12 +202,16 @@
         </div>
 
         <div class="hero-controls">
+            <span class="slide-count" aria-hidden="true">
+                {heroIndex + 1} / {recentUpdates.length}
+            </span>
+
             <div class="indicators">
                 {#each recentUpdates as _, i}
                     <button
                         class="indicator-bar"
                         class:active={i === heroIndex}
-                        class:paused={isPaused}
+                        class:paused={isPaused || isStopped || prefersReducedMotion}
                         onclick={() => setHero(i)}
                         aria-label="Go to slide {i + 1}"
                     >
@@ -186,6 +221,14 @@
             </div>
             
             <div class="nav-buttons">
+                <button
+                    class="control-btn"
+                    onclick={() => (isStopped = !isStopped)}
+                    aria-label={isStopped ? 'Resume automatic slideshow' : 'Pause automatic slideshow'}
+                    aria-pressed={isStopped}
+                >
+                    <Icon icon={isStopped ? 'mdi:play' : 'mdi:pause'} width="20" />
+                </button>
                 <button class="control-btn" onclick={prevHero} aria-label="Previous">
                     <Icon icon="mdi:chevron-left" width="24" />
                 </button>
@@ -319,6 +362,11 @@
     }
 
     /* Modern Themed Glassmorphism Badges */
+    .perf-mode {
+        opacity: 0.75;
+        font-weight: 500;
+    }
+
     .perf-glass-badge {
         display: inline-flex;
         align-items: center;
@@ -408,6 +456,15 @@
         gap: 6px;
     }
 
+    .slide-count {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+        font-variant-numeric: tabular-nums;
+        margin-right: 0.75rem;
+        display: none;
+    }
+
     /* Animated Progress Bars instead of dots */
     .indicator-bar {
         width: 30px;
@@ -477,7 +534,12 @@
             gap: 0.4rem; /* Tighter spacing so badges don't wrap to 3 lines */
         }
         
-        .perf-glass-badge {
+        .perf-mode {
+        opacity: 0.75;
+        font-weight: 500;
+    }
+
+    .perf-glass-badge {
             font-size: 0.75rem; /* Slightly smaller to fit on narrow screens */
             padding: 4px 10px;
         }
@@ -505,8 +567,12 @@
         }
         
         .indicators {
-            width: 100%;
-            justify-content: center;
+            display: none;
+        }
+
+        .slide-count {
+            display: inline-block;
+            margin-right: 0;
         }
         
         .indicator-bar {
