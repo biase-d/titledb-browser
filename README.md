@@ -85,12 +85,24 @@ rather than corrupting the schema swap. That is also why the GitHub Actions
 workflows no longer carry a cron: `refresh-db.yml` and `pipeline-failover.yml`
 are manual (`workflow_dispatch`) escape hatches for when the host is unavailable.
 
-**First deploy**, once the database is reachable:
+**Database setup.** Run before each deploy, not only the first — it is
+idempotent, and it is what applies a new migration and repairs a database whose
+schema has drifted:
 
 ```sh
-node scripts/bootstrap-db.js          # schemas, migrations, public views
-node scripts/build.js --full-rebuild  # populate
+node scripts/bootstrap-db.js          # schemas, migrations, layers, public views
 ```
+
+On a first deploy, follow it with a populate:
+
+```sh
+node scripts/build.js --full-rebuild
+```
+
+Migrations apply to `public` only. The layers get their content tables from the
+sync pipeline, which is what fills and swaps them; `public` holds the shared
+types and the tables that are never swapped — users, submissions, favorites,
+user_preferences, data_requests.
 
 **Health.** The image declares a `HEALTHCHECK` against
 `/api/v1/status?strict=1`, which answers 503 only when the database is

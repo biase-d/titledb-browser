@@ -75,6 +75,40 @@ export async function ensureSchemas (sqlClient) {
 		)
 	`)
 
+    // These three live only in public - they are people's data, not content, so
+    // they are never swapped with a layer. They are created here rather than
+    // left to the migration because an existing database will not re-run it:
+    // drizzle's journal already marks it applied, which is how production ended
+    // up with them in layer_a alone and answered 500 on /stats, /contribute and
+    // /profile. Ensuring them on every run repairs that without a manual step
+    await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.data_requests (
+			"game_id" TEXT NOT NULL,
+			"user_id" TEXT NOT NULL,
+			"created_at" TIMESTAMPTZ DEFAULT now(),
+			CONSTRAINT "data_requests_game_id_user_id_pk" PRIMARY KEY("game_id","user_id")
+		)
+	`)
+
+    await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.favorites (
+			"user_id" TEXT NOT NULL,
+			"game_id" TEXT NOT NULL,
+			"created_at" TIMESTAMPTZ DEFAULT now(),
+			CONSTRAINT "favorites_user_id_game_id_pk" PRIMARY KEY("user_id","game_id")
+		)
+	`)
+
+    await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.user_preferences (
+			"user_id" TEXT PRIMARY KEY NOT NULL,
+			"has_onboarded" INTEGER DEFAULT 0,
+			"preferred_region" TEXT,
+			"featured_game_id" TEXT,
+			"last_updated" TIMESTAMPTZ DEFAULT now()
+		)
+	`)
+
     await sqlClient.unsafe(`
 		CREATE INDEX IF NOT EXISTS submissions_pr_number_idx
 		ON public.submissions ("github_pr_number")
