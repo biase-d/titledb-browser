@@ -39,6 +39,21 @@
 		name="description"
 		content="Help build the most comprehensive Nintendo Switch performance database. Contribute FPS data, resolution details, and graphics settings for games."
 	/>
+	<link rel="canonical" href="{page.url.origin}/contribute" />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="{page.url.origin}/contribute" />
+	<meta property="og:title" content="Contribute - Switch Performance" />
+	<meta
+		property="og:description"
+		content="Help build the most comprehensive Nintendo Switch performance database. Contribute FPS data, resolution details, and graphics settings for games."
+	/>
+	<meta property="og:site_name" content="Switch Performance" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Contribute - Switch Performance" />
+	<meta
+		name="twitter:description"
+		content="Help build the most comprehensive Nintendo Switch performance database. Contribute FPS data, resolution details, and graphics settings for games."
+	/>
 </svelte:head>
 
 <div class="contribute-page" bind:this={pageHeader} tabindex="-1">

@@ -23,6 +23,7 @@
         name="description"
         content="View community contributions currently awaiting verification via GitHub Pull Requests. Track the status of pending performance data submissions."
     />
+    <meta name="robots" content="noindex, follow" />
 </svelte:head>
 
 <div class="pending-dashboard">

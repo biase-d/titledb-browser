@@ -250,6 +250,21 @@ const chartData = $derived(
     name="description"
     content="Explore comprehensive statistics and insights about the Nintendo Switch game library — release timelines, top publishers, storage distribution, and community trends."
   />
+  <link rel="canonical" href="{page.url.origin}/stats" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="{page.url.origin}/stats" />
+  <meta property="og:title" content="Data Insights - Switch Performance" />
+  <meta
+    property="og:description"
+    content="Explore comprehensive statistics and insights about the Nintendo Switch game library — release timelines, top publishers, storage distribution, and community trends."
+  />
+  <meta property="og:site_name" content="Switch Performance" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Data Insights - Switch Performance" />
+  <meta
+    name="twitter:description"
+    content="Explore comprehensive statistics and insights about the Nintendo Switch game library."
+  />
 </svelte:head>
 
 <div class="stats-dashboard">

@@ -298,7 +298,6 @@
 
 	import { themeStore } from '$lib/stores/theme.svelte'
 	$effect(() => {
-		console.log('[TitlePage] Theme trigger effect running for ID:', id)
 		if (id) {
 			themeStore.setTheme(
 				game.iconUrl || game.bannerUrl,
@@ -306,7 +305,6 @@
 			)
 		}
 		return () => {
-			console.log('[TitlePage] Theme trigger cleanup')
 			themeStore.clearTheme()
 		}
 	})
@@ -339,6 +337,13 @@
 
 		return data
 	})
+
+	const canonicalTitleId = $derived.by(() => {
+		if (!game?.allTitlesInGroup || game.allTitlesInGroup.length <= 1) return id
+		const usTitle = game.allTitlesInGroup.find((/** @type {any} */ t) => t.regions?.includes('US'))
+		if (usTitle) return usTitle.id
+		return [...game.allTitlesInGroup].sort((a, b) => a.id.localeCompare(b.id))[0].id
+	})
 </script>
 
 <svelte:head>
@@ -347,7 +352,7 @@
 		name="description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<link rel="canonical" href="{url.origin}/title/{id}" />
+	<link rel="canonical" href="{url.origin}/title/{canonicalTitleId}" />
 	<meta property="og:type" content="product" />
 	<meta property="og:url" content={url.href} />
 	<meta property="og:title" content="{name} - Switch Performance" />

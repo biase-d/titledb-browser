@@ -24,7 +24,6 @@
 
     onMount(() => {
         if (isBot()) {
-            console.log('[Onboarding] Bot detected, skipping modal')
             return
         }
 

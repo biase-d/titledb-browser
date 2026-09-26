@@ -1,9 +1,23 @@
 <script>
     import Icon from '@iconify/svelte'
+    import { page } from '$app/state'
 </script>
 
 <svelte:head>
     <title>Privacy Policy | Switch Performance</title>
+    <meta
+        name="description"
+        content="Privacy policy detailing data handling, GitHub authentication, and local storage usage on Switch Performance."
+    />
+    <link rel="canonical" href="{page.url.origin}/privacy" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{page.url.origin}/privacy" />
+    <meta property="og:title" content="Privacy Policy | Switch Performance" />
+    <meta
+        property="og:description"
+        content="Privacy policy detailing data handling, GitHub authentication, and local storage usage on Switch Performance."
+    />
+    <meta property="og:site_name" content="Switch Performance" />
 </svelte:head>
 
 <div class="legal-page">
