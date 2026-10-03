@@ -387,6 +387,9 @@
 		performance: heroPerformance,
 	})
 
+	// The stand-in cartridge's data: nothing in it, as it is not a game
+	const ghostData = { id: 'ghost', names: [''], regions: [], publisher: null, performance: {} }
+
 	// From the server, built from the real group so it is the same on every page of the game
 	const canonicalTitleId = $derived(game.seo?.canonicalTitleId ?? id)
 	const indexable = $derived(game.seo?.indexable ?? true)
@@ -530,7 +533,7 @@
 							{#if heroGl}
 								<button class="pill" onclick={() => (focused = true)}>
 									<Icon icon="mdi:rotate-3d-variant" width="20" height="20" />
-									Inspect<span class="long"> cartridge</span>
+									<span>Inspect<span class="long"> cartridge</span></span>
 								</button>
 							{/if}
 							{#if session?.user}
@@ -646,6 +649,14 @@
 
 				{#if !hasRealProfile && !graphicsTargets}
 					<div class="notice-card no-data-cta">
+						<!-- A see-through cartridge over an empty slot: the place the data goes -->
+						<div class="ghost" aria-hidden="true">
+							<div class="ghost-cart">
+								<CartridgeItem titleData={ghostData} hero ghost />
+							</div>
+							<div class="ghost-slot"></div>
+						</div>
+						<div class="ghost-text">
 						<h3>No Performance Data Yet</h3>
 						<p>
 							This title is in our database, but no community
@@ -682,6 +693,7 @@
 									? 'Data Requested'
 									: 'Request Data'}
 							</button>
+						</div>
 						</div>
 					</div>
 				{:else if hasRealProfile}
@@ -1537,11 +1549,52 @@
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
+		gap: 1.25rem;
 		border-style: dashed;
 		padding: 2rem;
 		background-color: var(--surface-color);
 		border-color: var(--border-color);
 	}
+	.ghost {
+		position: relative;
+		width: 6.5rem;
+		flex: none;
+		padding-bottom: 1.5rem;
+	}
+
+	.ghost-cart {
+		position: relative;
+		z-index: 1;
+		--cart-max: 100%;
+	}
+
+	/* The empty slot beneath it: a dashed outline the cartridge hovers over */
+	.ghost-slot {
+		position: absolute;
+		left: -0.75rem;
+		right: -0.75rem;
+		bottom: 0;
+		height: 0.9rem;
+		border: 2px dashed color-mix(in srgb, var(--text-secondary) 55%, transparent);
+		border-radius: 999px;
+	}
+
+	.ghost-text {
+		min-width: 0;
+	}
+
+	@media (min-width: 640px) {
+		.no-data-cta {
+			flex-direction: row;
+			text-align: left;
+			gap: 2rem;
+		}
+
+		.no-data-cta .cta-group {
+			justify-content: flex-start;
+		}
+	}
+
 	.no-data-cta h3 {
 		margin: 0 0 0.5rem;
 	}

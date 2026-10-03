@@ -32,9 +32,10 @@
    * glActive: whether the card is being drawn in 3D, for the page to know
    * handleRef: the card's handle on the stage, for something that needs to turn it
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
+   * ghost: a see-through, unlabelled stand-in that invites someone to add data
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
    */
-  let { titleData, index = 0, hero = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -108,7 +109,8 @@
     regionBadge: regionBadge || '',
     dockedFps: dockedFps || null,
     handheldFps: handheldFps || null,
-    artUrl: proxyImage(iconUrl || titleData.bannerUrl, 512) || null
+    artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, 512) || null),
+    ghost
   })
 
   // Names and numbers can change under a card that stays (a region switch)
@@ -188,7 +190,7 @@
             reduced: isReducedMotion(prefs),
             light: lightFor(activeScenes(prefs.seasonal, page.url.searchParams))
           })
-          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap' } : {})
+          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost } : {})
           await h.loaded
           if (cancelled) { h.dispose(); return }
           handle = h

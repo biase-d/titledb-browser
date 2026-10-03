@@ -51,6 +51,7 @@ const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
  * @property {string | null} dockedFps
  * @property {string | null} handheldFps
  * @property {string | null} artUrl
+ * @property {boolean} [ghost] an unlabelled stand-in with an invitation on it, not a real game
  */
 
 /** @param {string} src @returns {Promise<HTMLImageElement | null>} */
@@ -105,6 +106,7 @@ function roundRect (ctx, x, y, w, h, r) {
  * @param {HTMLCanvasElement} canvas @param {CartridgeData} d @param {HTMLImageElement | null} art
  */
 function drawFront (canvas, d, art) {
+	if (d.ghost) return drawGhostFront(canvas)
 	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
 	const u = canvas.width / 100
 	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
@@ -266,6 +268,79 @@ function drawFront (canvas, d, art) {
 
 	// The arrow: 16.2 wide, 7.4 tall, its tip 4.1 above the bottom edge
 	ctx.fillStyle = 'rgba(255,255,255,0.18)'
+	ctx.beginPath()
+	ctx.moveTo(41.9 * u, 136.1 * u)
+	ctx.lineTo(58.1 * u, 136.1 * u)
+	ctx.lineTo(50 * u, 143.5 * u)
+	ctx.closePath()
+	ctx.fill()
+}
+
+/**
+ * The front of a stand-in: the same label, but blank, with a plus and an
+ * invitation where the game would be. Drawn to be drawn translucent
+ * @param {HTMLCanvasElement} canvas
+ */
+function drawGhostFront (canvas) {
+	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
+	const u = canvas.width / 100
+	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
+	ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+	const lx = 8.7 * u
+	const ly = 12.4 * u
+	const lw = 82.6 * u
+	const lh = 117.1 * u
+
+	ctx.fillStyle = '#050506'
+	roundRect(ctx, lx - 1 * u, ly - 1 * u, lw + 2 * u, lh + 2 * u, 2.4 * u)
+	ctx.fill()
+
+	ctx.save()
+	roundRect(ctx, lx, ly, lw, lh, 1.6 * u)
+	ctx.clip()
+
+	const body = ctx.createLinearGradient(0, ly, 0, ly + lh)
+	body.addColorStop(0, '#4a4d57')
+	body.addColorStop(1, '#2c2e35')
+	ctx.fillStyle = body
+	ctx.fillRect(lx, ly, lw, lh)
+
+	ctx.fillStyle = 'rgba(255,255,255,0.14)'
+	ctx.fillRect(lx, ly, lw, 28.4 * u)
+	ctx.fillStyle = 'rgba(255,255,255,0.78)'
+	ctx.textAlign = 'center'
+	ctx.textBaseline = 'middle'
+	ctx.font = `700 ${5.8 * u}px ${sans}`
+	if ('letterSpacing' in ctx) ctx.letterSpacing = `${0.6 * u}px`
+	ctx.fillText('YOUR DATA HERE', lx + lw / 2, ly + 14.2 * u)
+	if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
+
+	// A dashed ring with a plus in it
+	const cx = lx + lw / 2
+	const cy = ly + 28.4 * u + (lh - 28.4 * u) / 2 - 6 * u
+	ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+	ctx.lineWidth = 0.9 * u
+	ctx.setLineDash([2.6 * u, 2.2 * u])
+	ctx.beginPath()
+	ctx.arc(cx, cy, 15 * u, 0, 6.283)
+	ctx.stroke()
+	ctx.setLineDash([])
+	ctx.lineWidth = 1.6 * u
+	ctx.lineCap = 'round'
+	ctx.beginPath()
+	ctx.moveTo(cx - 6.5 * u, cy)
+	ctx.lineTo(cx + 6.5 * u, cy)
+	ctx.moveTo(cx, cy - 6.5 * u)
+	ctx.lineTo(cx, cy + 6.5 * u)
+	ctx.stroke()
+
+	ctx.fillStyle = 'rgba(255,255,255,0.7)'
+	ctx.font = `800 ${6.4 * u}px ${sans}`
+	ctx.fillText('Be the first', cx, ly + lh - 10 * u)
+	ctx.restore()
+
+	ctx.fillStyle = 'rgba(255,255,255,0.16)'
 	ctx.beginPath()
 	ctx.moveTo(41.9 * u, 136.1 * u)
 	ctx.lineTo(58.1 * u, 136.1 * u)
@@ -476,7 +551,7 @@ export class CartridgeStage {
 	 * Draws a cartridge over an element and keeps it there
 	 * @param {HTMLElement} el
 	 * @param {CartridgeData} data
-	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap' }} [opts]
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap', ghost?: boolean }} [opts]
 	 */
 	register (el, data, opts = {}) {
 		const group = new Group()
@@ -497,6 +572,14 @@ export class CartridgeStage {
 		back.rotation.y = Math.PI
 		back.position.z = -D / 2 - 0.0015
 		group.add(front, back)
+		if (opts.ghost) {
+			// A stand-in: see-through, so it reads as a place for a game and not a game
+			const veil = this.shellMaterial.clone()
+			veil.transparent = true
+			veil.opacity = 0.5
+			shell.material = veil
+			for (const m of [front, back]) /** @type {any} */ (m.material).opacity = 0.62
+		}
 		group.visible = false
 		this.scene.add(group)
 
