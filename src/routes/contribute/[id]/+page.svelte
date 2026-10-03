@@ -6,6 +6,7 @@
 	import { getDraft, deleteDraft } from '$lib/indexedDB'
 	import {
 		generateChangeSummary,
+		EMPTY_ROW_NOTE,
 		pruneEmptyValues,
 		isProfileEmpty,
 		isGraphicsEmpty,
@@ -208,7 +209,7 @@
 	)
 	const hasMeaningfulChanges = $derived(
 		changeSummary.length > 0 &&
-			!changeSummary.every((s) => s.includes('Added empty placeholder')),
+			!changeSummary.every((s) => s.includes(EMPTY_ROW_NOTE)),
 	)
 
 	onMount(async () => {

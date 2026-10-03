@@ -79,6 +79,9 @@ export function isGraphicsEmpty (graphics) {
 	return isModeDataEmpty(graphics.docked) && isModeDataEmpty(graphics.handheld)
 }
 
+/** What the summary says about a new version row with nothing in it. Matched on by the form */
+export const EMPTY_ROW_NOTE = 'Ignored an empty performance row'
+
 /**
  * Generates a human-readable summary of changes between original and updated contribution data
  * @param {object} originals - The original data from the database
@@ -108,7 +111,7 @@ export function generateChangeSummary (originals, updated) {
 		const originalProfile = originalProfilesMap.get(key)
 		const newIsEmpty = isProfileEmpty(newProfile)
 		if (!originalProfile) {
-			summary.push(newIsEmpty ? `Added empty placeholder for performance v${newProfile.gameVersion}.` : `Added new performance data for v${newProfile.gameVersion}.`)
+			summary.push(newIsEmpty ? `${EMPTY_ROW_NOTE} for v${newProfile.gameVersion}: nothing to save.` : `Added new performance data for v${newProfile.gameVersion}.`)
 		} else {
 			const originalIsEmpty = isProfileEmpty(originalProfile)
 			const contentChanged = stringify(pruneEmptyValues(newProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile.profiles))
