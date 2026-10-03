@@ -7,6 +7,7 @@
 	import Icon from '@iconify/svelte'
 	import ListItem from './ListItem.svelte'
 	import GridItem from './GridItem.svelte'
+	import CartridgeItem from './CartridgeItem.svelte'
 	import TableItem from './TableItem.svelte'
 	import GalleryItem from './GalleryItem.svelte'
 	import DetailedItem from './DetailedItem.svelte'
@@ -37,7 +38,7 @@
 	let regionFilter = $state('')
 	let selectedSort = $state('date-desc')
 	let currentPage = $state(1)
-	/** @type {"list" | "grid" | "table" | "detailed" | "gallery" | "activity"} */
+	/** @type {"list" | "grid" | "cartridge" | "table" | "detailed" | "gallery" | "activity"} */
 	let viewMode = $state('grid')
 	let preferredRegion = $state('US')
 	let isViewPickerOpen = $state(false)
@@ -64,6 +65,7 @@
 		const validModes = [
 			'list',
 			'grid',
+			'cartridge',
 			'table',
 			'detailed',
 			'gallery',
@@ -328,6 +330,8 @@
 								? 'mdi:view-list'
 								: viewMode === 'grid'
 									? 'mdi:view-grid'
+									: viewMode === 'cartridge'
+										? 'mdi:sd'
 									: viewMode === 'table'
 										? 'mdi:table'
 											: viewMode === 'detailed'
@@ -358,6 +362,14 @@
 								>
 									<Icon icon="mdi:view-grid" />
 									<span>Grid</span>
+								</button>
+								<button
+									class:active={viewMode === 'cartridge'}
+									onclick={() => (viewMode = 'cartridge')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:sd" />
+									<span>Cartridge</span>
 								</button>
 								<button
 									class:active={viewMode === 'list'}
@@ -449,27 +461,33 @@
 				class="results-container {viewMode}"
 			>
 				{#if showSkeletons}
-					{#each Array(viewMode === 'grid' || viewMode === 'gallery' ? 12 : 8) as _}
+					{#each Array(viewMode === 'grid' || viewMode === 'gallery' || viewMode === 'cartridge' ? 12 : 8) as _}
 						<SkeletonCard {viewMode} />
 					{/each}
 				{:else}
-					{#each results as item (item.id)}
-						{#if viewMode === 'list'}
-							<ListItem titleData={item} query={search} />
-						{:else if viewMode === 'grid'}
-							<GridItem titleData={item} query={search} />
-						{:else if viewMode === 'table'}
-							<TableItem titleData={item} query={search} />
-						{:else if viewMode === 'gallery'}
-							<GalleryItem titleData={item} />
-						{:else if viewMode === 'detailed'}
-							<DetailedItem titleData={item} query={search} />
-						{:else if viewMode === 'activity'}
-							<ActivityItem titleData={item} />
-						{/if}
-					{:else}
-						<NoResults onClear={clearFilters} />
-					{/each}
+					<!-- A new view replaces the old at once: the cards' slide-out would otherwise
+					     play over the new ones -->
+					{#key viewMode}
+						{#each results as item, i (item.id)}
+							{#if viewMode === 'list'}
+								<ListItem titleData={item} query={search} />
+							{:else if viewMode === 'grid'}
+								<GridItem titleData={item} query={search} />
+							{:else if viewMode === 'cartridge'}
+								<CartridgeItem titleData={item} index={i} />
+							{:else if viewMode === 'table'}
+								<TableItem titleData={item} query={search} />
+							{:else if viewMode === 'gallery'}
+								<GalleryItem titleData={item} />
+							{:else if viewMode === 'detailed'}
+								<DetailedItem titleData={item} query={search} />
+							{:else if viewMode === 'activity'}
+								<ActivityItem titleData={item} />
+							{/if}
+						{:else}
+							<NoResults onClear={clearFilters} />
+						{/each}
+					{/key}
 				{/if}
 			</div>
 		</div>
@@ -791,6 +809,21 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 		gap: 1.5rem;
+	}
+
+	.results-container.cartridge {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 2rem 1.25rem;
+		justify-items: center;
+		padding-block: 0.5rem;
+	}
+
+	@media (max-width: 560px) {
+		.results-container.cartridge {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 1.5rem 0.75rem;
+		}
 	}
 
 	/* On a phone one 200px minimum meant one card per screen */
