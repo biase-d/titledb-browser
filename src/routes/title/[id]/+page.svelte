@@ -478,7 +478,6 @@
 						<CartridgeItem
 							titleData={heroData}
 							hero
-							plain
 							docked={dockedNow}
 							dockTo={dockTarget}
 							bind:glActive={heroGl}

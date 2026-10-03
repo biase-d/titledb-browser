@@ -34,16 +34,15 @@
    * handleRef: the card's handle on the stage, for something that needs to turn it
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
    * ghost: a see-through, unlabelled stand-in that invites someone to add data
-   * plain: art only, with no title or code over it (on the game's own page, where the title is beside it)
    * href: where the card leads, when not the title page
    * css: draw it in CSS even where WebGL is available, for somewhere the canvas cannot reach (a modal)
    * pose: ride in a given pose ('hero' for a three-quarter view) without being a hero
    * shown: false to keep it from being drawn (a slide that is not the one showing)
    * clipTo: an element it must stay inside (a carousel that scrolls its slides)
    * layout: 'snap' for a card inside something that scrolls on its own
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, plain?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, plain = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -120,7 +119,6 @@
     // Half the size unless high-resolution images are on in Settings
     artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, $preferences.highResImages ? 512 : 256) || null),
     ghost,
-    plain,
     ghostCopy: titleData.ghostCopy
   })
 
@@ -421,12 +419,9 @@
               <div class="no-art"><Icon icon="mdi:controller-classic-outline" /></div>
             {/if}
           </div>
-          {#if !plain}
-            <div class="info">
-              <p class="title" title={titleName}>{titleName}</p>
-              <p class="code">{id}{regionBadge ? ` · ${regionBadge}` : ''}</p>
-            </div>
-          {/if}
+          <div class="info">
+            <p class="code">{id}{regionBadge ? ` · ${regionBadge}` : ''}</p>
+          </div>
         </div>
         <div class="mark" aria-hidden="true"></div>
         <div class="sheen" aria-hidden="true"></div>
@@ -675,33 +670,17 @@
     color: rgba(0, 0, 0, 0.25);
   }
 
-  /* Over the bottom of the art, on a blur of it, not on a white strip */
+  /* The code and region over the foot of the art: no blur and no title, since
+     the cover carries the name. A faint shade keeps it readable */
   .info {
     position: absolute;
     left: 0;
     right: 0;
     bottom: 0;
-    height: 27cqw;
-    padding: 2.2cqw 3.5cqw 1.6cqw;
+    padding: 6cqw 3.5cqw 1.8cqw;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
     color: #fff;
-    background: linear-gradient(180deg, rgba(8, 9, 12, 0.15), rgba(8, 9, 12, 0.58) 35%, rgba(8, 9, 12, 0.78));
-    -webkit-backdrop-filter: blur(1.6cqw);
-    backdrop-filter: blur(1.6cqw);
-  }
-
-  .title {
-    margin: 0;
-    font-size: 6.4cqw;
-    font-weight: 800;
-    line-height: 1.15;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    background: linear-gradient(180deg, rgba(8, 9, 12, 0), rgba(8, 9, 12, 0.6));
   }
 
   .code {
@@ -709,7 +688,8 @@
     font-family: var(--font-mono);
     font-size: 3.7cqw;
     letter-spacing: 0.02em;
-    color: rgba(255, 255, 255, 0.72);
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.7);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

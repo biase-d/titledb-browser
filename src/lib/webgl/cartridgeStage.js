@@ -64,7 +64,6 @@ const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
  * @property {string | null} dockedFps
  * @property {string | null} handheldFps
  * @property {string | null} artUrl
- * @property {boolean} [plain] art only: no blurred strip, title or code over it
  * @property {boolean} [ghost] an unlabelled stand-in with an invitation on it, not a real game
  * @property {{ band?: string, line?: string, glyph?: 'plus' | 'question' }} [ghostCopy] what a stand-in says
  */
@@ -231,57 +230,22 @@ function drawFront (canvas, d, art) {
 		ctx.textAlign = 'left'
 	}
 
-	// On the game's own page the title is already beside it, so the label is
-	// left as plain art, with no blurred strip, title or code
-	if (!d.plain) {
-		// The blur: the strip's own pixels. A real blur where the browser has one;
-		// elsewhere (older Safari has no canvas filter) the strip is shrunk and
-		// stretched back, which is blockier but reads the same behind text
-		const sx = lx
-		const sy = ly + lh - 27 * u
-		const sw = lw
-		const sh = 27 * u
-		ctx.save()
-		ctx.beginPath()
-		ctx.rect(sx, sy, sw, sh)
-		ctx.clip()
-		if ('filter' in ctx) {
-			const copy = Object.assign(document.createElement('canvas'), { width: Math.ceil(sw), height: Math.ceil(sh) })
-			const cctx = /** @type {CanvasRenderingContext2D} */ (copy.getContext('2d'))
-			cctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh)
-			ctx.filter = `blur(${2.4 * u}px)`
-			// Drawn a little oversize so the blurred edge falls outside the clip
-			ctx.drawImage(copy, sx - 3 * u, sy - 3 * u, sw + 6 * u, sh + 6 * u)
-			ctx.filter = 'none'
-		} else {
-			const tiny = Object.assign(document.createElement('canvas'), { width: 28, height: 9 })
-			const tctx = /** @type {CanvasRenderingContext2D} */ (tiny.getContext('2d'))
-			tctx.imageSmoothingQuality = 'high'
-			tctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, tiny.width, tiny.height)
-			ctx.imageSmoothingEnabled = true
-			ctx.imageSmoothingQuality = 'high'
-			ctx.drawImage(tiny, 0, 0, tiny.width, tiny.height, sx, sy, sw, sh)
-		}
-		const shade = ctx.createLinearGradient(0, sy, 0, sy + sh)
-		shade.addColorStop(0, 'rgba(8,9,12,0.15)')
-		shade.addColorStop(0.35, 'rgba(8,9,12,0.58)')
-		shade.addColorStop(1, 'rgba(8,9,12,0.78)')
-		ctx.fillStyle = shade
-		ctx.fillRect(sx, sy, sw, sh)
-
-		// Title and code
-		ctx.textBaseline = 'alphabetic'
-		ctx.fillStyle = '#fff'
-		ctx.shadowColor = 'rgba(0,0,0,0.55)'
-		ctx.shadowBlur = 1.2 * u
-		ctx.font = `800 ${6.4 * u}px ${sans}`
-		const lines = wrap(ctx, d.title, lw - 7 * u, 2)
-		lines.forEach((line, i) => ctx.fillText(line, lx + 3.5 * u, sy + 8.4 * u + i * 7.4 * u))
-		ctx.shadowBlur = 0
-		ctx.fillStyle = 'rgba(255,255,255,0.72)'
-		ctx.font = `${3.7 * u}px 'Fira Mono', ui-monospace, monospace`
-		ctx.fillText(`${d.id}${d.regionBadge ? ` · ${d.regionBadge}` : ''}`.slice(0, 34), lx + 3.5 * u, ly + lh - 2.6 * u)
-	}
+	// Most covers already carry the game's name, so the label is the art itself
+	// with just the code and region over its foot: no blur, no title. A faint
+	// shade under the line keeps it readable on a light cover
+	const sy = ly + lh - 14 * u
+	const shade = ctx.createLinearGradient(0, sy, 0, ly + lh)
+	shade.addColorStop(0, 'rgba(8,9,12,0)')
+	shade.addColorStop(1, 'rgba(8,9,12,0.6)')
+	ctx.fillStyle = shade
+	ctx.fillRect(lx, sy, lw, 14 * u)
+	ctx.textBaseline = 'alphabetic'
+	ctx.fillStyle = 'rgba(255,255,255,0.9)'
+	ctx.shadowColor = 'rgba(0,0,0,0.7)'
+	ctx.shadowBlur = 1.2 * u
+	ctx.font = `${3.7 * u}px 'Fira Mono', ui-monospace, monospace`
+	ctx.fillText(`${d.id}${d.regionBadge ? ` · ${d.regionBadge}` : ''}`.slice(0, 34), lx + 3.5 * u, ly + lh - 2.6 * u)
+	ctx.shadowBlur = 0
 	ctx.restore()
 	ctx.restore()
 
@@ -512,7 +476,10 @@ export class CartridgeStage {
 		this.renderer.setClearColor(0x000000, 0)
 		this.renderer.domElement.setAttribute('aria-hidden', 'true')
 		Object.assign(this.renderer.domElement.style, {
-			position: 'fixed', inset: '0', width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: '40'
+			// 100%, not 100vw/100vh: on a phone 100vh is the page with the address bar tucked
+			// away, taller than the window the cards are measured in while it shows, which
+			// stretched the canvas and slid the cards off their places
+			position: 'fixed', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '40'
 		})
 
 		this.scene = new Scene()
@@ -584,6 +551,8 @@ export class CartridgeStage {
 		this.onResize = () => { this.resize(); this.snapUntil = performance.now() + 300; this.wake() }
 		window.addEventListener('scroll', this.onScroll, { passive: true })
 		window.addEventListener('resize', this.onResize)
+		// The address bar sliding away changes the visible height without a window resize on some phones
+		window.visualViewport?.addEventListener('resize', this.onResize)
 		this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
 			e.preventDefault()
 			this.lost = true
@@ -1392,6 +1361,7 @@ export class CartridgeStage {
 	dispose () {
 		window.removeEventListener('scroll', this.onScroll)
 		window.removeEventListener('resize', this.onResize)
+		window.visualViewport?.removeEventListener('resize', this.onResize)
 		this.stopGridTilt?.()
 		this.visibility.disconnect()
 		for (const el of [...this.handles.keys()]) this.unregister(el)
