@@ -255,7 +255,7 @@
       </div>
       <div class="card glass-panel">
         <div class="card-head"><h2>Docked resolution</h2><span class="card-note">how the game scales</span></div>
-        <BarList items={stats.performance.resolutionTypes} color="#14b8a6" />
+        <BarList items={stats.performance.resolutionTypes.map((/** @type {any} */ r) => ({ label: r.label, value: r.count }))} color="#14b8a6" />
       </div>
     </div>
   {:else if tab === 'community'}

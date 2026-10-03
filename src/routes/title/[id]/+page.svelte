@@ -19,6 +19,7 @@
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte'
 	import RegionPopover from './RegionPopover.svelte'
 	import BackToTop from './BackToTop.svelte'
+	import CartridgeFocus from './CartridgeFocus.svelte'
 	import { reveal } from '$lib/actions/reveal'
 	import CartridgeItem from '../../CartridgeItem.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
@@ -359,6 +360,14 @@
 	/** @type {HTMLElement | undefined} */
 	let dockElement = $state()
 	let heroGl = $state(false)
+	/** Looking at the cartridge up close: it flies to the middle of the screen. Its spot, and its handle on the stage */
+	let focused = $state(false)
+	/** @type {HTMLElement | undefined} */
+	let focusSlot = $state()
+	let heroHandle = $state(null)
+	// Where the hero is headed: the middle of the screen when inspected, the corner when scrolled past
+	const dockTarget = $derived(focused ? focusSlot : dockElement)
+	const dockedNow = $derived(focused || docked)
 
 	// The numbers on the cartridge: the newest real profile, else what the graphics settings target
 	const heroPerformance = $derived.by(() => {
@@ -449,7 +458,15 @@
 				<div class="header-content">
 					<div class="hero-cart" bind:this={heroElement}>
 						<div class="hero-glow" aria-hidden="true"></div>
-						<CartridgeItem titleData={heroData} hero {docked} dockTo={dockElement} bind:glActive={heroGl} />
+						<CartridgeItem
+							titleData={heroData}
+							hero
+							docked={dockedNow}
+							dockTo={dockTarget}
+							bind:glActive={heroGl}
+							bind:handleRef={heroHandle}
+							onactivate={() => (focused = true)}
+						/>
 					</div>
 					<div class="title-info">
 						<h1
@@ -940,6 +957,8 @@
 				</div>
 			</aside>
 		</div>
+
+		<CartridgeFocus open={focused} onclose={() => (focused = false)} handle={heroHandle} {name} bind:slot={focusSlot} />
 
 		<BackToTop
 			target={heroElement}

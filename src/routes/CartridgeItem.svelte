@@ -30,9 +30,11 @@
    * dragged round, rides in its own pose, and responds more to scrolling
    * dockTo/docked: where a hero flies to (a bubble on a phone) and whether it is there
    * glActive: whether the card is being drawn in 3D, for the page to know
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean }}
+   * handleRef: the card's handle on the stage, for something that needs to turn it
+   * onactivate: a tap or Enter on a hero (as opposed to a drag)
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
    */
-  let { titleData, index = 0, hero = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false) } = $props()
+  let { titleData, index = 0, hero = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -118,6 +120,7 @@
   })
 
   $effect(() => { glActive = gl })
+  $effect(() => { handleRef = gl ? handle : null })
 
   // A hero flies to its dock when told to, and back
   $effect(() => {
@@ -277,10 +280,14 @@
 
   /** Dragging a hero round. Horizontal drags spin it; a vertical one is left to scroll the page */
   let dragFrom = /** @type {{ x: number, y: number } | null} */ (null)
+  /** Where and when a press began, to tell a tap from a drag */
+  let pressed = /** @type {{ x: number, y: number, at: number } | null} */ (null)
 
   /** @param {PointerEvent} e */
   function dragStart (e) {
-    if (!hero || !gl || !handle || isReducedMotion(get(preferences))) return
+    if (!hero) return
+    pressed = { x: e.clientX, y: e.clientY, at: Date.now() }
+    if (!gl || !handle || isReducedMotion(get(preferences))) return
     dragFrom = { x: e.clientX, y: e.clientY }
     cell?.setPointerCapture(e.pointerId)
     handle.beginDrag()
@@ -295,10 +302,24 @@
 
   /** @param {PointerEvent} e */
   function dragEnd (e) {
+    // A press that barely moved and was quick is a tap: open the card up
+    if (hero && pressed && e.type === 'pointerup' &&
+      Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < 8 && Date.now() - pressed.at < 500) {
+      onactivate?.()
+    }
+    pressed = null
     if (!dragFrom) return
     dragFrom = null
     cell?.releasePointerCapture(e.pointerId)
     handle?.endDrag()
+  }
+
+  /** @param {KeyboardEvent} e */
+  function keyActivate (e) {
+    if (hero && onactivate && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      onactivate()
+    }
   }
 
   function untilt () {
@@ -315,12 +336,14 @@
   class="cell"
   class:hero
   data-sveltekit-preload-data={hero ? undefined : 'tap'}
-  role={hero ? 'img' : undefined}
-  aria-label={hero ? `${titleName} cartridge` : ariaLabel}
+  role={hero ? (onactivate ? 'button' : 'img') : undefined}
+  tabindex={hero && onactivate ? 0 : undefined}
+  aria-label={hero ? (onactivate ? `Inspect the ${titleName} cartridge` : `${titleName} cartridge`) : ariaLabel}
   style:--i={index % 8}
   onpointermove={(e) => { dragMove(e); tilt(e) }}
   onpointerleave={untilt}
   onpointerdown={dragStart}
+  onkeydown={keyActivate}
   onpointerup={dragEnd}
   onpointercancel={dragEnd}
   onclick={open}
@@ -642,7 +665,6 @@
     line-height: 1.15;
     display: -webkit-box;
     -webkit-line-clamp: 2;
-    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -700,7 +722,6 @@
     color: rgba(255, 255, 255, 0.82);
     display: -webkit-box;
     -webkit-line-clamp: 2;
-    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

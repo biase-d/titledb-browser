@@ -405,7 +405,7 @@ export class CartridgeStage {
 		this.gradient = toonGradient()
 		this.geometry = shellGeometry()
 		this.facePlane = new PlaneGeometry(1, H)
-		this.shellMaterial = new MeshToonMaterial({ color: 0x0e0e10, gradientMap: this.gradient, flatShading: true })
+		this.shellMaterial = new MeshToonMaterial({ color: 0x0e0e10, gradientMap: this.gradient })
 
 		/** @type {any} */
 		this.inserting = null
@@ -520,6 +520,11 @@ export class CartridgeStage {
 			spinX: 0, spinY: 0, spinVel: 0, dragging: false,
 			// Docking: the card can leave its place for a small spot elsewhere (a bubble
 			// on a phone) and come back. dockT runs 0 (home) to 1 (docked)
+			// Focus: the card is being inspected. It stays where it is turned, can be dragged
+			// on both axes, and can follow the phone's tilt (sensorYaw/sensorPitch are the
+			// target, sx/sy what is drawn, eased toward it)
+			focus: false,
+			sensorYaw: 0, sensorPitch: 0, sx: 0, sy: 0,
 			dockEl: /** @type {Element | null} */ (null),
 			dockTarget: 0,
 			dockT: 0,
@@ -557,11 +562,30 @@ export class CartridgeStage {
 					this.wake()
 				}
 			},
+			/**
+			 * Inspect it: it is lifted above the page's header, stays where it is turned,
+			 * and takes a two-axis drag
+			 * @param {boolean} on
+			 */
+			setFocus: (on) => {
+				handle.focus = on
+				if (!on) { handle.sensorYaw = 0; handle.sensorPitch = 0 }
+				// Above the header (50) while it is being looked at
+				this.renderer.domElement.style.zIndex = on ? '70' : '40'
+				this.wake()
+			},
+			/**
+			 * Turn it with the phone's tilt
+			 * @param {number} yaw radians
+			 * @param {number} pitch radians
+			 */
+			setSensor: (yaw, pitch) => { handle.sensorYaw = yaw; handle.sensorPitch = pitch; this.wake() },
 			beginDrag: () => { handle.dragging = true; handle.spinVel = 0; this.wake() },
 			/** @param {number} dx @param {number} dy pixels */
 			dragBy: (dx, dy) => {
 				handle.spinY += dx * 0.012
-				handle.spinX = Math.max(-0.6, Math.min(0.6, handle.spinX + dy * 0.008))
+				const limit = handle.focus ? 1.3 : 0.6
+				handle.spinX = Math.max(-limit, Math.min(limit, handle.spinX + dy * 0.008))
 				handle.spinVel = dx * 0.0016
 				this.wake()
 			},
@@ -823,7 +847,12 @@ export class CartridgeStage {
 			if (!reduced && (style === 'sway' || style === 'float' || style === 'hero')) animating = true
 
 			// Dragged round: it keeps the push a moment, then settles face-up (the nearest full turn)
-			if (!h.dragging && h.dockTarget && h.dockT >= 1 && !this.options.reduced) {
+			if (h.focus && !h.dragging) {
+				// Being inspected: it keeps the push it was given and comes to rest where it is
+				h.spinY += h.spinVel
+				h.spinVel *= 0.93
+				if (Math.abs(h.spinVel) > 0.0005) animating = true
+			} else if (!h.dragging && h.dockTarget && h.dockT >= 1 && !this.options.reduced) {
 				// In the bubble it turns slowly, all the time
 				h.spinY += dtFrame * 1.3
 				animating = true
@@ -831,9 +860,9 @@ export class CartridgeStage {
 				const home = Math.round(h.spinY / (Math.PI * 2)) * Math.PI * 2
 				h.spinY += (home - h.spinY) * 0.07 + h.spinVel
 				h.spinVel *= 0.9
-				h.spinX += (0 - h.spinX) * 0.08
+				if (!h.focus) h.spinX += (0 - h.spinX) * 0.08
 			}
-			if (h.dragging || Math.abs(h.spinVel) > 0.0005 || Math.abs(h.spinX) > 0.002 || Math.abs(h.spinY - Math.round(h.spinY / (Math.PI * 2)) * Math.PI * 2) > 0.002) animating = true
+			if (h.focus || h.dragging || Math.abs(h.spinVel) > 0.0005 || Math.abs(h.spinX) > 0.002 || Math.abs(h.spinY - Math.round(h.spinY / (Math.PI * 2)) * Math.PI * 2) > 0.002) animating = true
 
 			// Once it has turned, a quiet response to the page moving: a card near the
 			// top of the screen leans back a touch, one near the bottom forward, and
@@ -848,6 +877,11 @@ export class CartridgeStage {
 			h.scrollRx += (tSx - h.scrollRx) * 0.1
 			h.scrollRy += (tSy - h.scrollRy) * 0.1
 			if (Math.abs(h.scrollRx - tSx) > 0.002 || Math.abs(h.scrollRy - tSy) > 0.002) animating = true
+
+			// The phone's tilt, eased so a jittery sensor does not make it shake
+			h.sx += (h.sensorYaw - h.sx) * 0.14
+			h.sy += (h.sensorPitch - h.sy) * 0.14
+			if (Math.abs(h.sx - h.sensorYaw) > 0.002 || Math.abs(h.sy - h.sensorPitch) > 0.002) animating = true
 
 			// Pose fades as it leaves for the dock: a docked card just turns
 			const stay = 1 - e
@@ -867,8 +901,8 @@ export class CartridgeStage {
 			const s = width * (1 + 0.04 * h.hover)
 			g.scale.setScalar(s)
 			g.rotation.set(
-				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX,
-				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.flip * Math.PI + flightYaw,
+				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy,
+				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.flip * Math.PI + flightYaw,
 				0
 			)
 			g.position.set(
