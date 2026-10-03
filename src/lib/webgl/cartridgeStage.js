@@ -417,6 +417,7 @@ export class CartridgeStage {
 		this.lastFrame = 0
 		this.lastFrameTime = 0
 		this.lastScrollY = window.scrollY
+		this.snapUntil = 0
 		this.scrollVel = 0
 		/** @type {{ style: 'flat' | 'angled' | 'sway' | 'float', reduced: boolean }} */
 		this.options = { style: 'flat', reduced: false }
@@ -438,7 +439,7 @@ export class CartridgeStage {
 		}, { rootMargin: '200px' })
 
 		this.onScroll = () => { this.lastScroll = performance.now(); this.wake() }
-		this.onResize = () => { this.resize(); this.wake() }
+		this.onResize = () => { this.resize(); this.snapUntil = performance.now() + 300; this.wake() }
 		window.addEventListener('scroll', this.onScroll, { passive: true })
 		window.addEventListener('resize', this.onResize)
 		this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -475,7 +476,7 @@ export class CartridgeStage {
 	 * Draws a cartridge over an element and keeps it there
 	 * @param {HTMLElement} el
 	 * @param {CartridgeData} data
-	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number }} [opts]
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap' }} [opts]
 	 */
 	register (el, data, opts = {}) {
 		const group = new Group()
@@ -516,6 +517,11 @@ export class CartridgeStage {
 			scrollAmp: opts.scrollAmp ?? 1,
 			/** A card can ask for its own pose, whatever the setting says */
 			styleOverride: opts.style ?? null,
+			// 'glide': when the page reflows (a filter, a sort, a resize) the card eases to
+			// its new place instead of jumping. 'snap' follows the page exactly
+			layoutMode: opts.layout ?? 'glide',
+			/** Where it is drawn, in page coordinates, so scrolling is never smoothed */
+			layout: /** @type {{ x: number, y: number, w: number } | null} */ (null),
 			// Dragging to spin: yaw and pitch added to the pose, and a spring back to face-up
 			spinX: 0, spinY: 0, spinVel: 0, dragging: false,
 			// Docking: the card can leave its place for a small spot elsewhere (a bubble
@@ -726,6 +732,38 @@ export class CartridgeStage {
 	}
 
 	/**
+	 * Where a card should be drawn this frame. When the page reflows, the place it
+	 * is in jumps; the card eases there instead, and scrolling (which moves every
+	 * card the same way) is left alone because the easing is done in page
+	 * coordinates
+	 * @param {any} h
+	 * @param {DOMRect} r where the placeholder is now
+	 * @param {number} dt seconds since the last frame
+	 * @param {number} now
+	 * @returns {{ rect: { left: number, top: number, width: number, bottom: number, height: number }, settled: boolean }}
+	 */
+	glide (h, r, dt, now) {
+		const sx = window.scrollX
+		const sy = window.scrollY
+		const target = { x: r.left + sx, y: r.top + sy, w: r.width }
+		const snap = !h.layout || this.options.reduced || now < this.snapUntil
+		if (snap) {
+			h.layout = target
+		} else {
+			// Frame-rate independent: about a tenth of a second to cover most of it
+			const k = 1 - Math.exp(-dt * 11)
+			h.layout.x += (target.x - h.layout.x) * k
+			h.layout.y += (target.y - h.layout.y) * k
+			h.layout.w += (target.w - h.layout.w) * k
+		}
+		const settled = Math.abs(target.x - h.layout.x) < 0.3 && Math.abs(target.y - h.layout.y) < 0.3 && Math.abs(target.w - h.layout.w) < 0.3
+		if (settled) h.layout = target
+		const height = h.layout.w * H
+		const top = h.layout.y - sy
+		return { rect: { left: h.layout.x - sx, top, width: h.layout.w, bottom: top + height, height }, settled }
+	}
+
+	/**
 	 * Style and motion can change while the page is open (Settings)
 	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float', reduced?: boolean, light?: number }} next
 	 */
@@ -782,10 +820,19 @@ export class CartridgeStage {
 
 		let i = 0
 		for (const h of this.handles.values()) {
-			const r = rects[i++]
+			/** @type {any} */
+			let r = rects[i++]
 			if (this.inserting && this.inserting.handle === h) continue
 			const g = h.group
 			const away = h.dockT > 0 || h.dockTarget
+			if (r && h.layoutMode === 'glide' && !away && r.width > 0) {
+				const glided = this.glide(h, r, dtFrame, now)
+				r = glided.rect
+				if (!glided.settled) animating = true
+			}
+			// A card nobody is looking at forgets where it was: if the page reflowed
+			// while it was away, it should appear in its new place, not cross the screen
+			if (!r) h.layout = null
 			if (!r || !h.ready || (r.width === 0 && !away) || (!away && (r.bottom < -50 || r.top > this.viewH + 50))) {
 				g.visible = false
 				h.shadow.visible = false
