@@ -30,6 +30,7 @@
    * dragged round, rides in its own pose, and responds more to scrolling
    * dockTo/docked: where a hero flies to (a bubble on a phone) and whether it is there
    * glActive: whether the card is being drawn in 3D, for the page to know
+   * onglactive: told when the card starts or stops being drawn in 3D (for a page that lays itself out differently)
    * handleRef: the card's handle on the stage, for something that needs to turn it
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
    * ghost: a see-through, unlabelled stand-in that invites someone to add data
@@ -38,9 +39,9 @@
    * shown: false to keep it from being drawn (a slide that is not the one showing)
    * clipTo: an element it must stay inside (a carousel that scrolls its slides)
    * layout: 'snap' for a card inside something that scrolls on its own
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -127,7 +128,10 @@
     lastKey = key
   })
 
-  $effect(() => { glActive = gl })
+  $effect(() => {
+    glActive = gl
+    onglactive?.(gl)
+  })
   $effect(() => { handleRef = gl ? handle : null })
 
   // Not drawn while it is not the one showing, and kept inside what clips it

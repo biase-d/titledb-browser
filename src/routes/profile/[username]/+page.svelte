@@ -219,9 +219,12 @@
 								<div
 									class="mini-badge"
 									style="--badge-color: {badge.color}"
-									title={badge.name}
+									title="{badge.name}, {badge.threshold} contribution{badge.threshold === 1 ? '' : 's'}"
 								>
-									<Icon icon={badge.icon} />
+									<span class="coin">
+										<span class="coin-face"><Icon icon={badge.icon} /></span>
+										<span class="coin-face coin-back" aria-hidden="true">{badge.threshold}</span>
+									</span>
 								</div>
 							{/each}
 						</div>
@@ -601,24 +604,49 @@
 		margin-top: 1rem;
 	}
 
+	/* A collectible: a coin that turns over on hover to show what it was earned at */
 	.mini-badge {
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 10px;
-		background: var(--input-bg);
-		color: var(--badge-color);
-		border: 1px solid var(--border-color);
-		transition: all 0.2s;
+		width: 2.25rem;
+		height: 2.25rem;
+		perspective: 220px;
+		color: #fff;
 	}
 
-	.mini-badge:hover {
-		transform: translateY(-2px);
-		background: color-mix(in srgb, var(--badge-color) 10%, var(--input-bg));
-		border-color: var(--badge-color);
+	.coin {
+		position: relative;
+		display: block;
+		width: 100%;
+		height: 100%;
+		transform-style: preserve-3d;
+		transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 	}
+
+	.mini-badge:hover .coin { transform: rotateY(180deg); }
+
+	.coin-face {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		border-radius: 50%;
+		backface-visibility: hidden;
+		font-size: 1.1rem;
+		background:
+			radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--badge-color) 45%, white), var(--badge-color) 58%, color-mix(in srgb, var(--badge-color) 72%, black));
+		box-shadow:
+			inset 0 0 0 2px rgba(255, 255, 255, 0.4),
+			inset 0 -3px 5px rgba(0, 0, 0, 0.25),
+			0 3px 8px rgba(0, 0, 0, 0.22);
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+	}
+
+	.coin-back {
+		transform: rotateY(180deg);
+		font-size: 0.8rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+	}
+
 
 	.action-btn {
 		display: flex;

@@ -17,6 +17,15 @@
     /** The whole carousel: what each slide's cartridge is clipped to */
     /** @type {HTMLElement | undefined} */
     let carousel = $state()
+    /**
+     * What the cartridges are clipped to: the carousel, and a little below it, so a
+     * cartridge can stand on the lower edge and reach out of the panel
+     * @type {HTMLElement | undefined}
+     */
+    let clipZone = $state()
+    /** Which slides' cartridges are being drawn in 3D (the overhang only suits those) */
+    let slideGl = $state(/** @type {boolean[]} */ ([]))
+    let anyGl = $derived(slideGl.some(Boolean))
     let heroIndex = $state(0)
     let isPaused = $state(false)
 
@@ -128,6 +137,7 @@
     <section
         bind:this={carousel}
         class="hero-carousel"
+        class:overhang={anyGl}
         style:--dynamic-primary={dynamicTheme?.primary || 'var(--primary-color)'}
         style:--dynamic-accent={dynamicTheme?.accent || 'rgba(255,255,255,0.1)'}
         style:--dynamic-overlay={dynamicTheme?.overlay || 'rgba(0,0,0,0.8)'}
@@ -138,6 +148,7 @@
         aria-label="Featured recently updated games"
         in:fade
     >
+        <span class="clip-zone" bind:this={clipZone} aria-hidden="true"></span>
         <div class="carousel-track" bind:this={container} onscroll={handleScroll}>
             {#each recentUpdates as game, i}
                 {@const bannerSet = createImageSet(game.bannerUrl, {
@@ -167,8 +178,13 @@
                     </div>
 
                     <div class="hero-content">
-                        <div class="hero-badge">
-                            <Icon icon="mdi:clock-outline" /> Latest Update
+                        <div class="hero-eyebrow">
+                            <span class="hero-badge">
+                                <Icon icon="mdi:clock-outline" /> Latest Update
+                            </span>
+                            {#if game.publisher}
+                                <span class="hero-publisher">{game.publisher}</span>
+                            {/if}
                         </div>
 
                         <h2>{name}</h2>
@@ -218,7 +234,8 @@
                             pose="hero"
                             layout="snap"
                             shown={isActive}
-                            clipTo={carousel}
+                            clipTo={clipZone}
+                            onglactive={(on) => { slideGl[i] = on }}
                         />
                     </div>
                 </div>
@@ -273,9 +290,22 @@
         overflow: hidden;
         color: white;
         height: 440px; 
+        margin-bottom: 0;
         box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
         background-color: var(--surface-color);
         transition: --dynamic-primary 0.5s ease, --dynamic-overlay 0.5s ease;
+    }
+
+    /* Invisible: only its box matters, as the area a cartridge may be drawn in. It
+       reaches below the carousel for the cartridge's feet */
+    .clip-zone {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: -4.5rem;
+        pointer-events: none;
+        visibility: hidden;
     }
 
     .carousel-track {
@@ -295,7 +325,7 @@
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 3rem;
+        padding: 3rem 3rem 5rem;
     }
 
     .hero-bg {
@@ -326,25 +356,67 @@
         position: absolute;
         inset: 0;
         /* Rich, themed gradient: Blends 20% game color with 80% deep black */
-        background: linear-gradient(
-            to top, 
-            color-mix(in srgb, var(--dynamic-primary) 20%, #050505 80%) 0%,
-            color-mix(in srgb, var(--dynamic-primary) 10%, rgba(5, 5, 5, 0.8) 90%) 50%,
-            transparent 100%
-        );
+        background:
+            radial-gradient(
+                46% 85% at 79% 78%,
+                color-mix(in srgb, var(--dynamic-primary) 46%, transparent),
+                transparent 72%
+            ),
+            linear-gradient(to right, rgba(5, 5, 5, 0.78) 0%, rgba(5, 5, 5, 0.38) 50%, transparent 82%),
+            linear-gradient(
+                to top,
+                color-mix(in srgb, var(--dynamic-primary) 20%, #050505 80%) 0%,
+                color-mix(in srgb, var(--dynamic-primary) 10%, rgba(5, 5, 5, 0.8) 90%) 50%,
+                transparent 100%
+            );
     }
 
-    /* The cartridge: on the right, at the vertical middle of the carousel */
+    /* The cartridge: on the right, standing on the lower edge of the panel. Where it
+       is drawn in 3D it reaches out of the panel; otherwise (a drawn card) it stays
+       inside, where nothing is cut off */
     .hero-cart {
         position: absolute;
         z-index: 1;
-        right: clamp(1.5rem, 8%, 6.5rem);
-        top: 50%;
-        width: clamp(7rem, 17vw, 12.5rem);
-        translate: 0 -52%;
+        right: clamp(2rem, 9%, 7.5rem);
+        bottom: 2.25rem;
+        width: clamp(8.5rem, 19vw, 14rem);
         --cart-max: 100%;
         opacity: 0;
         transition: opacity 0.5s ease 0.15s;
+    }
+
+    .overhang .hero-cart {
+        bottom: -3.4rem;
+    }
+
+    @media (min-width: 769px) {
+        /* Room below the panel for the cartridge's feet */
+        .overhang {
+            margin-bottom: 3.4rem;
+        }
+
+        /* The progress bars stay at the bottom left under the text; the buttons go to
+           the top right, so the bottom right is the cartridge's */
+        .hero-controls {
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .hero-controls > * {
+            pointer-events: auto;
+        }
+
+        .indicators {
+            position: absolute;
+            left: 3rem;
+            bottom: 1.5rem;
+        }
+
+        .nav-buttons {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+        }
     }
 
     .carousel-slide.is-active .hero-cart {
@@ -370,6 +442,21 @@
         opacity: 1;
     }
 
+    .hero-eyebrow {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.9rem;
+    }
+
+    .hero-publisher {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
     .hero-badge {
         display: inline-flex;
         align-items: center;
@@ -386,10 +473,12 @@
     }
 
     .hero-carousel h2 {
-        font-size: clamp(2rem, 5vw, 3rem);
+        font-size: clamp(2.25rem, 1.3rem + 3.6vw, 4rem);
         font-weight: 900;
+        letter-spacing: -0.03em;
+        text-wrap: balance;
         margin: 0;
-        line-height: 1.1;
+        line-height: 1.05;
         color: #ffffff;
         /* Replaced generic black shadow with a heavily themed deep shadow */
         text-shadow: 0 4px 24px color-mix(in srgb, var(--dynamic-primary) 60%, rgba(0, 0, 0, 0.9));
@@ -457,8 +546,8 @@
 
     .hero-controls {
         position: absolute;
-        bottom: 1.5rem;
-        right: 2rem;
+        bottom: 1.25rem;
+        left: 3rem;
         z-index: 2;
         display: flex;
         align-items: center;
@@ -555,15 +644,22 @@
         }
         
         .carousel-slide {
-            padding: 2rem 1.25rem 4.5rem; /* Tighter side padding, room for controls at bottom */
+            /* Tighter side padding, room for controls at the bottom and the cartridge above the text */
+            padding: 13.25rem 1.25rem 4.5rem;
         }
 
-        /* Above the text, in the middle, rather than beside it */
-        .hero-cart {
+        /* Above the text, in the middle, rather than beside it, and inside the panel */
+        .hero-cart,
+        .overhang .hero-cart {
             top: 1.75rem;
+            bottom: auto;
             right: 50%;
             translate: 50% 0;
             width: 7.25rem;
+        }
+
+        .hero-eyebrow {
+            justify-content: center;
         }
 
         .hero-content {
