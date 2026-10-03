@@ -2,6 +2,8 @@
 	import Icon from '@iconify/svelte'
 	import ArtworkBackdrop from '$lib/components/ArtworkBackdrop.svelte'
 	import CartridgeItem from '../CartridgeItem.svelte'
+	import ContributorWall from '$lib/components/ContributorWall.svelte'
+	import Coin from '$lib/components/Coin.svelte'
 	import CountUp from '$lib/components/CountUp.svelte'
 	import { reveal } from '$lib/actions/reveal'
 	import { goto } from '$app/navigation'
@@ -109,6 +111,8 @@
 	</section>
 
 	<main class="main-content">
+		<ContributorWall people={impactStats.topContributors} />
+
 		{#if !session?.user}
 			<ol class="steps" use:reveal>
 				{#each steps as step, i (step.title)}
@@ -142,6 +146,7 @@
 			{#if progress}
 				<section class="mine" use:reveal>
 					<div class="mine-count">
+						{#if progress.current}<Coin badge={progress.current} size="2.6rem" />{/if}
 						<span class="mine-n"><CountUp value={progress.total} /></span>
 						<span class="mine-l">your contributions</span>
 					</div>
@@ -264,6 +269,7 @@
 		margin-bottom: 0.75rem;
 	}
 	h1 {
+		color: #fff;
 		font-size: clamp(2.2rem, 6vw, 3.4rem);
 		font-weight: 900;
 		line-height: 1.08;
@@ -326,15 +332,18 @@
 	.sort-pill { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; border-radius: 99px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-secondary); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
 	.sort-pill.active { color: var(--text-primary); border-color: var(--primary-color); }
 
-	.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); column-gap: 1rem; row-gap: 2.75rem; padding-top: 1.5rem; }
-	.shelf-slot { position: relative; padding-bottom: 2.4rem; }
+	/* Cartridges stand on one continuous ledge per row: the slots touch, so the
+	   strips beneath them join up, and the request count sits just under it */
+	.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); column-gap: 0; row-gap: 1.25rem; padding-top: 1.5rem; }
+	.shelf-slot { position: relative; padding: 0 0.6rem 2.1rem; }
 	.shelf-slot::after {
-		content: ''; position: absolute; left: -0.55rem; right: -0.55rem; bottom: 1.3rem; height: 0.8rem; border-radius: 0.25rem;
-		background: linear-gradient(180deg, color-mix(in srgb, var(--text-secondary) 38%, var(--surface-color)), color-mix(in srgb, var(--text-secondary) 12%, var(--surface-color)));
-		box-shadow: 0 6px 10px -6px rgba(0, 0, 0, 0.45);
+		content: ''; position: absolute; left: 0; right: 0; bottom: 1.25rem; height: 0.7rem;
+		background: linear-gradient(180deg, color-mix(in srgb, var(--text-secondary) 14%, var(--surface-color)) 0 18%, color-mix(in srgb, var(--text-secondary) 30%, var(--surface-color)) 18% 100%);
+		box-shadow: 0 8px 12px -8px rgba(0, 0, 0, 0.35);
 		z-index: 0;
 	}
-	.wanted { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
+	.shelf-slot :global(.cell) { position: relative; z-index: 1; }
+	.wanted { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center; gap: 0.25rem; font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); }
 
 	/* --- Pagination --- */
 	.premium-pagination {

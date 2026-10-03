@@ -5,7 +5,7 @@
 
 import * as contributionRepo from '$lib/repositories/contributionRepository'
 import { getStats } from '$lib/repositories/statsRepository'
-import { badgeProgress } from '$lib/services/profileService'
+import { badgeProgress, badgeFor } from '$lib/badges'
 import { countContributions } from '$lib/contributions'
 
 /**
@@ -21,7 +21,12 @@ export async function getImpactStats (db) {
 		totalRequests: stats.kpis.requests,
 		coverage: stats.kpis.coverage,
 		groups: stats.kpis.groups,
-		groupsWithData: stats.kpis.groupsWithData
+		groupsWithData: stats.kpis.groupsWithData,
+		topContributors: (stats.topContributors || []).slice(0, 8).map((/** @type {any} */ c) => ({
+			name: c.name,
+			contributions: c.contributions,
+			badge: badgeFor(c.contributions)
+		}))
 	}
 }
 

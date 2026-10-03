@@ -6,74 +6,16 @@
 	import { onMount } from 'svelte'
 	import { browser } from '$app/environment'
 	import CanvasFlair from './CanvasFlair.svelte'
+	import ProfileBanner from '$lib/components/ProfileBanner.svelte'
+	import Coin from '$lib/components/Coin.svelte'
+	import { BADGES } from '$lib/badges'
 	import { fade } from 'svelte/transition'
 	import { createImageSet } from '$lib/image'
 	import { getRegionLabel } from '$lib/regions'
 
 	import { preferences } from '$lib/stores/preferences'
 
-	const badges = [
-		{
-			threshold: 500,
-			name: 'Creative Right Hand',
-			color: '#fde047',
-			icon: 'mdi:hand-back-right',
-		},
-		{
-			threshold: 400,
-			name: 'Ancient Angel Borb',
-			color: '#d1d5db',
-			icon: 'mdi:shield-star',
-		},
-		{
-			threshold: 300,
-			name: 'Big Purple Pterodactyl',
-			color: '#8b5cf6',
-			icon: 'mdi:bird',
-		},
-		{
-			threshold: 200,
-			name: 'King K. Roolish',
-			color: '#facc15',
-			icon: 'mdi:crown',
-		},
-		{
-			threshold: 100,
-			name: 'Evil Gray Twin',
-			color: '#4f46e5',
-			icon: 'mdi:sword-cross',
-		},
-		{
-			threshold: 50,
-			name: 'Big Buff Croc',
-			color: '#78716c',
-			icon: 'mdi:arm-flex',
-		},
-		{
-			threshold: 30,
-			name: 'Spooky Robe Guy',
-			color: '#e11d48',
-			icon: 'mdi:ghost',
-		},
-		{
-			threshold: 15,
-			name: 'Floating Brain Jelly',
-			color: '#f59e0b',
-			icon: 'mdi:jellyfish',
-		},
-		{
-			threshold: 5,
-			name: 'Grumpy Gator',
-			color: '#16a34a',
-			icon: 'mdi:shark',
-		},
-		{
-			threshold: 1,
-			name: 'Shroom Stomper',
-			color: '#a16207',
-			icon: 'mdi:mushroom',
-		},
-	]
+	const badges = BADGES
 
 	let { data } = $props()
 
@@ -158,6 +100,7 @@
 						<img src={featuredIcon.src} alt="" class="blurred-bg" />
 					{/if}
 				{/key}
+				<ProfileBanner badge={currentTierBadge ?? null} />
 				<div class="overlay-gradient"></div>
 			</div>
 
@@ -216,16 +159,7 @@
 							{#each badges
 								.filter((b) => totalContributions >= b.threshold)
 								.slice(0, 8) as badge}
-								<div
-									class="mini-badge"
-									style="--badge-color: {badge.color}"
-									title="{badge.name}, {badge.threshold} contribution{badge.threshold === 1 ? '' : 's'}"
-								>
-									<span class="coin">
-										<span class="coin-face"><Icon icon={badge.icon} /></span>
-										<span class="coin-face coin-back" aria-hidden="true">{badge.threshold}</span>
-									</span>
-								</div>
+								<Coin {badge} />
 							{/each}
 						</div>
 					</div>

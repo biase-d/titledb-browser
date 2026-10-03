@@ -3,18 +3,7 @@ import * as contributionRepo from '$lib/repositories/contributionRepository'
 import * as prefRepo from '$lib/repositories/preferencesRepository'
 import { countContributions } from '$lib/contributions'
 
-export const BADGES = [
-	{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
-	{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:shark' },
-	{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
-	{ threshold: 30, name: 'Spooky Robe Guy', color: '#e11d48', icon: 'mdi:ghost' },
-	{ threshold: 50, name: 'Big Buff Croc', color: '#78716c', icon: 'mdi:arm-flex' },
-	{ threshold: 100, name: 'Evil Gray Twin', color: '#4f46e5', icon: 'mdi:sword-cross' },
-	{ threshold: 200, name: 'King K. Roolish', color: '#facc15', icon: 'mdi:crown' },
-	{ threshold: 300, name: 'Big Purple Pterodactyl', color: '#8b5cf6', icon: 'mdi:bird' },
-	{ threshold: 400, name: 'Ancient Angel Borb', color: '#d1d5db', icon: 'mdi:shield-star' },
-	{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' }
-].sort((a, b) => b.threshold - a.threshold)
+import { BADGES } from '$lib/badges'
 
 /**
  * @typedef {Object} UserContributionResult
@@ -144,21 +133,4 @@ export async function getUserContributions (db, username, page) {
 	}
 }
 
-/**
- * Where a contribution count stands against the badges
- * @param {number} total
- * @returns {{ total: number, current: any|null, next: any|null, remaining: number, fraction: number }}
- */
-export function badgeProgress (total) {
-	const ascending = [...BADGES].reverse()
-	const current = BADGES.find(b => total >= b.threshold) || null
-	const next = ascending.find(b => total < b.threshold) || null
-	const from = current?.threshold ?? 0
-	return {
-		total,
-		current,
-		next,
-		remaining: next ? next.threshold - total : 0,
-		fraction: next ? (total - from) / (next.threshold - from) : 1
-	}
-}
+export { BADGES, badgeProgress } from '$lib/badges'
