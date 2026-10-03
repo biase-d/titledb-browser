@@ -13,6 +13,8 @@ export class Game {
 	performanceHistory
 	contributor
 	sourcePrUrl
+	/** @type {{ canonicalTitleId: string, indexable: boolean } | undefined} */
+	seo
 
 	allTitlesInGroup
 	youtubeLinks

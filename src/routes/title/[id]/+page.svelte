@@ -327,8 +327,7 @@
 			// image around 1200px wide, and this one is already generated,
 			// cached and exactly that size
 			image: `${url.origin}/api/og/${id}.jpg`,
-			url: url.href,
-			genre: 'Action, Adventure',
+			url: `${url.origin}/title/${canonicalTitleId}`,
 			description: `View performance profiles and graphics settings for ${name} on Switch Performance`,
 		}
 
@@ -344,12 +343,9 @@
 		return data
 	})
 
-	const canonicalTitleId = $derived.by(() => {
-		if (!game?.allTitlesInGroup || game.allTitlesInGroup.length <= 1) return id
-		const usTitle = game.allTitlesInGroup.find((/** @type {any} */ t) => t.regions?.includes('US'))
-		if (usTitle) return usTitle.id
-		return [...game.allTitlesInGroup].sort((a, b) => a.id.localeCompare(b.id))[0].id
-	})
+	// From the server, built from the real group so it is the same on every page of the game
+	const canonicalTitleId = $derived(game.seo?.canonicalTitleId ?? id)
+	const indexable = $derived(game.seo?.indexable ?? true)
 </script>
 
 <svelte:head>
@@ -359,8 +355,13 @@
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
 	<link rel="canonical" href="{url.origin}/title/{canonicalTitleId}" />
+	<!-- A title with no data yet is the artwork and name only, the same on thousands
+	     of pages. Links are still followed; the page is indexed once it has data -->
+	{#if !indexable}
+		<meta name="robots" content="noindex, follow" />
+	{/if}
 	<meta property="og:type" content="product" />
-	<meta property="og:url" content={url.href} />
+	<meta property="og:url" content="{url.origin}/title/{canonicalTitleId}" />
 	<meta property="og:title" content="{name} - Switch Performance" />
 	<meta
 		property="og:description"

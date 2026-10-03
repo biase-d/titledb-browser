@@ -1,5 +1,6 @@
 import { games, performanceProfiles, graphicsSettings, gameGroups, youtubeLinks, submissions } from '$lib/db/schema'
 import { desc, eq, sql, inArray, and, or } from 'drizzle-orm'
+import { pickCanonicalTitleId, hasIndexableData } from '$lib/seo'
 
 /**
  * Find a single game by ID
@@ -129,7 +130,12 @@ export async function getGameDetails (db, titleId) {
 			...pendingProfiles
 		],
 		contributor: latestProfile?.contributor,
-		sourcePrUrl: latestProfile?.sourcePrUrl
+		sourcePrUrl: latestProfile?.sourcePrUrl,
+		seo: {
+			canonicalTitleId: pickCanonicalTitleId(allTitlesInGroup, groupId, game.id),
+			// Approved data only: a pending submission is unreviewed
+			indexable: hasIndexableData({ profiles: allPerformanceProfiles, graphics, videoCount: links.length })
+		}
 	}
 
 	return {
@@ -151,13 +157,29 @@ export async function getGameDetails (db, titleId) {
  * @returns {Promise<Array<{id: string, lastUpdated: Date|null}>>}
  */
 export async function getGameIdsForSitemap (db, limit = 45000) {
-	return await db.select({
-		id: games.id,
-		lastUpdated: games.lastUpdated
-	})
-		.from(games)
-		.orderBy(desc(games.lastUpdated))
-		.limit(limit)
+	// One row per game, not per title: the US release, or the lowest ID, as
+	// pickCanonicalTitleId chooses. And only games with something to show, the
+	// same test the page applies before it allows itself to be indexed
+	const rows = await db.execute(sql`
+		WITH has_data AS (
+			SELECT group_id FROM active_performance_data
+			WHERE status = 'approved' AND (
+				profiles->'docked'->>'target_fps' IS NOT NULL OR profiles->'docked'->>'resolution_type' IS NOT NULL OR
+				profiles->'handheld'->>'target_fps' IS NOT NULL OR profiles->'handheld'->>'resolution_type' IS NOT NULL
+			)
+			UNION SELECT group_id FROM active_graphics_settings WHERE status = 'approved' AND settings <> '{}'::jsonb
+			UNION SELECT group_id FROM active_youtube_links WHERE status = 'approved'
+		), canonical AS (
+			SELECT DISTINCT ON (g.group_id) g.id, g.last_updated
+			FROM active_games g
+			WHERE g.group_id IN (SELECT group_id FROM has_data)
+				-- data filed before titles were grouped stays under a member's base ID
+				OR substring(g.id, 1, 13) || '000' IN (SELECT group_id FROM has_data)
+			ORDER BY g.group_id, (COALESCE(g.regions, ARRAY[]::text[]) @> ARRAY['US']) DESC, g.id
+		)
+		SELECT id, last_updated AS "lastUpdated" FROM canonical ORDER BY last_updated DESC LIMIT ${limit}
+	`)
+	return /** @type {Array<{ id: string, lastUpdated: Date | null }>} */ (/** @type {any} */ (rows))
 }
 
 /**
