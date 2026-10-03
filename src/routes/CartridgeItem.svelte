@@ -34,15 +34,16 @@
    * handleRef: the card's handle on the stage, for something that needs to turn it
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
    * ghost: a see-through, unlabelled stand-in that invites someone to add data
+   * plain: art only, with no title or code over it (on the game's own page, where the title is beside it)
    * href: where the card leads, when not the title page
    * css: draw it in CSS even where WebGL is available, for somewhere the canvas cannot reach (a modal)
    * pose: ride in a given pose ('hero' for a three-quarter view) without being a hero
    * shown: false to keep it from being drawn (a slide that is not the one showing)
    * clipTo: an element it must stay inside (a carousel that scrolls its slides)
    * layout: 'snap' for a card inside something that scrolls on its own
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, plain?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, plain = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -116,8 +117,10 @@
     regionBadge: regionBadge || '',
     dockedFps: dockedFps || null,
     handheldFps: handheldFps || null,
-    artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, 512) || null),
+    // Half the size unless high-resolution images are on in Settings
+    artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, $preferences.highResImages ? 512 : 256) || null),
     ghost,
+    plain,
     ghostCopy: titleData.ghostCopy
   })
 
@@ -418,10 +421,12 @@
               <div class="no-art"><Icon icon="mdi:controller-classic-outline" /></div>
             {/if}
           </div>
-          <div class="info">
-            <p class="title" title={titleName}>{titleName}</p>
-            <p class="code">{id}{regionBadge ? ` · ${regionBadge}` : ''}</p>
-          </div>
+          {#if !plain}
+            <div class="info">
+              <p class="title" title={titleName}>{titleName}</p>
+              <p class="code">{id}{regionBadge ? ` · ${regionBadge}` : ''}</p>
+            </div>
+          {/if}
         </div>
         <div class="mark" aria-hidden="true"></div>
         <div class="sheen" aria-hidden="true"></div>
