@@ -10,6 +10,10 @@ Everything that has come up so far, grouped so it can be ordered. Effort is a ro
 - Karma auto-approval switched off (`AUTO_APPROVE_ABOVE_KARMA`, one line to bring back)
 - Homepage: two columns on phones, broken-artwork fallback, one `h1`, welcome card instead of a modal
 - Cartridge view in WebGL (one shared canvas), real proportions measured from a photo, insert animation, motion settings, flat/angled/sway/floating styles, header layering fix
+- Cartridge polish: cleaner red band (label over number, hairline divider, no icons) and a quiet response to scrolling after the card has turned; the default style stays flat
+- Game details page: a cartridge hero in place of the icon (drag to spin, theme-coloured glow), the phone back-to-top bubble, and console styling keyed to the theme engine (lit bezel, status lights, accent bars, spec-style labels). Contributor names no longer duplicate by case
+- The contribute form no longer saves empty version rows as placeholder files
+- Seasonal scenes for October (embers and bats), November (leaves) and December (snow): automatic, off in Settings, absent when animation is reduced, `?season=` to preview
 
 ## 1. Get the existing work live (do first)
 
@@ -22,22 +26,22 @@ Everything that has come up so far, grouped so it can be ordered. Effort is a ro
 | After deploy: resubmit the sitemap in Search Console and watch coverage | S | The sitemap shrank from about 25,000 URLs to games with data |
 | Try the cartridge view on a real phone and a real GPU | S | Only tested in a throttled pane. Scroll sync and battery are unknown |
 
-## 2. Cartridge polish (small, high visibility)
+## 2. Cartridge polish
+
+Done: the red band, scroll response, and the default (flat).
 
 | Item | Effort | Notes |
 | --- | --- | --- |
-| Cleaner red band | S | Smaller type, a small label (DOCKED / HANDHELD) over each number, a thin divider, centred when only one mode exists. Same layout in the 3D card and the CSS fallback |
-| Sane defaults | S | Decide the default style (flat now) and whether the angled pose should be the default. One line each |
-| Subtle scroll response | S | After the card has turned, a small pitch from its position in the viewport and a little yaw from scroll speed, under about 0.1 rad. Off when motion is reduced |
 | Measure the back | S | Only the front was measured, so the back's contacts and text are guesses |
 
 ## 3. Game details page
 
+Done: the hero (desktop and phone), the mobile bubble, and console styling to the level of the section headings, cards and labels.
+
 | Item | Effort | Notes |
 | --- | --- | --- |
-| Cartridge hero in the page header | M | A larger cartridge beside the title, using the shared canvas. Drag to spin, springs back front-facing. Keeps today's icon as the fallback for crawlers, no WebGL and reduced motion, so SEO is unchanged |
-| Mobile "back to top" bubble | S | When the hero scrolls out of view, a small round button at the bottom with a mini cartridge and an up arrow. Smooth-scrolls to the top |
-| Console and cartridge look for the rest of the page | M to L | Needs a design pass first: which sections, how far to go. Suggest doing the hero, then deciding |
+| Go further with the console look | M | Remaining places to carry it: the version selector, graphics detail, videos, the comparison modal. Keep it keyed to the theme engine |
+| Try the hero with real artwork and slow connections | S | Tested only on made-up art |
 
 ## 4. Data quality and growth
 
@@ -45,7 +49,7 @@ masagrator is not building a performance-data tool, so the plan is to make the b
 
 | Item | Effort | Notes |
 | --- | --- | --- |
-| Policy for placeholder profiles | S | 1,319 of 1,376 profile files only name a contributor. Keep, label, or stop creating them |
+| Existing placeholder profiles | S | New ones are no longer created. The 1,319 that exist are untouched: for 138 groups the file is the only record of who contributed, so deleting them in bulk would lose that. Decide whether to move the credit somewhere first |
 | Better prompts on pages with no data | S to M | The contribute prompt exists; test where it converts |
 | Descriptions and snippets from real data ("30 FPS docked, 1080p") | S | Every title page has the same boilerplate description |
 | Material Icons font blocking render | S | A Google Fonts stylesheet loads on every page |
@@ -58,11 +62,11 @@ masagrator is not building a performance-data tool, so the plan is to make the b
 | Safe retries | M | A stable submission ID so a retry cannot open a second PR |
 | Contribute from a grouped title files under the group | S | Today it may file under the title's own ID |
 
-## 6. Ideas, not started
+## 6. Ideas
 
 | Idea | Effort | Notes |
 | --- | --- | --- |
-| Seasonal scenes | M | Shell colour, particles, themed glow; automatic by date with an off switch. Start with two or three |
+| More seasons (January to September) | M | The scene system takes new entries in `src/lib/seasons.js`; each needs its particles and a tint |
 | Real physics (nudge, bump) | L | Floating already exists. Real physics needs a physics library and its own setting |
 | Schema v4: UUID group IDs, authorship inside each file | L | Only if group merges become routine; the cheaper validator and sync checks cover most of it |
 
@@ -76,16 +80,15 @@ masagrator is not building a performance-data tool, so the plan is to make the b
 
 ## Suggested order
 
-1. Section 1, all of it
-2. Cartridge polish (section 2), since it is small and everyone sees it
-3. Details page hero and the mobile bubble (section 3)
-4. Contribution flow checks (section 5) before more people submit
-5. Everything else as demand shows itself
+1. Section 1, all of it (needs you: reviewing, pushing, and the nx-performance PRs)
+2. Contribution flow checks (section 5) before more people submit
+3. The rest of the console look and measuring the back (sections 2 and 3)
+4. Everything else as demand shows itself
 
-## Decisions needed
+## Decisions made
 
-1. Default cartridge style: flat or angled?
-2. Should the details-page hero replace the game icon on desktop too, or only phones?
-3. How far should the console look go beyond the hero?
-4. Keep or stop creating placeholder profiles?
-5. Seasonal scenes: which two or three first?
+- Default cartridge style: flat
+- The details-page hero replaces the icon on desktop and phone
+- The console look goes down to the details, keyed to the theme engine
+- Stop creating placeholder profiles (done); existing ones stay for now
+- Seasonal scenes: October to December first; the rest later
