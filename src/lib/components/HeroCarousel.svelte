@@ -1,4 +1,5 @@
 <script>
+    import SeasonProp from '$lib/components/SeasonProp.svelte'
     import { get } from 'svelte/store'
     import { browser } from '$app/environment'
     import { onMount, onDestroy } from 'svelte'
@@ -229,6 +230,7 @@
                          has one drawn, and it never leaves the carousel while the slides
                          move. It is a link like the cards below, so opening it slides it in -->
                     <div class="hero-cart" aria-hidden={!isActive}>
+                        {#if isActive}<SeasonProp />{/if}
                         <CartridgeItem
                             titleData={game}
                             pose="hero"
@@ -391,6 +393,9 @@
 
     .overhang .hero-cart {
         bottom: -3.4rem;
+        /* The pumpkin stands on the panel's floor, not on the cartridge's base below it */
+        --prop-lift: 3.9rem;
+        --prop-width: 48%;
     }
 
     @media (min-width: 769px) {

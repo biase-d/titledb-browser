@@ -2,6 +2,7 @@
 	import Icon from '@iconify/svelte'
 	import ArtworkBackdrop from '$lib/components/ArtworkBackdrop.svelte'
 	import CartridgeItem from '../CartridgeItem.svelte'
+	import SeasonProp from '$lib/components/SeasonProp.svelte'
 	import ContributorWall from '$lib/components/ContributorWall.svelte'
 	import Coin from '$lib/components/Coin.svelte'
 	import CountUp from '$lib/components/CountUp.svelte'
@@ -105,6 +106,7 @@
 
 			<div class="hero-cart" aria-hidden="true">
 				<div class="cart"><CartridgeItem titleData={standIn} hero ghost /></div>
+				<SeasonProp />
 				<div class="slot"></div>
 			</div>
 		</div>

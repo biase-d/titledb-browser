@@ -19,6 +19,7 @@ Everything that has come up so far, grouped so it can be ordered. Effort is a ro
 - The stats Performance tab no longer crashes when resolution types exist
 - Game page header reworked around the cartridge (publisher eyebrow, large title, facts, Favorite and Inspect pills, the cartridge standing on the panel edge); the region dropdown no longer opens behind the title
 - Homepage hero reworked around its cartridge (standing on the panel edge, controls moved, publisher line, larger title), cartridges ease into view instead of flipping
+- Season props beside the hero cartridges (homepage, game page, contribute): a row of related pieces per season that stands up in order as the scene builds (Halloween: pumpkin, candy corn, ghost, small pumpkin, bat; autumn: leaves, acorn, mushroom; winter: snowman, present, pine, snow mound with a scarf and ribbon in the theme's accent). Same calendar, Settings switch, `?season=` preview and reduced-motion rules as the scene
 - 3D and motion: grid reflow, live contribute preview, ghost cartridge on no-data pages, error-page and loading cartridges, compare view with cartridges (and a fix: it could never compare more than one version), favorites shelf, badge coins, cartridge piles for the stats timeline, count-up numbers and growing bars, glare and neighbour lean on 3D cards, favorite pop, header condense, banner parallax, opt-in phone tilt for the grid
 
 ## 1. Get the existing work live (do first)

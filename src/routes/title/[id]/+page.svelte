@@ -1,4 +1,5 @@
 <script>
+	import SeasonProp from '$lib/components/SeasonProp.svelte'
 	import { fade } from 'svelte/transition'
 	import { browser } from '$app/environment'
 	import { onMount } from 'svelte'
@@ -472,6 +473,7 @@
 
 			<div class="header-content-wrapper">
 				<div class="header-content">
+					<div class="season-corner"><SeasonProp /></div>
 					<div class="hero-cart" bind:this={heroElement}>
 						<CartridgeItem
 							titleData={heroData}
@@ -1118,6 +1120,7 @@
 	}
 
 	.header-content {
+		position: relative;
 		display: grid;
 		grid-template-columns: 1fr;
 		justify-items: center;
@@ -1131,6 +1134,21 @@
 			align-items: center;
 			gap: 2.5rem;
 		}
+	}
+
+	/* A pumpkin in the panel's lower right, on wide screens where there is room */
+	.season-corner {
+		display: none;
+		--prop-right: 0;
+		--prop-width: 100%;
+		position: absolute;
+		right: 1.5rem;
+		bottom: -1.75rem;
+		width: 6.5rem;
+	}
+
+	@media (min-width: 900px) {
+		.season-corner { display: block; }
 	}
 
 	.hero-cart {
