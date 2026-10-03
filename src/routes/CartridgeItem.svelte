@@ -291,7 +291,7 @@
     overflow: hidden;
     border-radius: 3cqw;
     /* The keyed corner is top-left on the real card */
-    clip-path: polygon(0 9%, 16% 0, 100% 0, 100% 100%, 0 100%);
+    clip-path: polygon(0 10%, 18% 0, 100% 0, 100% 100%, 0 100%);
     background:
       radial-gradient(120% 70% at 20% 0%, rgba(255, 255, 255, 0.10), transparent 60%),
       linear-gradient(160deg, var(--shell-light), var(--shell) 55%, var(--shell-dark));
