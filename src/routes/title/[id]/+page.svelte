@@ -152,6 +152,17 @@
 			: false,
 	)
 
+	// A profile that says something, as opposed to a placeholder that only names
+	// a contributor
+	let hasRealProfile = $derived(
+		performanceHistory.some(
+			(p) => hasPerformanceData(p.profiles?.docked) || hasPerformanceData(p.profiles?.handheld),
+		),
+	)
+	// With no measured profile, the targets from the graphics settings still
+	// answer "what does it run at"
+	let graphicsTargets = $derived(graphicsAsTargets(game.graphics?.settings))
+
 	let allContributors = $derived(game.allContributors)
 
 	let id = $derived(game?.id)
@@ -299,6 +310,7 @@
 		}
 	}
 
+	import { graphicsAsTargets } from '$lib/graphicsPerformance'
 	import { themeStore } from '$lib/stores/theme.svelte'
 	$effect(() => {
 		if (id) {
@@ -584,7 +596,7 @@
 					</div>
 				{/if}
 
-				{#if performanceHistory.length === 0}
+				{#if !hasRealProfile && !graphicsTargets}
 					<div class="notice-card no-data-cta">
 						<h3>No Performance Data Yet</h3>
 						<p>
@@ -624,7 +636,7 @@
 							</button>
 						</div>
 					</div>
-				{:else}
+				{:else if hasRealProfile}
 					<section>
 						<div class="section-header">
 							<h2 class="section-title">Performance Profile</h2>
@@ -685,8 +697,39 @@
 							</div>
 						{/if}
 					</section>
+				{:else}
+					<section>
+						<div class="section-header">
+							<h2 class="section-title">Performance Targets</h2>
+						</div>
+						<PerformanceDetail performance={graphicsTargets} gameId={id} />
+						<div class="notice-card targets-note">
+							<p>
+								These are the frame rate and resolution the game is set to
+								target, taken from its graphics settings. No one has measured
+								how well it holds them yet.
+							</p>
+							<div class="cta-group">
+								{#if session?.user}
+									<a href="/contribute/{id}" class="cta-button">Add a measured profile</a>
+								{:else}
+									<a href="/auth/signin?callbackUrl=/contribute/{id}" class="cta-button">Sign in to add one</a>
+								{/if}
+								<button
+									class="request-button"
+									class:active={hasRequested}
+									onclick={toggleRequest}
+									disabled={isRequesting}
+								>
+									<Icon icon={hasRequested ? 'mdi:check' : 'mdi:hand-back-right'} />
+									{hasRequested ? 'Data Requested' : 'Request Data'}
+								</button>
+							</div>
+						</div>
+					</section>
+				{/if}
 
-					{#if gameGraphicsHasData}
+				{#if gameGraphicsHasData}
 						<section>
 							<div class="section-header">
 								<h2 class="section-title">Graphics Settings</h2>
@@ -703,7 +746,6 @@
 							<YoutubeEmbeds links={youtubeLinks} />
 						</section>
 					{/if}
-				{/if}
 
 				<!-- Mobile-only secondary sidebar content -->
 				<div class="mobile-sidebar">
@@ -1366,6 +1408,21 @@
 		padding: 1rem 1.5rem;
 		border-radius: var(--radius-md);
 		border: 1px solid;
+	}
+	.targets-note {
+		margin-top: 1rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.targets-note p {
+		flex: 1 1 18rem;
+		margin: 0;
+	}
+	.targets-note .cta-group {
+		margin: 0;
 	}
 	.notice-card.unreleased {
 		background-color: #fffbeb;
