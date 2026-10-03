@@ -214,9 +214,9 @@
   let inserting = false
 
   /**
-   * Opening a game: the cartridge lifts, then slides into a console while the
-   * page dims, and the details page loads behind that and fades in. Only for a
-   * plain click on the WebGL card. A modified click (new tab, new window), a
+   * Opening a game: the cartridge stays where it is and slides down into an
+   * invisible slot at its own bottom edge, then the details page opens. Only for
+   * a plain click on the WebGL card. A modified click (new tab, new window), a
    * second click mid-animation, reduced motion, and the CSS card are all the
    * ordinary link
    * @param {MouseEvent} e
@@ -239,7 +239,6 @@
     } finally {
       stage.endInsert()
       inserting = false
-      // The stage waits for the fade to finish before it will tear itself down
       setTimeout(() => stageModule?.releaseStage(), 700)
     }
   }

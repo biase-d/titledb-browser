@@ -21,14 +21,12 @@
 import {
 	WebGLRenderer, Scene, PerspectiveCamera, Group, Mesh, Shape, ExtrudeGeometry, PlaneGeometry,
 	MeshToonMaterial, MeshBasicMaterial, AmbientLight, DirectionalLight, CanvasTexture, DataTexture,
-	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter
+	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter, Plane, Vector3
 } from 'three'
 
-const INSERT_LIFT_MS = 340
-const INSERT_SLIDE_MS = 640
-const INSERT_FADE_MS = 380
-const lerp = (/** @type {number} */ a, /** @type {number} */ b, /** @type {number} */ t) => a + (b - a) * t
-const easeInOutCubic = (/** @type {number} */ t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
+// Opening a card: a small pull back, then it slides down into an invisible slot
+const INSERT_PULL_MS = 140
+const INSERT_SLIDE_MS = 560
 
 /** A card is 21 x 31 x 3.4 mm; everything is in card widths, so width is 1 */
 const H = 31 / 21
@@ -346,52 +344,6 @@ function drawBack (canvas, d) {
 	}
 }
 
-/**
- * The top of a console: a rounded slab with a lit bevel and the dark lip of the
- * slot a card goes into, under a soft shadow where the card meets it. The slab
- * starts 10% of the way down the texture; the first 10% is the shadow
- */
-function consoleTexture () {
-	const w = 512
-	const h = 400
-	const canvas = Object.assign(document.createElement('canvas'), { width: w, height: h })
-	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
-	const top = h * 0.1
-
-	const shadow = ctx.createLinearGradient(0, 0, 0, top + 10)
-	shadow.addColorStop(0, 'rgba(0,0,0,0)')
-	shadow.addColorStop(1, 'rgba(0,0,0,0.55)')
-	ctx.fillStyle = shadow
-	ctx.fillRect(w * 0.06, 0, w * 0.88, top + 10)
-
-	const body = ctx.createLinearGradient(0, top, 0, h)
-	body.addColorStop(0, '#383a43')
-	body.addColorStop(0.18, '#26282e')
-	body.addColorStop(1, '#17181c')
-	ctx.fillStyle = body
-	ctx.beginPath()
-	ctx.roundRect(0, top, w, h - top + 40, [30, 30, 0, 0])
-	ctx.fill()
-
-	// Lit top edge
-	ctx.fillStyle = 'rgba(255,255,255,0.28)'
-	ctx.beginPath()
-	ctx.roundRect(4, top + 2, w - 8, 5, 3)
-	ctx.fill()
-
-	// The slot's lip: a dark opening with a pale rim under it
-	ctx.fillStyle = '#050506'
-	ctx.beginPath()
-	ctx.roundRect(w * 0.1, top + 14, w * 0.8, 26, 8)
-	ctx.fill()
-	ctx.fillStyle = 'rgba(255,255,255,0.12)'
-	ctx.fillRect(w * 0.1 + 6, top + 42, w * 0.8 - 12, 2)
-
-	const tex = new CanvasTexture(canvas)
-	tex.colorSpace = SRGBColorSpace
-	return tex
-}
-
 /** Three tones of light, hard-edged */
 function toonGradient () {
 	const data = new Uint8Array([70, 70, 70, 255, 150, 150, 150, 255, 255, 255, 255, 255])
@@ -441,17 +393,6 @@ export class CartridgeStage {
 		this.facePlane = new PlaneGeometry(1, H)
 		this.shellMaterial = new MeshToonMaterial({ color: 0x0e0e10, gradientMap: this.gradient, flatShading: true })
 
-		// For the insert animation: a dimmer over the page and the top of a console
-		// the card slides into. Drawn in their own passes, so the dimmer covers every
-		// other card but not the one being inserted
-		this.dimmer = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ color: 0x06070a, transparent: true, opacity: 0, depthTest: false }))
-		this.dimmer.visible = false
-		this.console = new Group()
-		this.consoleTexture = consoleTexture()
-		this.consoleBody = new Mesh(new PlaneGeometry(1, 1), new MeshBasicMaterial({ map: this.consoleTexture, transparent: true, opacity: 0, depthTest: false }))
-		this.console.add(this.consoleBody)
-		this.console.visible = false
-		this.scene.add(this.dimmer, this.console)
 		/** @type {any} */
 		this.inserting = null
 
@@ -547,7 +488,7 @@ export class CartridgeStage {
 			setHover: (on) => { handle.hoverTarget = on ? 1 : 0; if (!on) { handle.tx = 0; handle.ty = 0 } this.wake() },
 			/** @param {number} [delay] ms */
 			reveal: (delay = 0) => { if (handle.revealAt === null) { handle.revealAt = performance.now() + delay; this.wake() } },
-			/** Slides this card into a console, resolving once it is out of sight */
+			/** Slides this card down into an invisible slot, resolving once it is out of sight */
 			insert: () => this.beginInsert(handle),
 			dispose: () => this.unregister(el)
 		}
@@ -595,28 +536,27 @@ export class CartridgeStage {
 	}
 
 	/**
-	 * The card lifts to the middle of the screen as the page dims, then slides
-	 * down into the top of a console. Resolves when it is out of sight. The dimmer
-	 * and the console stay up until endInsert, so the page can load behind them
+	 * Opening a card, in place: it pulls back a touch, then slides down into an
+	 * invisible slot at its own bottom edge, clipped there so it seems to go in.
+	 * Nothing else on the page changes. Resolves once it is out of sight; call
+	 * endInsert afterwards (it also puts the card back if the page did not open)
 	 * @param {any} handle
 	 */
 	beginInsert (handle) {
 		if (this.inserting) return Promise.resolve()
-		const r = handle.el.getBoundingClientRect()
-		const w = window.innerWidth
-		const h = window.innerHeight
-		const targetW = Math.min(w * 0.46, (h * 0.42) / H, 280)
-		this.renderer.domElement.style.zIndex = '1000'
-		this.dimmer.scale.set(w * 2, h * 2, 1)
-		this.dimmer.position.set(w / 2, h / 2, 0)
-		this.dimmer.visible = true
-		this.console.visible = true
+		// This card gets its own shell material, so the clip does not touch the others
+		const shell = handle.group.children[0]
+		const clippedShell = this.shellMaterial.clone()
+		const clip = new Plane(new Vector3(0, 1, 0), 0)
+		clippedShell.clippingPlanes = [clip]
+		const faceMaterials = handle.group.children.slice(1).map((/** @type {any} */ m) => m.material)
+		faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = [clip]; m.needsUpdate = true })
+		shell.material = clippedShell
+		this.renderer.localClippingEnabled = true
+
 		this.inserting = {
-			handle,
+			handle, shell, clippedShell, clip, faceMaterials,
 			start: performance.now(),
-			from: { cx: r.left + r.width / 2, cy: r.top + (r.width * H) / 2, w: r.width },
-			to: { cx: w / 2, cy: h * 0.4, w: targetW },
-			fadeStart: 0,
 			hidden: false,
 			/** @type {() => void} */
 			resolve: () => {}
@@ -626,12 +566,17 @@ export class CartridgeStage {
 		return done
 	}
 
-	/** Fades the dimmer and the console out, once the next page is there */
+	/** Puts everything back as it was */
 	endInsert () {
-		if (this.inserting && !this.inserting.fadeStart) {
-			this.inserting.fadeStart = performance.now()
-			this.wake()
-		}
+		const st = this.inserting
+		if (!st) return
+		st.shell.material = this.shellMaterial
+		st.clippedShell.dispose()
+		st.faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = null; m.needsUpdate = true })
+		this.renderer.localClippingEnabled = false
+		st.handle.group.visible = true
+		this.inserting = null
+		this.wake()
 	}
 
 	get busy () { return !!this.inserting }
@@ -640,57 +585,36 @@ export class CartridgeStage {
 	updateInsert (now) {
 		const st = this.inserting
 		const h = st.handle
+		const r = h.el.getBoundingClientRect()
 		const t = now - st.start
-		const vh = window.innerHeight
+		const ch = r.width * H
+		const bottom = r.top + ch
 
-		const p1 = easeInOutCubic(Math.min(1, t / INSERT_LIFT_MS))
-		const p2 = easeInOutCubic(Math.min(1, Math.max(0, (t - INSERT_LIFT_MS) / INSERT_SLIDE_MS)))
-		const w = lerp(st.from.w, st.to.w, p1)
-		const cx = lerp(st.from.cx, st.to.cx, p1)
-		const cyLift = lerp(st.from.cy, st.to.cy, p1)
-		const chT = st.to.w * H
-		const cy = cyLift + p2 * chT * 1.02
+		// The slot is the card's own bottom edge. Clip everything below it
+		st.clip.constant = -(this.viewH - bottom)
 
-		// Upright, and facing front, whatever it was doing
+		let offset
+		if (t < INSERT_PULL_MS) {
+			offset = -r.width * 0.05 * easeOutCubic(t / INSERT_PULL_MS)
+		} else {
+			const p = Math.min(1, (t - INSERT_PULL_MS) / INSERT_SLIDE_MS)
+			// Slow to start, then in
+			offset = -r.width * 0.05 + (ch * 1.04 + r.width * 0.05) * (p * p * p)
+		}
+
 		h.flip = 0
 		h.rx *= 0.8
 		h.ry *= 0.8
-		h.group.scale.setScalar(w)
+		h.group.scale.setScalar(r.width)
 		h.group.rotation.set(h.rx, h.ry, 0)
-		h.group.position.set(cx, vh - cy, -(D * w) / 2)
-		// Hidden once its top edge is past the slot line
-		const slotY = st.to.cy + chT / 2 - 0.12 * chT
-		h.group.visible = !(cy - (w * H) / 2 >= slotY)
-		if (!h.group.visible && !st.hidden) {
+		h.group.position.set(r.left + r.width / 2, this.viewH - (r.top + ch / 2 + offset), -(D * r.width) / 2)
+
+		if (!st.hidden && r.top + offset >= bottom) {
 			st.hidden = true
+			h.group.visible = false
 			st.resolve()
 		}
-
-		// The console rises as the card lifts
-		const fade = st.fadeStart ? 1 - Math.min(1, (now - st.fadeStart) / INSERT_FADE_MS) : 1
-		const appear = p1 * fade
-		const bodyW = st.to.w * 1.7
-		const bodyH = chT * 1.5
-		const rise = (1 - p1) * 0.3 * chT
-		// The plane is the slab plus a shadow band (10% of its height) above it
-		const planeH = bodyH / 0.9
-		const slabTop = slotY + rise
-		this.consoleBody.scale.set(bodyW, planeH, 1)
-		this.consoleBody.position.set(st.to.cx, vh - (slabTop + 0.4 * planeH), 0)
-		const bodyMaterial = /** @type {any} */ (this.consoleBody.material)
-		const dimMaterial = /** @type {any} */ (this.dimmer.material)
-		bodyMaterial.opacity = appear
-		dimMaterial.opacity = 0.66 * p1 * fade
-
-		if (st.fadeStart && now - st.fadeStart >= INSERT_FADE_MS) {
-			this.dimmer.visible = false
-			this.console.visible = false
-			this.renderer.domElement.style.zIndex = '40'
-			h.group.visible = false
-			this.inserting = null
-			return false
-		}
-		return true
+		return !st.hidden
 	}
 
 	wake () {
@@ -741,51 +665,13 @@ export class CartridgeStage {
 			if (this.updateInsert(now)) animating = true
 		}
 
-		this.render()
+		this.renderer.render(this.scene, this.camera)
 
 		if (animating) {
 			requestAnimationFrame(this.frame)
 		} else {
 			this.running = false
 		}
-	}
-
-	/** One pass normally; three while a card is being inserted */
-	render () {
-		const st = this.inserting
-		if (!st) {
-			this.renderer.render(this.scene, this.camera)
-			return
-		}
-		const card = st.handle.group
-		const cardVisible = card.visible
-		const dimVisible = this.dimmer.visible
-		const consoleVisible = this.console.visible
-		this.renderer.autoClear = false
-		this.renderer.clear()
-
-		// 1. the page's other cards
-		card.visible = false
-		this.dimmer.visible = false
-		this.console.visible = false
-		this.renderer.render(this.scene, this.camera)
-
-		// 2. the dimmer over them
-		this.dimmer.visible = dimVisible
-		this.renderer.render(this.scene, this.camera)
-		this.dimmer.visible = false
-
-		// 3. the card being inserted, then the console it goes into
-		this.renderer.clearDepth()
-		card.visible = cardVisible
-		this.renderer.render(this.scene, this.camera)
-		card.visible = false
-		this.console.visible = consoleVisible
-		this.renderer.render(this.scene, this.camera)
-
-		card.visible = cardVisible
-		this.dimmer.visible = dimVisible
-		this.renderer.autoClear = true
 	}
 
 	get size () { return this.handles.size }
@@ -795,11 +681,6 @@ export class CartridgeStage {
 		window.removeEventListener('resize', this.onResize)
 		this.visibility.disconnect()
 		for (const el of [...this.handles.keys()]) this.unregister(el)
-		this.dimmer.geometry.dispose()
-		this.dimmer.material.dispose()
-		this.consoleBody.geometry.dispose()
-		this.consoleBody.material.dispose()
-		this.consoleTexture.dispose()
 		this.geometry.dispose()
 		this.facePlane.dispose()
 		this.shellMaterial.dispose()
