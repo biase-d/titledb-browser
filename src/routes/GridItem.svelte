@@ -51,6 +51,19 @@
     `View details for ${titleName} by ${publisher}.${performanceInfo ? ` ${performanceInfo}.` : ''}`,
   )
 
+  // Artwork that fails to load would otherwise show its alt text in the card
+  let imageFailed = $state(false)
+  /** @type {HTMLImageElement | undefined} */
+  let imageElement = $state()
+
+  $effect(() => {
+    // An error before hydration is never seen by onerror, so look at the
+    // element's own state once it is mounted
+    if (imageElement?.complete && imageElement.naturalWidth === 0 && imageElement.currentSrc) {
+      imageFailed = true
+    }
+  })
+
   /** @type {HTMLElement | undefined} */
   let cardElement = $state()
   let dynamicTheme = $state(null)
@@ -92,7 +105,14 @@
   aria-label={ariaLabel}
 >
   <div class="image-container">
+    {#if imageFailed || !(imageSet?.src || iconUrl || titleData.bannerUrl)}
+      <div class="card-placeholder" aria-hidden="true">
+        <Icon icon="mdi:controller-classic-outline" />
+      </div>
+    {:else}
     <img
+      bind:this={imageElement}
+      onerror={() => (imageFailed = true)}
       class="card-icon"
       class:fallback-icon={!iconUrl && titleData.bannerUrl}
       class:lqip={!!titleData.iconLqip}
@@ -106,6 +126,7 @@
       width="200"
       height="200"
     />
+    {/if}
 
     {#if docked.target_fps || handheld.target_fps}
       <div class="card-perf-badge" aria-hidden="true">
@@ -194,6 +215,16 @@
     -webkit-font-smoothing: subpixel-antialiased;
   }
 
+  .card-placeholder {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    font-size: 2.5rem;
+    color: var(--text-secondary);
+    background: linear-gradient(135deg, var(--input-bg), color-mix(in srgb, var(--card-primary) 8%, var(--input-bg)));
+  }
+
   .game-card:hover .card-icon {
     transform: scale(1.05) translateZ(0);
   }
@@ -238,6 +269,7 @@
   .meta-main {
     display: flex;
     flex-direction: column;
+    flex: 1;
     min-width: 0;
   }
 
@@ -267,10 +299,9 @@
     border-radius: 4px;
     border: 1px solid var(--border-color);
     white-space: nowrap;
-    /* Enough for the compact labels; the full one is in the title */
-    max-width: 110px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    /* Never cut: a label like "WESTE…" says nothing. The publisher beside it
+       is what gives way when the card is narrow */
+    flex: none;
     transition: all 0.3s ease;
   }
 

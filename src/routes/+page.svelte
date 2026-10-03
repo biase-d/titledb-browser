@@ -258,6 +258,15 @@
 
 <main class="main-content">
 	{#if data.isLandingPage}
+		<header class="intro">
+			<h1>Nintendo Switch game performance</h1>
+			<p>
+				Frame rates, resolutions and graphics settings for Switch games,
+				collected by the community and open to anyone.
+				<a href="/stats">See the numbers</a>
+			</p>
+		</header>
+
 		<!-- Recently Updated Carousel -->
 		<HeroCarousel {recentUpdates} {preferredRegion} />
 
@@ -490,7 +499,7 @@
 			<div class="branding-badge">
 				<Icon icon="mdi:account-group" /> Join the Community
 			</div>
-			<h1>Everything runs better with info</h1>
+			<h2>Everything runs better with info</h2>
 			<p>
 				Contribute performance data, report graphics settings, or help
 				verify existing entries. Together we build the best database for
@@ -567,7 +576,7 @@
 			color-mix(in srgb, var(--primary-color) 20%, transparent);
 	}
 
-	.branding-hero h1 {
+	.branding-hero h2 {
 		font-size: clamp(2.2rem, 6vw, 3.5rem);
 		font-weight: 900;
 		line-height: 1.05;
@@ -717,6 +726,28 @@
 		font-size: 1.5rem;
 	}
 
+	.intro h1 {
+		margin: 0 0 0.375rem;
+		font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		line-height: 1.15;
+		color: var(--text-primary);
+	}
+
+	.intro p {
+		margin: 0;
+		max-width: 42rem;
+		color: var(--text-secondary);
+		line-height: 1.5;
+	}
+
+	.intro a {
+		color: var(--primary-color);
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
 	.discover-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -760,6 +791,14 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 		gap: 1.5rem;
+	}
+
+	/* On a phone one 200px minimum meant one card per screen */
+	@media (max-width: 560px) {
+		.results-container.grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.75rem;
+		}
 	}
 
 	.results-container.gallery {

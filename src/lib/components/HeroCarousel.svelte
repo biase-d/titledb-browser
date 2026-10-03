@@ -160,7 +160,7 @@
                             <Icon icon="mdi:clock-outline" /> Latest Update
                         </div>
 
-                        <h1>{name}</h1>
+                        <h2>{name}</h2>
 
                         {#if perf.docked?.target_fps || perf.handheld?.target_fps}
                             <div class="hero-performance">
@@ -344,7 +344,7 @@
         letter-spacing: 0.5px;
     }
 
-    .hero-carousel h1 {
+    .hero-carousel h2 {
         font-size: clamp(2rem, 5vw, 3rem);
         font-weight: 900;
         margin: 0;
@@ -522,7 +522,7 @@
             text-align: center;
         }
 
-        .hero-carousel h1 {
+        .hero-carousel h2 {
             /* Rescales better on small screens */
             font-size: clamp(1.75rem, 8vw, 2.25rem); 
             /* MAGIC CSS: Prevents awkward widows (e.g., "The Legend of / Zelda" becomes stacked evenly) */
