@@ -61,7 +61,6 @@
 		"@fontsource/noto-sans-jp": "^5.2.9",
 		"@octokit/rest": "^22.0.0",
 		"@resvg/resvg-js": "^2.6.2",
-		"chart.js": "^4.5.0",
 		"dotenv": "^18.0.4",
 		"drizzle-orm": "^0.45.3",
 		"idb": "^8.0.3",
@@ -73,7 +72,8 @@
 		"satori": "^0.12.2",
 		"satori-html": "^0.3.2",
 		"sharp": "^0.35.4",
-		"simple-git": "^4.0.1"
+		"simple-git": "^4.0.1",
+		"three": "^0.186.1"
 	},
 	"overrides": {
 		"@auth/sveltekit": {

@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte'
   import Icon from '@iconify/svelte'
-  import { createImageSet } from '$lib/image'
+  import { createImageSet, proxyImage } from '$lib/image'
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
   import { preferences } from '$lib/stores/preferences'
   import { getLocalizedName } from '$lib/i18n'
@@ -13,10 +13,12 @@
    * column gives it. Everything inside is sized in container width (cqw), which
    * is how it scales with the screen without a media query per size
    *
-   * It is plain CSS 3D, not WebGL. A grid shows dozens of cards and browsers cap
-   * a page at about sixteen WebGL contexts, so one canvas per card would start
-   * dropping them; transforms cost nothing at this scale and the card stays a
-   * real link with real text for crawlers and screen readers
+   * Drawn two ways. Where WebGL is available, one shared canvas paints a
+   * low-poly 3D cartridge over this element (see $lib/webgl/cartridgeStage); the
+   * element stays in the page as the real link, with the label and the text.
+   * Everywhere else - crawlers, no JS, reduced motion, no WebGL, or a lost
+   * context - it is the CSS 3D card below. One canvas per card would not work:
+   * browsers cap a page at about sixteen WebGL contexts
    */
 
   /** @type {{ titleData: any, query?: string, index?: number }} */
@@ -66,26 +68,48 @@
 
   /**
    * 'static' is what the server renders and what a crawler, a no-JS visitor
-   * and reduced-motion users keep: the card face-up and still. Only a real
+   * and reduced-motion users keep: the CSS card face-up and still. Only a real
    * browser that has not asked for less motion goes 'back' (turned away), then
    * 'front' when it scrolls into view
    * @type {'static' | 'back' | 'front'}
    */
   let side = $state('static')
   let settled = $state(false)
+  /** True once the shared WebGL canvas is drawing this card */
+  let gl = $state(false)
 
   /** @type {HTMLElement | undefined} */
   let cell = $state()
   /** @type {HTMLElement | undefined} */
   let cart = $state()
+  /** @type {any} */
+  let handle = null
 
-  onMount(() => {
-    if (!cell || isBot() || typeof IntersectionObserver === 'undefined' ||
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  let cartridgeData = $derived({
+    id,
+    title: titleName,
+    publisher,
+    regionBadge: regionBadge || '',
+    dockedFps: dockedFps || null,
+    handheldFps: handheldFps || null,
+    artUrl: proxyImage(iconUrl || titleData.bannerUrl, 512) || null
+  })
+
+  // Names and numbers can change under a card that stays (a region switch)
+  let lastKey = ''
+  $effect(() => {
+    const key = JSON.stringify(cartridgeData)
+    if (gl && handle && key !== lastKey) handle.update(cartridgeData)
+    lastKey = key
+  })
+
+  /** The CSS card's own entrance: turned away, then round to the front */
+  function startCss () {
+    if (!cell) return () => {}
+    if (typeof IntersectionObserver === 'undefined') {
       settled = true
-      return
+      return () => {}
     }
-
     side = 'back'
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     let settleTimer
@@ -105,15 +129,78 @@
       observer.disconnect()
       clearTimeout(settleTimer)
     }
+  }
+
+  onMount(() => {
+    if (!cell || isBot() || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      settled = true
+      return
+    }
+
+    let cancelled = false
+    let cleanup = () => {}
+    /** @type {any} */
+    let stageModule = null
+
+    ;(async () => {
+      try {
+        stageModule = await import('$lib/webgl/cartridgeStage')
+        const stage = await stageModule.getStage()
+        if (cancelled || !cell) return
+
+        if (stage) {
+          const h = stage.register(cell, cartridgeData)
+          await h.loaded
+          if (cancelled) { h.dispose(); return }
+          handle = h
+          gl = true
+
+          stage.onLost(() => {
+            gl = false
+            handle = null
+            cleanup = startCss()
+          })
+
+          const observer = new IntersectionObserver((entries) => {
+            if (entries.some(e => e.isIntersecting)) {
+              h.reveal((index % 8) * 55)
+              observer.disconnect()
+            }
+          }, { rootMargin: '0px 0px -8% 0px', threshold: 0.15 })
+          observer.observe(cell)
+          cleanup = () => observer.disconnect()
+          return
+        }
+      } catch {
+        // The module or the context could not be had: the CSS card will do
+      }
+      if (!cancelled) cleanup = startCss()
+    })()
+
+    return () => {
+      cancelled = true
+      cleanup()
+      if (handle) {
+        handle.dispose()
+        handle = null
+        stageModule?.releaseStage()
+      }
+    }
   })
 
   /** Hover tilt: fine pointers only. A finger gets a still card, so scrolling never moves it */
   /** @param {PointerEvent} e */
   function tilt (e) {
-    if (!settled || e.pointerType !== 'mouse' || !cell || !cart) return
+    if (e.pointerType !== 'mouse' || !cell) return
     const r = cell.getBoundingClientRect()
     const x = (e.clientX - r.left) / r.width - 0.5
     const y = (e.clientY - r.top) / r.height - 0.5
+    if (gl && handle) {
+      handle.setHover(true)
+      handle.setTilt(x, y)
+      return
+    }
+    if (!settled || !cart) return
     cart.style.setProperty('--ry', `${(x * 22).toFixed(1)}deg`)
     cart.style.setProperty('--rx', `${(-y * 18).toFixed(1)}deg`)
     cart.style.setProperty('--gx', `${((x + 0.5) * 100).toFixed(0)}%`)
@@ -121,6 +208,7 @@
   }
 
   function untilt () {
+    if (gl && handle) handle.setHover(false)
     cart?.style.removeProperty('--ry')
     cart?.style.removeProperty('--rx')
   }
@@ -137,6 +225,7 @@
   onpointerleave={untilt}
 >
   <div class="scene">
+    {#if !gl}
     <div
       bind:this={cart}
       class="cart"
@@ -211,6 +300,7 @@
       <div class="edge top" aria-hidden="true"></div>
       <div class="edge bottom" aria-hidden="true"></div>
     </div>
+    {/if}
   </div>
 </a>
 

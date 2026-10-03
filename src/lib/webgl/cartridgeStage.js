@@ -1,0 +1,600 @@
+/**
+ * One WebGL canvas that draws every cartridge on the page
+ *
+ * A grid shows dozens of cards and browsers cap a page at about sixteen WebGL
+ * contexts, so a canvas per card would start losing them. Instead there is a
+ * single fixed canvas over the page, and each card in the layout registers its
+ * element here. Every frame the stage reads where those elements are and puts
+ * a cartridge mesh exactly on top of each one. The elements stay in the page as
+ * the real links, with the real text; this only paints them
+ *
+ * The models are deliberately low-poly (rounded corners of a couple of facets,
+ * flat shading, three-step toon lighting) for an 8-bit look. The label art and
+ * the printed numbers are not: they are drawn into textures at full resolution
+ *
+ * It renders on demand. With nothing moving the loop stops, so a page at rest
+ * costs nothing
+ *
+ * Loaded with a dynamic import, so three.js is only fetched when the cartridge
+ * view is used, and never for a crawler
+ */
+import {
+	WebGLRenderer, Scene, PerspectiveCamera, Group, Mesh, Shape, ExtrudeGeometry, PlaneGeometry,
+	MeshToonMaterial, MeshBasicMaterial, AmbientLight, DirectionalLight, CanvasTexture, DataTexture,
+	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter
+} from 'three'
+
+/** A card is 21 x 31 x 3.4 mm; everything is in card widths, so width is 1 */
+const H = 31 / 21
+const D = 3.4 / 21
+const FACE_PX = 512
+const FACE_PX_H = Math.round(FACE_PX * H)
+const FOV = 30
+const FLIP_MS = 900
+
+const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
+
+/**
+ * @typedef {Object} CartridgeData
+ * @property {string} id
+ * @property {string} title
+ * @property {string} publisher
+ * @property {string} regionBadge
+ * @property {string | null} dockedFps
+ * @property {string | null} handheldFps
+ * @property {string | null} artUrl
+ */
+
+/** @param {string} src @returns {Promise<HTMLImageElement | null>} */
+function loadImage (src) {
+	return new Promise((resolve) => {
+		const img = new Image()
+		img.crossOrigin = 'anonymous'
+		img.decoding = 'async'
+		img.onload = () => resolve(img)
+		img.onerror = () => resolve(null)
+		img.src = src
+	})
+}
+
+/** @param {CanvasRenderingContext2D} ctx @param {string} text @param {number} maxWidth @param {number} maxLines */
+function wrap (ctx, text, maxWidth, maxLines) {
+	const words = text.split(/\s+/)
+	/** @type {string[]} */
+	const lines = []
+	let line = ''
+	for (let i = 0; i < words.length; i++) {
+		const next = line ? `${line} ${words[i]}` : words[i]
+		if (ctx.measureText(next).width <= maxWidth || !line) {
+			line = next
+		} else {
+			lines.push(line)
+			line = words[i]
+			if (lines.length === maxLines) break
+		}
+	}
+	if (lines.length < maxLines && line) lines.push(line)
+	// Ellipsis on the last line if there was more
+	const consumed = lines.join(' ').length
+	if (consumed < text.length || ctx.measureText(lines[lines.length - 1] ?? '').width > maxWidth) {
+		let last = lines[lines.length - 1] ?? ''
+		while (last.length > 1 && ctx.measureText(`${last}…`).width > maxWidth) last = last.slice(0, -1)
+		lines[lines.length - 1] = `${last}…`
+	}
+	return lines
+}
+
+/** @param {CanvasRenderingContext2D} ctx @param {number} x @param {number} y @param {number} w @param {number} h @param {number} r */
+function roundRect (ctx, x, y, w, h, r) {
+	ctx.beginPath()
+	ctx.roundRect(x, y, w, h, r)
+}
+
+/** The television glyph, drawn so the texture needs no icon font */
+function drawTv (/** @type {CanvasRenderingContext2D} */ ctx, x, y, s) {
+	ctx.save()
+	ctx.strokeStyle = '#fff'
+	ctx.lineWidth = s * 0.13
+	ctx.lineJoin = 'round'
+	roundRect(ctx, x + s * 0.1, y + s * 0.1, s * 1.2, s * 0.8, s * 0.12)
+	ctx.stroke()
+	ctx.beginPath()
+	ctx.moveTo(x + s * 0.4, y + s * 1.12)
+	ctx.lineTo(x + s * 1.0, y + s * 1.12)
+	ctx.stroke()
+	ctx.restore()
+}
+
+/** The handheld console glyph */
+function drawHandheld (/** @type {CanvasRenderingContext2D} */ ctx, x, y, s) {
+	ctx.save()
+	ctx.fillStyle = '#fff'
+	roundRect(ctx, x, y + s * 0.1, s * 1.4, s * 0.9, s * 0.2)
+	ctx.fill()
+	ctx.fillStyle = 'rgba(0,0,0,0.38)'
+	roundRect(ctx, x + s * 0.28, y + s * 0.22, s * 0.84, s * 0.66, s * 0.08)
+	ctx.fill()
+	ctx.restore()
+}
+
+/**
+ * The front face: a label with a red band carrying the numbers, the art, and a
+ * strip with the title and a code, then the mark and ridges. Everything else is
+ * left transparent so the shell shows through. Units are 1% of the face width
+ * @param {HTMLCanvasElement} canvas @param {CartridgeData} d @param {HTMLImageElement | null} art
+ */
+function drawFront (canvas, d, art) {
+	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
+	const u = canvas.width / 100
+	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
+	ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+	const lx = 8 * u
+	const ly = 8 * u
+	const lw = 84 * u
+	const lh = 108 * u
+
+	// A dark bezel under the label
+	ctx.fillStyle = '#050506'
+	roundRect(ctx, lx - 1 * u, ly - 1 * u, lw + 2 * u, lh + 2 * u, 2.4 * u)
+	ctx.fill()
+
+	ctx.save()
+	roundRect(ctx, lx, ly, lw, lh, 1.6 * u)
+	ctx.clip()
+
+	ctx.fillStyle = '#f4f4f2'
+	ctx.fillRect(lx, ly, lw, lh)
+
+	// Band
+	const hasData = !!(d.dockedFps || d.handheldFps)
+	const band = ctx.createLinearGradient(0, ly, 0, ly + 17 * u)
+	band.addColorStop(0, hasData ? '#f0192b' : '#6d6d74')
+	band.addColorStop(1, hasData ? '#d80f20' : '#55555c')
+	ctx.fillStyle = band
+	ctx.fillRect(lx, ly, lw, 17 * u)
+
+	ctx.fillStyle = '#fff'
+	ctx.textBaseline = 'middle'
+	const cy = ly + 8.5 * u
+	if (hasData) {
+		ctx.font = `800 ${9.5 * u}px ${sans}`
+		const items = [
+			d.dockedFps && { draw: drawTv, text: d.dockedFps },
+			d.handheldFps && { draw: drawHandheld, text: d.handheldFps }
+		].filter(Boolean)
+		const iconW = 7.5 * u
+		const gap = 2 * u
+		const widths = items.map(i => iconW + gap + ctx.measureText(i.text).width)
+		const between = 5 * u
+		let x = lx + (lw - (widths.reduce((a, b) => a + b, 0) + between * (items.length - 1))) / 2
+		items.forEach((item, i) => {
+			item.draw(ctx, x, cy - 4 * u, 5.6 * u)
+			ctx.fillStyle = '#fff'
+			ctx.fillText(item.text, x + iconW + gap, cy + 0.4 * u)
+			x += widths[i] + between
+		})
+	} else {
+		ctx.font = `700 ${6.4 * u}px ${sans}`
+		ctx.textAlign = 'center'
+		ctx.fillText('NO DATA YET', lx + lw / 2, cy)
+		ctx.textAlign = 'left'
+	}
+
+	// Art, cropped to cover
+	const ay = ly + 17 * u
+	const ah = 66 * u
+	ctx.fillStyle = '#ececea'
+	ctx.fillRect(lx, ay, lw, ah)
+	if (art) {
+		const scale = Math.max(lw / art.width, ah / art.height)
+		const w = art.width * scale
+		const h = art.height * scale
+		// Cover overshoots one axis; without the clip it paints over the band and the strip
+		ctx.save()
+		ctx.beginPath()
+		ctx.rect(lx, ay, lw, ah)
+		ctx.clip()
+		ctx.drawImage(art, lx + (lw - w) / 2, ay + (ah - h) / 2, w, h)
+		ctx.restore()
+	} else {
+		ctx.fillStyle = 'rgba(0,0,0,0.18)'
+		ctx.font = `${18 * u}px ${sans}`
+		ctx.textAlign = 'center'
+		ctx.fillText('🎮', lx + lw / 2, ay + ah / 2)
+		ctx.textAlign = 'left'
+	}
+
+	// Title and code
+	ctx.fillStyle = '#15161a'
+	ctx.textBaseline = 'alphabetic'
+	ctx.font = `800 ${6.4 * u}px ${sans}`
+	const lines = wrap(ctx, d.title, lw - 7 * u, 2)
+	lines.forEach((line, i) => ctx.fillText(line, lx + 3.5 * u, ay + ah + 8 * u + i * 7.4 * u))
+	ctx.fillStyle = '#4b4d57'
+	ctx.font = `${3.7 * u}px 'Fira Mono', ui-monospace, monospace`
+	ctx.fillText(`${d.id}${d.regionBadge ? ` · ${d.regionBadge}` : ''}`.slice(0, 34), lx + 3.5 * u, ly + lh - 2.6 * u)
+	ctx.restore()
+
+	// The mark under the label
+	ctx.fillStyle = 'rgba(255,255,255,0.16)'
+	ctx.beginPath()
+	ctx.moveTo(44.5 * u, 124 * u)
+	ctx.lineTo(55.5 * u, 124 * u)
+	ctx.lineTo(50 * u, 131 * u)
+	ctx.closePath()
+	ctx.fill()
+
+	// Ridges
+	ctx.fillStyle = 'rgba(255,255,255,0.13)'
+	const ridgeTop = canvas.height - 10.5 * u
+	for (let x = 14 * u; x < 86 * u; x += 4.4 * u) ctx.fillRect(x, ridgeTop, 1.6 * u, 6 * u)
+}
+
+/**
+ * The back face: the details etched in light grey, and the five contacts
+ * @param {HTMLCanvasElement} canvas @param {CartridgeData} d
+ */
+function drawBack (canvas, d) {
+	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
+	const u = canvas.width / 100
+	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
+	ctx.clearRect(0, 0, canvas.width, canvas.height)
+	ctx.textBaseline = 'alphabetic'
+
+	let y = 16 * u
+	ctx.fillStyle = 'rgba(255,255,255,0.82)'
+	ctx.font = `800 ${7 * u}px ${sans}`
+	for (const line of wrap(ctx, d.title, 78 * u, 2)) {
+		ctx.fillText(line, 12 * u, y)
+		y += 8.4 * u
+	}
+	ctx.font = `${5 * u}px ${sans}`
+	ctx.fillStyle = 'rgba(255,255,255,0.62)'
+	const rows = [
+		[d.publisher, ''],
+		[d.regionBadge, ''],
+		d.dockedFps ? ['Docked', `${d.dockedFps} FPS`] : null,
+		d.handheldFps ? ['Handheld', `${d.handheldFps} FPS`] : null
+	].filter(row => row && row[0])
+	for (const [label, value] of /** @type {string[][]} */ (rows)) {
+		y += 1.4 * u + 5 * u
+		if (value) {
+			ctx.font = `700 ${5 * u}px ${sans}`
+			ctx.fillStyle = 'rgba(255,255,255,0.8)'
+			ctx.fillText(label, 12 * u, y)
+			ctx.font = `${5 * u}px ${sans}`
+			ctx.fillStyle = 'rgba(255,255,255,0.62)'
+			ctx.fillText(value, 12 * u + ctx.measureText(label).width + 3 * u + 4 * u, y)
+		} else {
+			ctx.fillText(label.length > 28 ? `${label.slice(0, 27)}…` : label, 12 * u, y)
+		}
+	}
+
+	// The slot
+	const slotH = 62 * u
+	const slotY = canvas.height - 8 * u - slotH
+	ctx.fillStyle = 'rgba(0,0,0,0.55)'
+	roundRect(ctx, 13 * u, slotY, 74 * u, slotH, 2 * u)
+	ctx.fill()
+
+	ctx.fillStyle = 'rgba(255,255,255,0.3)'
+	ctx.beginPath()
+	ctx.moveTo(15 * u, slotY - 6 * u)
+	ctx.lineTo(19.5 * u, slotY - 6 * u)
+	ctx.lineTo(17.25 * u, slotY - 2.8 * u)
+	ctx.closePath()
+	ctx.fill()
+
+	const gap = (70 - 5 * 10) / 4
+	for (let n = 0; n < 5; n++) {
+		const x = 15 * u + n * (10 + gap) * u
+		const h = slotH * (n % 2 ? 0.96 : 0.88)
+		const top = slotY + slotH - h
+		ctx.fillStyle = '#1b1b1e'
+		ctx.fillRect(x, top, 10 * u, h)
+		ctx.fillStyle = '#b8893a'
+		ctx.fillRect(x + 3.8 * u, top, 2.4 * u, h)
+		const green = ctx.createLinearGradient(0, top, 0, top + h * 0.24)
+		green.addColorStop(0, '#5fd16b')
+		green.addColorStop(1, '#2f9a43')
+		ctx.fillStyle = green
+		ctx.fillRect(x, top, 10 * u, h * 0.24)
+	}
+}
+
+/** Three tones of light, hard-edged */
+function toonGradient () {
+	const data = new Uint8Array([70, 70, 70, 255, 150, 150, 150, 255, 255, 255, 255, 255])
+	const tex = new DataTexture(data, 3, 1, RGBAFormat)
+	tex.minFilter = NearestFilter
+	tex.magFilter = NearestFilter
+	tex.needsUpdate = true
+	return tex
+}
+
+/** The card's body: a rounded rectangle whose corners are only a couple of facets */
+function shellGeometry () {
+	const r = 0.07
+	const shape = new Shape()
+	shape.moveTo(r, 0)
+	shape.lineTo(1 - r, 0)
+	shape.quadraticCurveTo(1, 0, 1, r)
+	shape.lineTo(1, H - r)
+	shape.quadraticCurveTo(1, H, 1 - r, H)
+	shape.lineTo(r, H)
+	shape.quadraticCurveTo(0, H, 0, H - r)
+	shape.lineTo(0, r)
+	shape.quadraticCurveTo(0, 0, r, 0)
+	const g = new ExtrudeGeometry(shape, { depth: D, bevelEnabled: false, curveSegments: 2 })
+	g.translate(-0.5, -H / 2, -D / 2)
+	return g
+}
+
+export class CartridgeStage {
+	constructor () {
+		this.renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'default' })
+		this.renderer.setClearColor(0x000000, 0)
+		this.renderer.domElement.setAttribute('aria-hidden', 'true')
+		Object.assign(this.renderer.domElement.style, {
+			position: 'fixed', inset: '0', width: '100vw', height: '100vh', pointerEvents: 'none', zIndex: '40'
+		})
+
+		this.scene = new Scene()
+		this.camera = new PerspectiveCamera(FOV, 1, 1, 5000)
+		this.scene.add(new AmbientLight(0xffffff, 0.95))
+		const sun = new DirectionalLight(0xffffff, 2.0)
+		sun.position.set(-1, 1.4, 2)
+		this.scene.add(sun)
+
+		this.gradient = toonGradient()
+		this.geometry = shellGeometry()
+		this.facePlane = new PlaneGeometry(1, H)
+		this.shellMaterial = new MeshToonMaterial({ color: 0x0e0e10, gradientMap: this.gradient, flatShading: true })
+
+		/** @type {Map<Element, any>} */
+		this.handles = new Map()
+		this.running = false
+		this.lastScroll = 0
+		this.lost = false
+		/** @type {Array<() => void>} */
+		this.lostListeners = []
+
+		this.visibility = new IntersectionObserver((entries) => {
+			for (const e of entries) {
+				const h = this.handles.get(e.target)
+				if (h) h.near = e.isIntersecting
+			}
+			this.wake()
+		}, { rootMargin: '200px' })
+
+		this.onScroll = () => { this.lastScroll = performance.now(); this.wake() }
+		this.onResize = () => { this.resize(); this.wake() }
+		window.addEventListener('scroll', this.onScroll, { passive: true })
+		window.addEventListener('resize', this.onResize)
+		this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+			e.preventDefault()
+			this.lost = true
+			this.lostListeners.forEach(fn => fn())
+		})
+		document.body.appendChild(this.renderer.domElement)
+		this.resize()
+	}
+
+	resize () {
+		const w = window.innerWidth
+		const h = window.innerHeight
+		// Capped: past 2x the art is not any sharper and the fill cost climbs
+		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+		this.renderer.setSize(w, h, false)
+		this.camera.aspect = w / h
+		const dist = (h / 2) / Math.tan((FOV * Math.PI) / 360)
+		this.camera.position.set(w / 2, h / 2, dist)
+		this.camera.lookAt(w / 2, h / 2, 0)
+		this.camera.far = dist * 4
+		this.camera.updateProjectionMatrix()
+		this.viewH = h
+	}
+
+	/** @param {() => void} fn */
+	onLost (fn) { this.lostListeners.push(fn) }
+
+	/**
+	 * Draws a cartridge over an element and keeps it there
+	 * @param {HTMLElement} el
+	 * @param {CartridgeData} data
+	 */
+	register (el, data) {
+		const group = new Group()
+		const shell = new Mesh(this.geometry, this.shellMaterial)
+		group.add(shell)
+
+		const frontCanvas = Object.assign(document.createElement('canvas'), { width: FACE_PX, height: FACE_PX_H })
+		const backCanvas = Object.assign(document.createElement('canvas'), { width: FACE_PX, height: FACE_PX_H })
+		const frontTex = this.texture(frontCanvas)
+		const backTex = this.texture(backCanvas)
+
+		const mat = (/** @type {CanvasTexture} */ map) => new MeshBasicMaterial({
+			map, transparent: true, alphaTest: 0.02, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2
+		})
+		const front = new Mesh(this.facePlane, mat(frontTex))
+		front.position.z = D / 2 + 0.0015
+		const back = new Mesh(this.facePlane, mat(backTex))
+		back.rotation.y = Math.PI
+		back.position.z = -D / 2 - 0.0015
+		group.add(front, back)
+		group.visible = false
+		this.scene.add(group)
+
+		const handle = {
+			el, group, frontCanvas, backCanvas, frontTex, backTex, data,
+			near: true,
+			ready: false,
+			revealAt: /** @type {number | null} */ (null),
+			flip: 1,
+			hover: 0, hoverTarget: 0,
+			tx: 0, ty: 0, rx: 0, ry: 0,
+			/** @type {Promise<void>} */
+			loaded: Promise.resolve(),
+			/** @param {CartridgeData} next */
+			update: (next) => { handle.data = next; return paint() },
+			/** @param {number} nx @param {number} ny -0.5..0.5 across the card */
+			setTilt: (nx, ny) => { handle.tx = nx; handle.ty = ny; this.wake() },
+			/** @param {boolean} on */
+			setHover: (on) => { handle.hoverTarget = on ? 1 : 0; if (!on) { handle.tx = 0; handle.ty = 0 } this.wake() },
+			/** @param {number} [delay] ms */
+			reveal: (delay = 0) => { if (handle.revealAt === null) { handle.revealAt = performance.now() + delay; this.wake() } },
+			dispose: () => this.unregister(el)
+		}
+
+		const paint = async () => {
+			const d = handle.data
+			if ('fonts' in document) await document.fonts.ready
+			const art = d.artUrl ? await loadImage(d.artUrl) : null
+			if (!this.handles.has(el)) return
+			drawFront(frontCanvas, d, art)
+			drawBack(backCanvas, d)
+			frontTex.needsUpdate = true
+			backTex.needsUpdate = true
+			handle.ready = true
+			this.wake()
+		}
+		handle.loaded = paint()
+
+		this.handles.set(el, handle)
+		this.visibility.observe(el)
+		return handle
+	}
+
+	/** @param {HTMLCanvasElement} canvas */
+	texture (canvas) {
+		const t = new CanvasTexture(canvas)
+		t.colorSpace = SRGBColorSpace
+		t.anisotropy = 4
+		t.minFilter = LinearMipmapLinearFilter
+		t.magFilter = LinearFilter
+		return t
+	}
+
+	/** @param {Element} el */
+	unregister (el) {
+		const h = this.handles.get(el)
+		if (!h) return
+		this.visibility.unobserve(el)
+		this.scene.remove(h.group)
+		h.frontTex.dispose()
+		h.backTex.dispose()
+		h.group.traverse((/** @type {any} */ o) => o.material && o.material !== this.shellMaterial && o.material.dispose())
+		this.handles.delete(el)
+		this.wake()
+	}
+
+	wake () {
+		if (this.running || this.lost) return
+		this.running = true
+		requestAnimationFrame(this.frame)
+	}
+
+	frame = () => {
+		const now = performance.now()
+		let animating = now - this.lastScroll < 140
+
+		// Read every position first, then write: no layout thrash
+		const rects = []
+		for (const h of this.handles.values()) rects.push(h.near ? h.el.getBoundingClientRect() : null)
+
+		let i = 0
+		for (const h of this.handles.values()) {
+			const r = rects[i++]
+			const g = h.group
+			if (!r || !h.ready || r.width === 0 || r.bottom < -50 || r.top > this.viewH + 50) {
+				g.visible = false
+				continue
+			}
+
+			// Turn from the back to the front
+			if (h.revealAt !== null && h.flip > 0) {
+				h.flip = Math.max(0, 1 - easeOutCubic(Math.min(1, Math.max(0, (now - h.revealAt) / FLIP_MS))))
+				if (now - h.revealAt < FLIP_MS) animating = true
+				else h.flip = 0
+			}
+
+			// Ease toward the pointer
+			h.rx += (h.ty * -0.31 - h.rx) * 0.2
+			h.ry += (h.tx * 0.38 - h.ry) * 0.2
+			h.hover += (h.hoverTarget - h.hover) * 0.2
+			if (Math.abs(h.rx - h.ty * -0.31) > 0.002 || Math.abs(h.ry - h.tx * 0.38) > 0.002 || Math.abs(h.hover - h.hoverTarget) > 0.01) animating = true
+
+			const s = r.width * (1 + 0.04 * h.hover)
+			g.scale.setScalar(s)
+			g.rotation.set(h.rx, h.ry + h.flip * Math.PI, 0)
+			g.position.set(r.left + r.width / 2, this.viewH - (r.top + (r.width * H) / 2) + 6 * h.hover, -(D * s) / 2)
+			g.visible = true
+		}
+
+		this.renderer.render(this.scene, this.camera)
+
+		if (animating) {
+			requestAnimationFrame(this.frame)
+		} else {
+			this.running = false
+		}
+	}
+
+	get size () { return this.handles.size }
+
+	dispose () {
+		window.removeEventListener('scroll', this.onScroll)
+		window.removeEventListener('resize', this.onResize)
+		this.visibility.disconnect()
+		for (const el of [...this.handles.keys()]) this.unregister(el)
+		this.geometry.dispose()
+		this.facePlane.dispose()
+		this.shellMaterial.dispose()
+		this.gradient.dispose()
+		this.renderer.dispose()
+		this.renderer.domElement.remove()
+		this.lost = true
+	}
+}
+
+/** @type {Promise<CartridgeStage | null> | null} */
+let shared = null
+let disposeTimer = 0
+
+function supported () {
+	try {
+		const c = document.createElement('canvas')
+		return !!(c.getContext('webgl2') || c.getContext('webgl'))
+	} catch {
+		return false
+	}
+}
+
+/** The one stage, created on first use; null when WebGL is not available */
+export function getStage () {
+	clearTimeout(disposeTimer)
+	shared ??= Promise.resolve().then(() => {
+		if (!supported()) return null
+		try {
+			const stage = new CartridgeStage()
+			stage.onLost(() => { shared = null })
+			return stage
+		} catch {
+			return null
+		}
+	})
+	return shared
+}
+
+/** Called when a card goes away; the stage is torn down once nothing uses it */
+export function releaseStage () {
+	clearTimeout(disposeTimer)
+	disposeTimer = window.setTimeout(async () => {
+		const stage = await shared
+		if (stage && stage.size === 0) {
+			stage.dispose()
+			shared = null
+		}
+	}, 600)
+}
