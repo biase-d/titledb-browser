@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte'
+  import { goto, preloadData } from '$app/navigation'
   import Icon from '@iconify/svelte'
   import { createImageSet, proxyImage } from '$lib/image'
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
@@ -84,6 +85,10 @@
   let cart = $state()
   /** @type {any} */
   let handle = null
+  /** @type {any} */
+  let stageModule = null
+  /** @type {any} */
+  let stageRef = null
 
   let cartridgeData = $derived({
     id,
@@ -139,8 +144,6 @@
 
     let cancelled = false
     let cleanup = () => {}
-    /** @type {any} */
-    let stageModule = null
 
     ;(async () => {
       try {
@@ -149,6 +152,7 @@
         if (cancelled || !cell) return
 
         if (stage) {
+          stageRef = stage
           const h = stage.register(cell, cartridgeData)
           await h.loaded
           if (cancelled) { h.dispose(); return }
@@ -207,6 +211,39 @@
     cart.style.setProperty('--gy', `${((y + 0.5) * 100).toFixed(0)}%`)
   }
 
+  let inserting = false
+
+  /**
+   * Opening a game: the cartridge lifts, then slides into a console while the
+   * page dims, and the details page loads behind that and fades in. Only for a
+   * plain click on the WebGL card. A modified click (new tab, new window), a
+   * second click mid-animation, reduced motion, and the CSS card are all the
+   * ordinary link
+   * @param {MouseEvent} e
+   */
+  async function open (e) {
+    if (!gl || !handle || inserting || e.defaultPrevented || e.button !== 0 ||
+      e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    const stage = stageRef
+    if (!stage) return
+
+    // Synchronously: a preventDefault after an await is too late
+    e.preventDefault()
+    inserting = true
+    const href = `/title/${id}`
+    // Start fetching the page now, so it is ready by the time the card is in
+    preloadData(href).catch(() => {})
+    try {
+      await handle.insert()
+      await goto(href)
+    } finally {
+      stage.endInsert()
+      inserting = false
+      // The stage waits for the fade to finish before it will tear itself down
+      setTimeout(() => stageModule?.releaseStage(), 700)
+    }
+  }
+
   function untilt () {
     if (gl && handle) handle.setHover(false)
     cart?.style.removeProperty('--ry')
@@ -223,6 +260,7 @@
   style:--i={index % 8}
   onpointermove={tilt}
   onpointerleave={untilt}
+  onclick={open}
 >
   <div class="scene">
     {#if !gl}
@@ -234,8 +272,8 @@
       class:settled
     >
       <!-- Front, as on the real card: black shell, a label with a red header band
-           (here carrying our numbers, grey when there are none), the art, and a
-           strip with the title and a code. The mark and the ridges are below it -->
+           (here carrying our numbers, grey when there are none), and the art with the
+           title and a code over a blur of it. The mark is below it -->
       <div class="face front">
         <div class="label">
           <div class="band" class:empty={!dockedFps && !handheldFps}>
@@ -273,7 +311,6 @@
           </div>
         </div>
         <div class="mark" aria-hidden="true"></div>
-        <div class="grip" aria-hidden="true"></div>
         <div class="sheen" aria-hidden="true"></div>
       </div>
 
@@ -306,10 +343,10 @@
 
 <style>
   /* One cartridge is 21 x 31 x 3.4 mm. In cqw (1cqw = 1% of the card's width):
-     width 100, height 147.6, depth 16.2 */
+     width 100, height 147.6, depth 13 (drawn at 80% of the real 16.2) */
   .cell {
     --w: 100cqw;
-    --d: 16.2cqw;
+    --d: 13cqw;
     --shell: #19191c;
     --shell-light: #2a2a2f;
     --shell-dark: #0b0b0d;
@@ -383,7 +420,7 @@
     background:
       radial-gradient(120% 70% at 20% 0%, rgba(255, 255, 255, 0.10), transparent 60%),
       linear-gradient(160deg, var(--shell-light), var(--shell) 55%, var(--shell-dark));
-    box-shadow: inset 0 0 0 0.7cqw rgba(255, 255, 255, 0.07), inset 0 -2cqw 3cqw rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 -2cqw 3cqw rgba(0, 0, 0, 0.35);
   }
 
   .front { transform: translateZ(calc(var(--d) / 2)); }
@@ -423,8 +460,8 @@
     flex-direction: column;
     border-radius: 1.6cqw;
     overflow: hidden;
-    background: #f4f4f2;
-    box-shadow: 0 0 0 1cqw #050506, 0 0 0 1.6cqw rgba(255, 255, 255, 0.06);
+    background: #2a2c33;
+    box-shadow: 0 0 0 1cqw #050506;
   }
 
   .band {
@@ -460,9 +497,9 @@
   }
 
   .art {
-    flex: none;
-    height: 66cqw;
-    background: #ececea;
+    flex: 1;
+    min-height: 0;
+    background: #2a2c33;
     overflow: hidden;
   }
 
@@ -482,15 +519,22 @@
     color: rgba(0, 0, 0, 0.25);
   }
 
+  /* Over the bottom of the art, on a blur of it, not on a white strip */
   .info {
-    flex: 1;
-    min-height: 0;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 27cqw;
     padding: 2.2cqw 3.5cqw 1.6cqw;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    background: #f4f4f2;
-    color: #15161a;
+    color: #fff;
+    background: linear-gradient(180deg, rgba(8, 9, 12, 0.15), rgba(8, 9, 12, 0.58) 35%, rgba(8, 9, 12, 0.78));
+    -webkit-backdrop-filter: blur(1.6cqw);
+    backdrop-filter: blur(1.6cqw);
   }
 
   .title {
@@ -510,7 +554,7 @@
     font-family: var(--font-mono);
     font-size: 3.7cqw;
     letter-spacing: 0.02em;
-    color: #4b4d57;
+    color: rgba(255, 255, 255, 0.72);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -526,17 +570,6 @@
     translate: -50% 0;
     background: rgba(255, 255, 255, 0.16);
     clip-path: polygon(0 0, 100% 0, 50% 100%);
-  }
-
-  /* The ridges along the bottom edge */
-  .grip {
-    position: absolute;
-    left: 14cqw;
-    right: 14cqw;
-    bottom: 4.5cqw;
-    height: 6cqw;
-    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.13) 0 1.6cqw, transparent 1.6cqw 4.4cqw);
-    border-radius: 1cqw;
   }
 
   /* A moving highlight that follows the pointer */
