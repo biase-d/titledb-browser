@@ -28,6 +28,12 @@ import { followTilt } from '$lib/sensors'
 // Opening a card: a small pull back, then it slides down into an invisible slot
 const INSERT_PULL_MS = 140
 const INSERT_SLIDE_MS = 560
+// The pointer-following glare is switched off. It is a plane a hair in front of the
+// label, and depth precision at that gap makes it break up and show artifacts over
+// the artwork on some GPUs. The code is kept, to bring back once it can be drawn
+// without that (a shader on the label itself would not have the problem)
+const GLARE_ENABLED = false
+
 // A pile of cartridges lying flat, seen from the front and above
 const STACK_TILT = 0.66
 const STACK_GAP = 1.22
@@ -1326,7 +1332,7 @@ export class CartridgeStage {
 
 			// A highlight that follows the pointer across the card
 			const spot = h.glare
-			spot.visible = !reduced && h.hover > 0.03 && !h.dragging && h.dockT === 0
+			spot.visible = GLARE_ENABLED && !reduced && h.hover > 0.03 && !h.dragging && h.dockT === 0
 			if (spot.visible) {
 				spot.position.x = h.tx
 				spot.position.y = -h.ty * H
