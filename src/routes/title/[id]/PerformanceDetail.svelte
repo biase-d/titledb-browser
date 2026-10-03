@@ -144,20 +144,16 @@
 
 <style>
 	.perf-card {
-		background:
-			linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 6%, var(--surface-color)), var(--surface-color) 60%);
+		background-color: var(--surface-color);
 		border-radius: var(--radius-lg);
 		padding: 2rem;
-		border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-color));
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+		border: 1px solid var(--border-color);
 	}
 
 	.perf-mode-title {
 		font-size: 1.25rem;
 		font-weight: 600;
 		margin: 0 0 1.5rem 0;
-		padding-left: 0.75rem;
-		border-left: 3px solid var(--primary-color);
 	}
 
 	.perf-grid {

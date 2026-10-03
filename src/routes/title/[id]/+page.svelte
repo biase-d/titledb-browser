@@ -990,19 +990,6 @@
 		z-index: -1;
 	}
 
-	/* The panel's own edge: a hairline and a lit top, like the bezel of a console screen */
-	.banner-bg-wrapper::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border-radius: inherit;
-		pointer-events: none;
-		box-shadow:
-			inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.2),
-			inset 0 -30px 60px color-mix(in srgb, var(--primary-color) 14%, transparent);
-	}
-
 	.banner-image {
 		position: absolute;
 		top: 0;
@@ -1230,23 +1217,9 @@
 		gap: 1rem;
 	}
 	.section-title {
-		display: flex;
-		align-items: center;
-		gap: 0.65rem;
 		font-size: 1.5rem;
 		font-weight: 700;
 		margin: 0;
-	}
-
-	/* A status light before each section, in the theme's colour */
-	.section-title::before {
-		content: '';
-		flex: none;
-		width: 0.55rem;
-		height: 0.55rem;
-		border-radius: 50%;
-		background: var(--primary-color);
-		box-shadow: 0 0 0.6rem color-mix(in srgb, var(--primary-color) 70%, transparent);
 	}
 
 	.header-controls {
@@ -1297,12 +1270,10 @@
 	}
 
 	.info-card {
-		background:
-			linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 6%, var(--surface-color)), var(--surface-color) 60%);
-		border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-color));
+		background-color: var(--surface-color);
+		border: 1px solid var(--border-color);
 		border-radius: var(--radius-lg);
 		padding: 1.5rem;
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 	}
 	.info-card-title {
 		font-size: 1.125rem;

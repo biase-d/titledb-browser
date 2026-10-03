@@ -264,9 +264,10 @@
                         <div class="setting-info">
                             <span class="setting-label">Seasonal effects</span>
                             <span class="setting-desc"
-                                >Falling leaves, snow and other touches in
-                                October, November and December. Never shown when
-                                animation is reduced.</span
+                                >Embers, leaves and snow in October, November
+                                and December. They are put up gradually, a few
+                                days early, and never shown when animation is
+                                reduced.</span
                             >
                         </div>
                         <div class="segmented" role="radiogroup" aria-label="Seasonal effects">

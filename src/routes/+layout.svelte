@@ -91,11 +91,14 @@
     </div>
 {/if}
 
+<!-- The seasonal layer lives in the background: above the theme's backdrop,
+     below every component -->
+<SeasonOverlay />
+
 <div
     class="app-shell"
     class:has-theme={themeStore.isActive && $preferences.adaptiveTheme}
 >
-    <SeasonOverlay />
     <Header {data} />
 
     <main class="app-container">
