@@ -3,6 +3,7 @@ import GitHub from '@auth/sveltekit/providers/github'
 import { env } from '$env/dynamic/private'
 import { sequence } from '@sveltejs/kit/hooks'
 import { db } from '$lib/db'
+import { dev } from '$app/environment'
 
 /** @type {import('@sveltejs/kit').Handle} */
 const dbHandler = async ({ event, resolve }) => {
@@ -97,4 +98,25 @@ const authHandler = SvelteKitAuth({
 	}
 }).handle
 
-export const handle = sequence(dbHandler, securityHandler, authHandler)
+/**
+ * Local development only: be signed in as DEV_FAKE_USER without GitHub, so the
+ * pages behind a sign-in (contribute, profile settings) can be opened on a
+ * machine that has no OAuth app. It does nothing unless the server was started
+ * with `vite dev` (`dev` is false in a build, so in production this is a
+ * pass-through whatever the environment says) and the variable is set. It only
+ * answers locals.auth(); nothing is written, and GitHub calls still need a real token
+ * @type {import('@sveltejs/kit').Handle}
+ */
+const devSignInHandler = async ({ event, resolve }) => {
+	if (dev && env.DEV_FAKE_USER) {
+		const login = env.DEV_FAKE_USER
+		const locals = /** @type {any} */ (event.locals)
+		locals.auth = async () => ({
+			user: { name: login, login, id: 'dev-user', image: null },
+			expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+		})
+	}
+	return resolve(event)
+}
+
+export const handle = sequence(dbHandler, securityHandler, authHandler, devSignInHandler)

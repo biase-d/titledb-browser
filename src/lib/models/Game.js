@@ -1,3 +1,5 @@
+import { normalizeContributor } from '$lib/contributions'
+
 export class Game {
 	id
 	groupId
@@ -13,6 +15,8 @@ export class Game {
 	performanceHistory
 	contributor
 	sourcePrUrl
+	/** @type {{ canonicalTitleId: string, indexable: boolean } | undefined} */
+	seo
 
 	allTitlesInGroup
 	youtubeLinks
@@ -76,13 +80,23 @@ export class Game {
 		return release > today
 	}
 
-	/** Aggregates all unique contributors from all data sources. */
+	/**
+	 * Aggregates all unique contributors from all data sources. Names are compared
+	 * ignoring case and stray spaces, as everywhere else, so "Biase-D" and
+	 * "biase-d" are one person; the first spelling met is the one shown
+	 * @returns {string[]}
+	 */
 	get allContributors () {
-		const contributors = new Set()
-		if (this.contributor) this.contributor.forEach(c => contributors.add(c))
-		if (this.graphics?.contributor) this.graphics.contributor.forEach(c => contributors.add(c))
-		if (this.youtubeLinks) this.youtubeLinks.forEach(c => contributors.add(c.submittedBy))
-		return [...contributors]
+		/** @type {Map<string, string>} */
+		const people = new Map()
+		const add = (/** @type {string | null | undefined} */ name) => {
+			const key = normalizeContributor(name)
+			if (key && !people.has(key)) people.set(key, /** @type {string} */ (name).trim())
+		}
+		this.contributor?.forEach(add)
+		this.graphics?.contributor?.forEach(add)
+		this.youtubeLinks?.forEach((/** @type {any} */ link) => add(link.submittedBy))
+		return [...people.values()]
 	}
 
 	/** The latest performance profile available. */

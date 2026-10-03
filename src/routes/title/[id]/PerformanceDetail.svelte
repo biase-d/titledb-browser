@@ -52,7 +52,7 @@
 	function formatFramerate (modeData) {
 		if (!modeData) return 'N/A'
 		if (!modeData.target_fps) return modeData.fps_behavior || 'N/A'
-		return `${modeData.fps_behavior} ${modeData.target_fps} FPS`
+		return [modeData.fps_behavior, modeData.target_fps === 'Unlocked' ? 'Unlocked' : `${modeData.target_fps} FPS`].filter(Boolean).join(' ')
 	}
 </script>
 
@@ -76,7 +76,7 @@
 								</p>{/if}
 						</div>
 					{/if}
-					{#if handheld.fps_behavior}
+					{#if handheld.fps_behavior || handheld.target_fps}
 						<div class="perf-item">
 							<p class="label">Framerate</p>
 							<div class="value-with-tooltip">
@@ -103,7 +103,7 @@
 
 		{#if performance.docked}
 			{@const docked = performance.docked}
-			<div class="mode-section perf-mode-separator">
+			<div class="mode-section" class:perf-mode-separator={!!performance.handheld}>
 				<h3 class="perf-mode-title">Docked</h3>
 				<div class="perf-grid">
 					{#if hasResolutionData(docked)}
@@ -115,7 +115,7 @@
 								</p>{/if}
 						</div>
 					{/if}
-					{#if docked.fps_behavior}
+					{#if docked.fps_behavior || docked.target_fps}
 						<div class="perf-item">
 							<p class="label">Framerate</p>
 							<div class="value-with-tooltip">
@@ -172,15 +172,20 @@
 		margin: 0;
 	}
 
+	/* Read like the spec on a card: a small spaced label, a firm number */
 	.label {
-		font-size: 0.875rem;
+		font-size: 0.72rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		color: var(--text-secondary);
-		margin-bottom: 0.25rem;
+		margin-bottom: 0.3rem;
 	}
 
 	.value {
-		font-weight: 600;
-		font-size: 1.1rem;
+		font-weight: 700;
+		font-size: 1.15rem;
+		font-variant-numeric: tabular-nums;
 		color: var(--text-primary);
 	}
 

@@ -1,254 +1,97 @@
 <script>
-  import BarChart from './BarChart.svelte'
-  import LineChart from './LineChart.svelte'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import { browser } from '$app/environment'
   import Icon from '@iconify/svelte'
+  import CountryFlag from '$lib/components/CountryFlag.svelte'
+  import { getRegionLabel } from '$lib/regions'
+  import BarList from './BarList.svelte'
+  import ColumnChart from './ColumnChart.svelte'
+  import CartridgeStackChart from './CartridgeStackChart.svelte'
+  import CountUp from '$lib/components/CountUp.svelte'
 
   /** @type {{ data: { stats: any } }} */
   let { data } = $props()
 
   /** @type {any} */
   let stats = $derived(data.stats)
+  let kpis = $derived(stats.kpis)
+  let filters = $derived(stats.activeFilters)
 
-  /**
-   * @param {number | string | null} bytes
-   * @returns {string}
-   */
+  const TABS = [
+    { id: 'overview', label: 'Overview', icon: 'mdi:view-dashboard-outline' },
+    { id: 'performance', label: 'Performance', icon: 'mdi:speedometer' },
+    { id: 'community', label: 'Community', icon: 'mdi:account-group-outline' },
+    { id: 'library', label: 'Library', icon: 'mdi:bookshelf' }
+  ]
+
+  let tab = $state('overview')
+
+  /** @param {string} code */
+  const regionName = (code) => getRegionLabel([code]) ?? code
+
+  /** @param {number} bytes */
   function formatSize (bytes) {
-    if (!bytes) return '0.00 GB'
-    const val = typeof bytes === 'string' ? parseFloat(bytes) : bytes
-    const gb = val / (1024 * 1024 * 1024)
-    return `${gb.toFixed(2)} GB`
+    if (!bytes) return '—'
+    const gb = bytes / 1024 ** 3
+    if (gb >= 1024) return `${(gb / 1024).toFixed(2)} TB`
+    return gb >= 1 ? `${gb.toFixed(2)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`
   }
 
-  let filters = $state({
-    publisher: null,
-    year: null,
-    sizeBucket: null,
-  })
+  /** @param {number} ratio */
+  const percent = (ratio) => `${Math.round(ratio * 100)}%`
 
-  $effect(() => {
-    if (stats?.activeFilters) {
-      filters.publisher = stats.activeFilters.publisher
-      filters.year = stats.activeFilters.year
-      filters.sizeBucket = stats.activeFilters.sizeBucket
-    }
-  })
+  /** 'YYYY-MM' -> 'Jan', with the year on January so a year boundary is visible */
+  function monthLabel (/** @type {string} */ month) {
+    const [y, m] = month.split('-').map(Number)
+    const name = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en', { month: 'short', timeZone: 'UTC' })
+    return m === 1 ? `${name} ${String(y).slice(2)}` : name
+  }
 
-  $effect(() => {
+  /**
+   * Sets or clears one filter. The page's data is loaded from the URL, so this
+   * is just navigation
+   * @param {'region' | 'publisher' | 'year' | 'sizeBucket'} key
+   * @param {string | null} value
+   */
+  function setFilter (key, value) {
     const url = new URL(page.url)
-
-    /**
-     * @param {string} key
-     * @param {string | null} value
-     */
-    const updateParam = (key, value) => {
-      if (value) url.searchParams.set(key, value)
-      else url.searchParams.delete(key)
-    }
-
-    updateParam('publisher', filters.publisher)
-    updateParam('year', filters.year)
-    updateParam('sizeBucket', filters.sizeBucket)
-
-    if (url.href !== page.url.href) {
-      goto(url.href, {
-        noScroll: true,
-        replaceState: true,
-      })
-    }
-  })
-
-  let isDarkMode = $state(true)
-
-  $effect(() => {
-    if (!browser) return
-
-    const checkTheme = () => {
-      isDarkMode = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    checkTheme()
-
-    const observer = new MutationObserver(checkTheme)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
-
-    return () => observer.disconnect()
-  })
-
-const chartData = $derived(
-    stats
-      ? {
-          releasesByYear: {
-            labels: stats.releasesByYear.map((item) => item.year),
-            datasets: [
-              {
-                label: 'Games Released',
-                data: stats.releasesByYear.map((item) => item.count),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: isDarkMode ? '#171717' : '#ffffff', 
-                pointHoverRadius: 6,
-              },
-            ],
-          },
-          topPublishers: {
-            labels: stats.topPublishers.map((p) => p.publisher),
-            datasets: [
-              {
-                label: 'Games Published',
-                data: stats.topPublishers.map((p) => p.count),
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                borderColor: '#3b82f6',
-                borderWidth: 1,
-                borderRadius: 8,
-              },
-            ],
-          },
-          sizeDistribution: {
-            labels: stats.sizeDistribution.map((b) => b.bucket),
-            datasets: [
-              {
-                label: 'Number of Games',
-                data: stats.sizeDistribution.map((b) => b.count),
-                backgroundColor: 'rgba(167, 139, 250, 0.5)',
-                borderColor: '#a78bfa',
-                borderWidth: 1,
-                borderRadius: 8,
-              },
-            ],
-          },
-        }
-      : null,
-  )
-
-
-  const chartOptions = $derived({
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: isDarkMode ? 'rgba(23, 23, 23, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-        titleColor: isDarkMode ? '#ffffff' : '#111827',
-        bodyColor: isDarkMode ? '#9ca3af' : '#4b5563',
-        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-        titleFont: { size: 13, weight: 'bold' },
-        padding: 12,
-        cornerRadius: 12,
-        borderWidth: 1,
-      },
-    },
-    scales: {
-      y: {
-        grid: { color: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-        ticks: { color: isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.6)' },
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.6)' },
-      },
-    },
-  })
-
-  const horizontalBarOptions = $derived({
-    ...chartOptions,
-    indexAxis: 'y',
-    scales: {
-      x: {
-        grid: { color: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)' },
-        ticks: { color: isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.6)' },
-      },
-      y: {
-        grid: { display: false },
-        ticks: { color: isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.6)' },
-      },
-    },
-  })
-
-  /**
-   * @param {any} chart
-   * @param {any} event
-   * @param {'publisher' | 'year' | 'sizeBucket'} filterType
-   */
-  function handleChartClick (chart, event, filterType) {
-    if (!chart) return
-    const elements = chart.getElementsAtEventForMode(
-      event,
-      'nearest',
-      { intersect: true },
-      true,
-    )
-    if (elements.length > 0) {
-      const index = elements.index
-      const label = chart.data.labels[index]
-      filters[filterType] = filters[filterType] === label ? null : label
-    }
+    if (value && filters[key] !== value) url.searchParams.set(key, value)
+    else url.searchParams.delete(key)
+    goto(url, { noScroll: true, keepFocus: true, replaceState: true })
   }
 
-  /**
-   * @param {'publisher' | 'year' | 'sizeBucket'} filterType
-   */
-  function clearFilter (filterType) {
-    filters[filterType] = null
+  function clearFilters () {
+    const url = new URL(page.url)
+    for (const key of ['region', 'publisher', 'year', 'sizeBucket']) url.searchParams.delete(key)
+    goto(url, { noScroll: true, keepFocus: true, replaceState: true })
   }
 
-  function createHomeUrl () {
-    // Local to this function, never reactive state
+  let activeFilterCount = $derived(Object.values(filters).filter(Boolean).length)
+
+  /** Where "browse these titles" goes: the library search supports region and publisher only */
+  let libraryUrl = $derived.by(() => {
+    // Local to this derivation, never reactive state
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const params = new URLSearchParams()
-    
-    if (filters.publisher) {
-        params.set('publisher', filters.publisher)
-    }
-    
-    if (filters.year) {
-      params.set('minYear', filters.year)
-      params.set('maxYear', filters.year)
-    }
-    
-    if (filters.sizeBucket) {
-			const ranges = {
-				'<100MB': [0, 100],
-				'100-200MB': [100, 200],
-				'200-300MB': [200, 300],
-				'300-400MB': [300, 400],
-				'400-500MB': [400, 500],
-				'500MB-1GB': [512, 1024],
-				'1-2GB': [1024, 2048],
-				'2-3GB': [2048, 3072],
-				'3-4GB': [3072, 4096],
-				'4-5GB': [4096, 5120],
-				'5-10GB': [5120, 10240],
-				'10-15GB': [10240, 15360],
-				'15-20GB': [15360, 20480],
-				'>20GB': [20480, ''],
-			}
-      
-      const bucket = ranges[filters.sizeBucket]
-      
-      if (bucket) {
-        params.set('minSizeMB', bucket.toString())
-        if (bucket !== '') {
-           params.set('maxSizeMB', bucket.toString())
-        }
-      }
-    }
-    
-    return `/?${params.toString()}`
-  }
+    if (filters.publisher) params.set('publisher', filters.publisher)
+    if (filters.region) params.set('region_filter', filters.region)
+    return params.size > 0 ? `/?${params}` : null
+  })
+
+  let scopeLabel = $derived(filters.region ? regionName(filters.region) : 'all regions')
+
+  const coverageNote = $derived(
+    kpis.groups === 0
+      ? 'No titles match these filters.'
+      : `${kpis.groupsWithData.toLocaleString()} of ${kpis.groups.toLocaleString()} games have performance or graphics data`
+  )
 </script>
 
 <svelte:head>
   <title>Data Insights - Switch Performance</title>
   <meta
     name="description"
-    content="Explore comprehensive statistics and insights about the Nintendo Switch game library — release timelines, top publishers, storage distribution, and community trends."
+    content="Explore statistics for the Nintendo Switch library: how much of it has performance data, what frame rates it runs at, who contributes, and what the community is asking for. Filter by region."
   />
   <link rel="canonical" href="{page.url.origin}/stats" />
   <meta property="og:type" content="website" />
@@ -256,339 +99,266 @@ const chartData = $derived(
   <meta property="og:title" content="Data Insights - Switch Performance" />
   <meta
     property="og:description"
-    content="Explore comprehensive statistics and insights about the Nintendo Switch game library — release timelines, top publishers, storage distribution, and community trends."
+    content="Explore statistics for the Nintendo Switch library: data coverage, frame rates, contributors and community requests."
   />
   <meta property="og:site_name" content="Switch Performance" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Data Insights - Switch Performance" />
   <meta
     name="twitter:description"
-    content="Explore comprehensive statistics and insights about the Nintendo Switch game library."
+    content="Explore statistics for the Nintendo Switch library."
   />
 </svelte:head>
 
 <div class="stats-dashboard">
   <header class="dashboard-header">
-    <div class="header-title">
+    <div>
       <h1 class="title-main">Data Insights</h1>
       <p class="title-sub">
-        Comprehensive overview of the Switch Performance ecosystem.
+        {#if filters.region}
+          Showing titles released in <strong>{regionName(filters.region)}</strong>.
+        {:else}
+          The whole library, across every region.
+        {/if}
       </p>
     </div>
 
-    {#if filters.publisher || filters.year || filters.sizeBucket}
-      <div class="active-filters-glass border-yellow">
-        <div class="filter-pills-container">
-          {#if filters.publisher}
-            <span class="filter-pill">
-              {filters.publisher}
-              <button
-                onclick={() => clearFilter('publisher')}
-                aria-label="Remove publisher filter"
-                ><Icon icon="mdi:close" /></button
-              >
-            </span>
-          {/if}
-          {#if filters.year}
-            <span class="filter-pill">
-              {filters.year}
-              <button
-                onclick={() => clearFilter('year')}
-                aria-label="Remove year filter"
-                ><Icon icon="mdi:close" /></button
-              >
-            </span>
-          {/if}
-          {#if filters.sizeBucket}
-            <span class="filter-pill">
-              {filters.sizeBucket}
-              <button
-                onclick={() => clearFilter('sizeBucket')}
-                aria-label="Remove size filter"
-                ><Icon icon="mdi:close" /></button
-              >
-            </span>
-          {/if}
-        </div>
-        <div class="filter-divider"></div>
-        <a href={createHomeUrl()} class="results-link">
-          View matching titles
-        </a>
-      </div>
-    {/if}
+    <label class="region-picker">
+      <span class="picker-label">Region</span>
+      <span class="picker-control">
+        {#if filters.region}
+          <CountryFlag code={filters.region} size={18} />
+        {:else}
+          <Icon icon="mdi:earth" width="18" height="18" />
+        {/if}
+        <select
+          value={filters.region ?? ''}
+          onchange={(e) => setFilter('region', e.currentTarget.value || null)}
+          aria-label="Filter statistics by region"
+        >
+          <option value="">All regions</option>
+          {#each stats.regions as r (r.code)}
+            <option value={r.code}>{regionName(r.code)} ({r.titles.toLocaleString()})</option>
+          {/each}
+        </select>
+      </span>
+    </label>
   </header>
 
-  {#if stats}
-    <section class="metrics-section">
-      <h2 class="section-label">Global Database Metrics</h2>
-      <div class="metrics-grid">
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon blue">
-            <Icon icon="mdi:controller-classic" />
-          </div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_titles,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Total Games</span>
-          </div>
-        </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon teal">
-            <Icon icon="mdi:layers-outline" />
-          </div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_groups,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Library Groups</span>
-          </div>
-        </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon purple">
-            <Icon icon="mdi:domain" />
-          </div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_publishers,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Publishers</span>
-          </div>
-        </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon orange">
-            <Icon icon="mdi:database-outline" />
-          </div>
-          <div class="kpi-content">
-            <span class="value small"
-              >{formatSize(stats.kpis.total_size)}</span
-            >
-            <span class="label">Total Data Size</span>
-          </div>
-        </div>
+  {#if activeFilterCount > 0}
+    <div class="active-filters" role="status">
+      <span class="filters-label">Filtered by</span>
+      {#each [['region', filters.region ? regionName(filters.region) : null], ['publisher', filters.publisher], ['year', filters.year], ['sizeBucket', filters.sizeBucket]] as [key, text] (key)}
+        {#if text}
+          <span class="filter-pill">
+            {text}
+            <button onclick={() => setFilter(/** @type {any} */ (key), null)} aria-label="Remove {key} filter">
+              <Icon icon="mdi:close" />
+            </button>
+          </span>
+        {/if}
+      {/each}
+      <button class="clear-all" onclick={clearFilters}>Clear all</button>
+      {#if libraryUrl}
+        <a href={libraryUrl} class="results-link">Browse these titles <Icon icon="mdi:arrow-right" /></a>
+      {/if}
+    </div>
+  {/if}
 
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon yellow">
-            <Icon icon="mdi:speedometer" />
-          </div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_performance,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Performance Profiles</span>
-          </div>
+  <nav class="tabs" aria-label="Statistics sections">
+    <div role="tablist" class="tablist">
+      {#each TABS as t (t.id)}
+        <button
+          role="tab"
+          id="tab-{t.id}"
+          aria-selected={tab === t.id}
+          aria-controls="panel-{t.id}"
+          class:active={tab === t.id}
+          onclick={() => (tab = t.id)}
+        >
+          <Icon icon={t.icon} />
+          <span>{t.label}</span>
+        </button>
+      {/each}
+    </div>
+  </nav>
+
+  {#if tab === 'overview'}
+    <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" class="panel">
+      <div class="kpi-grid">
+        <div class="kpi glass-panel">
+          <span class="kpi-value"><CountUp value={kpis.titles} /></span>
+          <span class="kpi-label">Titles</span>
+          <span class="kpi-hint">{kpis.groups.toLocaleString()} games once regional versions are grouped</span>
         </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon indigo"><Icon icon="mdi:tune" /></div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_graphics,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Graphics Settings</span>
-          </div>
+        <div class="kpi glass-panel">
+          <span class="kpi-value"><CountUp value={Math.round(kpis.coverage * 100)} suffix="%" /></span>
+          <span class="kpi-label">Games with data</span>
+          <span class="kpi-hint">{coverageNote}</span>
         </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon red"><Icon icon="mdi:youtube" /></div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_youtube,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Gameplay Videos</span>
-          </div>
+        <div class="kpi glass-panel">
+          <span class="kpi-value"><CountUp value={kpis.profiles} /></span>
+          <span class="kpi-label">Performance profiles</span>
+          <span class="kpi-hint">{kpis.graphics.toLocaleString()} graphics settings · {kpis.videos.toLocaleString()} videos</span>
         </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon pink">
-            <Icon icon="mdi:account-heart-outline" />
-          </div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_contributors,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Unique Contributors</span>
-          </div>
+        <div class="kpi glass-panel">
+          <span class="kpi-value"><CountUp value={kpis.contributors} /></span>
+          <span class="kpi-label">Contributors</span>
+          <span class="kpi-hint">{kpis.contributions.toLocaleString()} contributions</span>
         </div>
-        <div class="kpi-card glass-panel">
-          <div class="kpi-icon green">
-            <Icon icon="mdi:account-group-outline" />
-          </div>
-          <div class="kpi-content">
-            <span class="value"
-              >{parseInt(
-                stats.kpis.total_requests +
-                  stats.kpis.total_favorites,
-              ).toLocaleString()}</span
-            >
-            <span class="label">Community Interactions</span>
-          </div>
+        <div class="kpi glass-panel">
+          <span class="kpi-value"><CountUp value={kpis.publishers} /></span>
+          <span class="kpi-label">Publishers</span>
+          <span class="kpi-hint">{formatSize(kpis.totalSize)} of games</span>
+        </div>
+        <div class="kpi glass-panel">
+          <span class="kpi-value"><CountUp value={kpis.requests + kpis.favorites} /></span>
+          <span class="kpi-label">Community signals</span>
+          <span class="kpi-hint">{kpis.requests.toLocaleString()} requests · {kpis.favorites.toLocaleString()} favorites</span>
         </div>
       </div>
-    </section>
 
-    <section class="metrics-section">
-      <h2 class="section-label">Community Trends</h2>
-      <div class="trends-grid">
-        <div class="trend-card glass-panel">
-          <div class="trend-header">
-            <Icon icon="mdi:fire" class="trend-icon red-text" />
-            <h3 class="trend-title">Most Requested</h3>
-          </div>
-          <div class="trend-list">
-            {#each stats.topRequested as item}
-              <div class="trend-item">
-                <span class="trend-name">{item.name}</span>
-                <span class="trend-count"
-                  >{item.count} requests</span
-                >
-              </div>
-            {/each}
-          </div>
+      <div class="card glass-panel">
+        <div class="card-head">
+          <h2>Data coverage</h2>
+          <span class="card-note">{scopeLabel}</span>
         </div>
-        <div class="trend-card glass-panel">
-          <div class="trend-header">
-            <Icon icon="mdi:heart" class="trend-icon purple-text" />
-            <h3 class="trend-title">Fan Favorites</h3>
-          </div>
-          <div class="trend-list">
-            {#each stats.topFavorited as item}
-              <div class="trend-item">
-                <span class="trend-name">{item.name}</span>
-                <span class="trend-count"
-                  >{item.count} favorites</span
-                >
-              </div>
-            {/each}
-          </div>
+        <div class="coverage-bar" role="img" aria-label="{percent(kpis.coverage)} of games have data">
+          <span style:width={percent(kpis.coverage)}></span>
+        </div>
+        <p class="card-text">{coverageNote}. Games with nothing yet are listed on the <a href="/contribute">contribute page</a>.</p>
+      </div>
+
+      <div class="card glass-panel">
+        <div class="card-head">
+          <h2>Profiles added</h2>
+          <span class="card-note">last 12 months · {scopeLabel}</span>
+        </div>
+        <ColumnChart
+          items={stats.activityByMonth.map((/** @type {any} */ m) => ({ label: monthLabel(m.month), value: m.count }))}
+          caption="Performance profiles added per month"
+        />
+      </div>
+    </div>
+  {:else if tab === 'performance'}
+    <div id="panel-performance" role="tabpanel" aria-labelledby="tab-performance" class="panel">
+      <p class="panel-note">
+        Based on the newest profile of each of the {stats.performance.sampled.toLocaleString()} games with data in {scopeLabel}.
+      </p>
+      <div class="two-col">
+        <div class="card glass-panel">
+          <div class="card-head"><h2>Docked frame rate</h2><span class="card-note">target FPS</span></div>
+          <BarList items={stats.performance.dockedFps.map((/** @type {any} */ f) => ({ label: /^\d+$/.test(f.label) ? `${f.label} FPS` : f.label, value: f.count }))} />
+        </div>
+        <div class="card glass-panel">
+          <div class="card-head"><h2>Handheld frame rate</h2><span class="card-note">target FPS</span></div>
+          <BarList items={stats.performance.handheldFps.map((/** @type {any} */ f) => ({ label: /^\d+$/.test(f.label) ? `${f.label} FPS` : f.label, value: f.count }))} color="#a78bfa" />
         </div>
       </div>
-    </section>
+      <div class="card glass-panel">
+        <div class="card-head"><h2>Docked resolution</h2><span class="card-note">how the game scales</span></div>
+        <BarList items={stats.performance.resolutionTypes.map((/** @type {any} */ r) => ({ label: r.label, value: r.count }))} color="#14b8a6" />
+      </div>
+    </div>
+  {:else if tab === 'community'}
+    <div id="panel-community" role="tabpanel" aria-labelledby="tab-community" class="panel">
+      <div class="card glass-panel">
+        <div class="card-head">
+          <h2>Top contributors</h2>
+          <span class="card-note">{kpis.contributors.toLocaleString()} people · {scopeLabel}</span>
+        </div>
+        {#if stats.topContributors.length === 0}
+          <p class="card-text">No approved contributions for this selection yet.</p>
+        {:else}
+          <ol class="leaderboard">
+            {#each stats.topContributors as person, i (person.name)}
+              <li>
+                <span class="rank">{i + 1}</span>
+                <a href="/profile/{encodeURIComponent(person.name)}">{person.name}</a>
+                <span class="leader-count">{person.contributions.toLocaleString()} <small>{person.contributions === 1 ? 'contribution' : 'contributions'}</small></span>
+              </li>
+            {/each}
+          </ol>
+          <p class="card-text small">A contribution is one pull request. Names are matched ignoring case, and a PR that adds both a profile and graphics settings counts once.</p>
+        {/if}
+      </div>
 
-    <div class="charts-container">
-      <section class="chart-card glass-panel">
-        <div class="chart-header">
-          <h3 class="chart-title">Release Timeline</h3>
-          <div class="chart-subtitle">Games per Year</div>
+      <div class="two-col">
+        <div class="card glass-panel">
+          <div class="card-head"><h2>Most requested</h2><span class="card-note">wanted data</span></div>
+          <BarList
+            items={stats.topRequested.map((/** @type {any} */ g) => ({ label: g.name, value: g.count, href: `/title/${g.gameId}`, detail: `${g.count}` }))}
+            color="#f87171"
+          />
         </div>
-        <div class="chart-h">
-          {#if chartData}
-            <LineChart
-              data={chartData.releasesByYear}
-              options={chartOptions}
-              on:chartClick={({ detail }) =>
-                handleChartClick(
-                  detail.chart,
-                  detail.event,
-                  'year',
-                )}
-            />
-          {/if}
+        <div class="card glass-panel">
+          <div class="card-head"><h2>Most favorited</h2><span class="card-note">saved by players</span></div>
+          <BarList
+            items={stats.topFavorited.map((/** @type {any} */ g) => ({ label: g.name, value: g.count, href: `/title/${g.gameId}`, detail: `${g.count}` }))}
+            color="#a78bfa"
+          />
         </div>
-      </section>
+      </div>
+    </div>
+  {:else}
+    <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" class="panel">
+      <p class="panel-note">Select a bar to filter every tab by it.</p>
+      <div class="card glass-panel">
+        <div class="card-head"><h2>Release timeline</h2><span class="card-note">games per year</span></div>
+        <CartridgeStackChart
+          items={stats.releasesByYear.map((/** @type {any} */ y) => ({ label: String(y.year), value: y.count }))}
+          selected={filters.year}
+          onselect={(label) => setFilter('year', label)}
+          caption="Games released per year"
+        />
+      </div>
 
-      <section class="chart-card glass-panel">
-        <div class="chart-header">
-          <h3 class="chart-title">Top Publishers</h3>
-          <div class="chart-subtitle">By Title Count</div>
+      <div class="two-col">
+        <div class="card glass-panel">
+          <div class="card-head"><h2>Top publishers</h2><span class="card-note">by title count</span></div>
+          <BarList
+            items={stats.topPublishers.map((/** @type {any} */ p) => ({ label: p.publisher, value: p.count }))}
+            selected={filters.publisher}
+            onselect={(label) => setFilter('publisher', label)}
+          />
         </div>
-        <div class="chart-h">
-          {#if chartData}
-            <BarChart
-              data={chartData.topPublishers}
-              options={horizontalBarOptions}
-              on:chartClick={({ detail }) =>
-                handleChartClick(
-                  detail.chart,
-                  detail.event,
-                  'publisher',
-                )}
-            />
-          {/if}
+        <div class="card glass-panel">
+          <div class="card-head"><h2>Download size</h2><span class="card-note">titles per size</span></div>
+          <BarList
+            items={stats.sizeDistribution.map((/** @type {any} */ b) => ({ label: b.bucket, value: b.count }))}
+            selected={filters.sizeBucket}
+            onselect={(label) => setFilter('sizeBucket', label)}
+            color="#a78bfa"
+          />
         </div>
-      </section>
+      </div>
 
-      <section class="chart-card glass-panel col-span-full">
-        <div class="chart-header">
-          <h3 class="chart-title">Storage Distribution</h3>
-          <div class="chart-subtitle">File Size Buckets</div>
-        </div>
-        <div class="chart-h-large">
-          {#if chartData}
-            <BarChart
-              data={chartData.sizeDistribution}
-              options={chartOptions}
-              on:chartClick={({ detail }) =>
-                handleChartClick(
-                  detail.chart,
-                  detail.event,
-                  'sizeBucket',
-                )}
-            />
-          {/if}
-        </div>
-      </section>
-
-      <section class="chart-card glass-panel col-span-full">
-        <div class="chart-header">
-          <h3 class="chart-title">Filtered Game Data</h3>
-          <div class="chart-subtitle">Direct listing (Top 50)</div>
-        </div>
+      <div class="card glass-panel">
+        <div class="card-head"><h2>Titles</h2><span class="card-note">newest 50 matching</span></div>
         <div class="table-container">
           <table class="data-table">
             <thead>
               <tr>
-                <th class="text-left">ID</th>
-                <th class="text-left">Name</th>
-                <th class="text-left">Publisher</th>
-                <th class="text-right">Size</th>
+                <th>Name</th>
+                <th class="hide-narrow">Publisher</th>
+                <th class="hide-narrow">Regions</th>
+                <th class="num">Size</th>
               </tr>
             </thead>
             <tbody>
-              {#each stats.filteredGames as game}
+              {#each stats.filteredGames as game (game.id)}
                 <tr>
-                  <td class="mono">{game.id}</td>
-                  <td class="name">{game.name}</td>
-                  <td>{game.publisher || 'N/A'}</td>
-                  <td class="mono text-right"
-                    >{formatSize(game.sizeInBytes)}</td
-                  >
+                  <td class="name"><a href="/title/{game.id}">{game.name}</a></td>
+                  <td class="hide-narrow">{game.publisher || '—'}</td>
+                  <td class="hide-narrow">{(game.regions ?? []).join(', ') || '—'}</td>
+                  <td class="num">{formatSize(game.sizeInBytes)}</td>
                 </tr>
               {:else}
-                <tr>
-                  <td
-                    colspan="4"
-                    class="empty-state text-center"
-                  >
-                    No games found matching these filters.
-                  </td>
-                </tr>
+                <tr><td colspan="4" class="empty-state">No games match these filters.</td></tr>
               {/each}
             </tbody>
           </table>
         </div>
-      </section>
-    </div>
-  {:else}
-    <div class="loading-state">
-      <div class="loading-content">
-        <Icon
-          icon="mdi:chart-scatter-plot"
-          class="loading-icon"
-          width="64"
-        />
-        <span class="loading-text">Aggregating Statistics...</span>
       </div>
     </div>
   {/if}
@@ -596,60 +366,101 @@ const chartData = $derived(
 
 <style>
   .stats-dashboard {
-    max-width: 1200px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 3rem 1.5rem;
+    padding: 2.5rem 1rem 4rem;
   }
 
   .dashboard-header {
-    margin-bottom: 3rem;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 1.5rem;
+    gap: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
   }
 
   .title-main {
     font-size: 2.25rem;
     font-weight: 900;
-    margin-bottom: 0.5rem;
+    margin: 0 0 0.375rem;
     letter-spacing: -0.025em;
     color: var(--text-primary);
   }
 
   .title-sub {
+    margin: 0;
     color: var(--text-secondary);
-    font-size: 1.125rem;
+    font-size: 1.0625rem;
   }
 
-  .active-filters-glass {
-    background: color-mix(in srgb, var(--surface-color) 40%, transparent);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    border: 1px solid var(--border-color);
-    padding: 1rem;
-    border-radius: 1rem;
+  .title-sub strong { color: var(--text-primary); }
+
+  .region-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 14rem;
+  }
+
+  .picker-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .picker-control {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
+    padding: 0 0.75rem;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-secondary);
   }
 
-  .active-filters-glass.border-yellow {
-    border-color: color-mix(in srgb, #eab308 30%, var(--border-color));
+  .picker-control:focus-within {
+    border-color: var(--primary-color);
   }
 
-  .filter-pills-container {
+  .picker-control select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.625rem 0;
+    background: transparent;
+    border: 0;
+    color: var(--text-primary);
+    font: inherit;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .active-filters {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    background: color-mix(in srgb, var(--surface-color) 60%, transparent);
+    border: 1px solid color-mix(in srgb, #eab308 30%, var(--border-color));
+    border-radius: 14px;
+  }
+
+  .filters-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
   }
 
   .filter-pill {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.8rem;
+    gap: 0.375rem;
+    padding: 0.3rem 0.7rem;
     background: var(--input-bg);
     border: 1px solid var(--border-color);
     border-radius: 10px;
@@ -658,36 +469,82 @@ const chartData = $derived(
     color: var(--text-primary);
   }
 
-  .filter-pill button {
-    color: var(--text-secondary);
+  .filter-pill button,
+  .clear-all {
     background: none;
-    border: none;
+    border: 0;
     padding: 0;
     cursor: pointer;
-    transition: color 0.2s;
-    display: flex;
+    color: var(--text-secondary);
+    display: inline-flex;
+    font: inherit;
   }
 
-  .filter-pill button:hover {
-    color: #f87171;
-  }
+  .filter-pill button:hover { color: #f87171; }
 
-  .filter-divider {
-    height: 2rem;
-    width: 1px;
-    background-color: var(--border-color);
+  .clear-all {
+    font-size: 0.8rem;
+    text-decoration: underline;
+    margin-left: 0.25rem;
   }
 
   .results-link {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
     color: var(--primary-color);
     font-weight: 700;
-    text-decoration: none;
     font-size: 0.875rem;
-    transition: filter 0.15s ease-in-out;
+    text-decoration: none;
   }
 
-  .results-link:hover {
-    filter: brightness(1.2);
+  .results-link:hover { text-decoration: underline; }
+
+  .tabs {
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+  }
+
+  .tablist {
+    display: flex;
+    gap: 0.25rem;
+    min-width: max-content;
+  }
+
+  .tablist button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: var(--text-secondary);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tablist button:hover { color: var(--text-primary); }
+
+  .tablist button.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .panel-note {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
   }
 
   .glass-panel {
@@ -695,350 +552,183 @@ const chartData = $derived(
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
     border: 1px solid var(--border-color);
-    border-radius: 24px;
+    border-radius: 20px;
   }
 
-  .metrics-section {
-    margin-bottom: 3rem;
-  }
-
-  .section-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 1.5rem;
-    padding-left: 0.25rem;
-  }
-
-  .metrics-grid {
+  .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
   }
 
-  @media (min-width: 640px) {
-    .metrics-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .metrics-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-  }
-
-  .kpi-card {
-    padding: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    transition: transform 0.3s ease, border-color 0.3s ease;
-  }
-
-  .kpi-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--primary-color);
-  }
-
-  .kpi-icon {
-    width: 54px;
-    height: 54px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    border: 1px solid var(--border-color);
-  }
-
-  .kpi-icon.blue {
-    background: rgba(59, 130, 246, 0.1);
-    color: #3b82f6;
-  }
-  .kpi-icon.teal {
-    background: rgba(20, 184, 166, 0.1);
-    color: #14b8a6;
-  }
-  .kpi-icon.purple {
-    background: rgba(167, 139, 250, 0.1);
-    color: #a78bfa;
-  }
-  .kpi-icon.orange {
-    background: rgba(249, 115, 22, 0.1);
-    color: #f97316;
-  }
-  .kpi-icon.yellow {
-    background: rgba(250, 204, 21, 0.1);
-    color: #facc15;
-  }
-  .kpi-icon.indigo {
-    background: rgba(99, 102, 241, 0.1);
-    color: #6366f1;
-  }
-  .kpi-icon.red {
-    background: rgba(248, 113, 113, 0.1);
-    color: #f87171;
-  }
-  .kpi-icon.green {
-    background: rgba(34, 197, 94, 0.1);
-    color: #22c55e;
-  }
-  .kpi-icon.pink {
-    background: rgba(236, 72, 153, 0.1);
-    color: #ec4899;
-  }
-
-  .kpi-content {
+  .kpi {
     display: flex;
     flex-direction: column;
+    gap: 0.125rem;
+    padding: 1.25rem;
   }
 
-  .kpi-content .value {
-    font-size: 1.5rem;
+  .kpi-value {
+    font-size: 2rem;
     font-weight: 800;
+    line-height: 1.1;
     color: var(--text-primary);
-    line-height: 1;
-    margin-bottom: 0.25rem;
+    font-variant-numeric: tabular-nums;
   }
 
-  .kpi-content .value.small {
-    font-size: 1.25rem;
-  }
-
-  .kpi-content .label {
+  .kpi-label {
     font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    color: var(--text-secondary);
   }
 
-  .trends-grid {
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 3rem;
+  .kpi-hint {
+    margin-top: 0.375rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
   }
 
-  @media (min-width: 768px) {
-    .trends-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
+  .card { padding: 1.25rem 1.5rem; }
 
-  .trend-card {
-    padding: 1.5rem;
-  }
-
-  .trend-header {
+  .card-head {
     display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .card-head h2 {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .card-note {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .card-text {
+    margin: 0.75rem 0 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .card-text.small { font-size: 0.8rem; }
+  .card-text a { color: var(--primary-color); }
+
+  .coverage-bar {
+    height: 0.75rem;
+    border-radius: 999px;
+    background: var(--input-bg);
+    overflow: hidden;
+  }
+
+  .coverage-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--primary-color), #14b8a6);
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  .leaderboard {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .leaderboard li {
+    display: grid;
+    grid-template-columns: 2rem 1fr auto;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
+    gap: 0.5rem;
+    padding: 0.625rem 0;
     border-bottom: 1px solid var(--border-color);
   }
 
-  .trend-header :global(.trend-icon) {
-    font-size: 1.25rem;
-  }
-  .trend-header :global(.trend-icon.red-text) {
-    color: #f87171;
-  }
-  .trend-header :global(.trend-icon.purple-text) {
-    color: #a78bfa;
-  }
+  .leaderboard li:last-child { border-bottom: 0; }
 
-  .trend-title {
-    font-size: 1rem;
+  .rank {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
     font-weight: 700;
-    margin: 0;
+  }
+
+  .leaderboard a {
     color: var(--text-primary);
-  }
-
-  .trend-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .trend-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .trend-name {
-    font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary);
+    text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
-  .trend-count {
-    font-size: 0.75rem;
+  .leaderboard a:hover { color: var(--primary-color); }
+
+  .leader-count {
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .leader-count small {
+    font-weight: 400;
     color: var(--text-secondary);
-    background: var(--input-bg);
-    padding: 0.25rem 0.6rem;
-    border-radius: 9999px;
-    white-space: nowrap;
-  }
-
-  .charts-container {
-    display: grid;
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 2rem;
-  }
-
-  @media (min-width: 1024px) {
-    .charts-container {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .col-span-full {
-      grid-column: span 2 / span 2;
-    }
   }
 
   .table-container {
-    width: 100%;
     overflow-x: auto;
-    margin-top: 1rem;
-    padding: 0 1.5rem 1.5rem;
+    margin: 0 -0.5rem;
   }
 
   .data-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.85rem;
-    color: var(--text-primary);
+    font-size: 0.875rem;
   }
 
   .data-table th {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    font-weight: 700;
+    padding: 0.5rem;
+    text-align: left;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 0.75rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .data-table td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 50%, transparent);
-  }
-
-  .data-table tr:last-child td {
-    border-bottom: none;
-  }
-
-  .data-table tr:hover td {
-    background: var(--input-bg);
-  }
-
-  .data-table .mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      monospace;
-    font-size: 0.75rem;
+    padding: 0.625rem 0.5rem;
+    border-bottom: 1px solid var(--border-color);
     color: var(--text-secondary);
   }
 
-  .data-table .name {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
+  .data-table tr:last-child td { border-bottom: 0; }
+  .data-table .name a { color: var(--text-primary); font-weight: 600; text-decoration: none; }
+  .data-table .name a:hover { color: var(--primary-color); }
+  .data-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .empty-state { text-align: center; padding: 2rem 0.5rem; }
 
-  .data-table .text-right {
-    text-align: right;
-  }
-
-  .data-table .text-left {
-    text-align: left;
-  }
-
-  .empty-state {
-    padding: 3rem !important;
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-
-  .chart-card {
-    padding: 2rem;
-    transition: border-color 0.3s ease;
-  }
-
-  .chart-card:hover {
-    border-color: var(--primary-color);
-  }
-
-  .chart-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 2rem;
-  }
-
-  .chart-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .chart-subtitle {
-    font-size: 0.75rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      monospace;
-    color: var(--text-secondary);
-  }
-
-  .chart-h {
-    height: 320px;
-  }
-  .chart-h-large {
-    height: 400px;
-  }
-
-  .loading-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8rem 0;
-  }
-
-  .loading-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .loading-content :global(.loading-icon) {
-    color: var(--primary-color);
-    animation: pulse-op 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  @keyframes pulse-op {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-
-  .loading-text {
-    color: var(--text-secondary);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-size: 0.75rem;
+  @media (max-width: 640px) {
+    .stats-dashboard { padding-top: 1.5rem; }
+    .title-main { font-size: 1.75rem; }
+    .region-picker { width: 100%; }
+    .hide-narrow { display: none; }
+    .tablist { min-width: 0; }
+    .tablist button { flex: 1; justify-content: center; padding: 0.75rem 0.25rem; font-size: 0.875rem; }
+    .tablist button :global(svg) { display: none; }
+    .card { padding: 1rem; }
+    .two-col { grid-template-columns: 1fr; }
+    .results-link { margin-left: 0; width: 100%; }
   }
 </style>

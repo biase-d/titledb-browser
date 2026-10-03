@@ -151,3 +151,44 @@ img.lqip {
 	background-position: center;
 	background-repeat: no-repeat;
 }
+
+
+/* Set on <html> by the root layout when motion is to be kept to a minimum: the
+   visitor chose Reduced in Settings, or their device asks for it and they have
+   not said otherwise. Does not touch what a script animates by itself, which
+   checks the same preference */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+	scroll-behavior: auto !important;
+}
+
+/* Elements that settle into place as they scroll into view (see $lib/actions/reveal) */
+.reveal-hidden {
+	opacity: 0;
+	transform: translateY(16px);
+}
+
+.reveal-hidden.reveal-shown {
+	opacity: 1;
+	transform: none;
+	transition: opacity 0.55s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The main buttons give a little under a press */
+.cta-button,
+.contribute-button,
+.request-button,
+.hero-cta {
+	transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.cta-button:active,
+.contribute-button:active,
+.request-button:active,
+.hero-cta:active {
+	transform: scale(0.97);
+}

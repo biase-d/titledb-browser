@@ -86,7 +86,27 @@ function createPreferencesStore () {
 		? (localStorage.getItem('favorite_color') || '#3b82f6')
 		: '#3b82f6'
 
+	/** @type {'system' | 'reduced' | 'full'} */
+	const initialMotion = browser
+		? (['system', 'reduced', 'full'].includes(localStorage.getItem('motion') ?? '') ? /** @type {any} */ (localStorage.getItem('motion')) : 'system')
+		: 'system'
+
+	/** @type {'flat' | 'angled' | 'sway' | 'float'} */
+	const initialCartridgeStyle = browser
+		? (['flat', 'angled', 'sway', 'float'].includes(localStorage.getItem('cartridge_style') ?? '') ? /** @type {any} */ (localStorage.getItem('cartridge_style')) : 'flat')
+		: 'flat'
+
+	/** @type {'auto' | 'off'} */
+	const initialSeasonal = browser && localStorage.getItem('seasonal') === 'off' ? 'off' : 'auto'
+
+	// Off until asked for: it reads the phone's sensors and keeps the screen busy
+	const initialGridTilt = browser && localStorage.getItem('grid_tilt') === 'true'
+
 	const { subscribe, update } = writable({
+		gridTilt: initialGridTilt,
+		seasonal: initialSeasonal,
+		motion: initialMotion,
+		cartridgeStyle: initialCartridgeStyle,
 		region: initialRegion,
 		adaptiveTheme: initialAdaptiveTheme,
 		highResImages: initialHighResImages,
@@ -154,6 +174,54 @@ function createPreferencesStore () {
 			invalidateAll()
 		},
 		/**
+		 * How much the site moves: follow the device, or force less or full
+		 * @param {'system' | 'reduced' | 'full'} motion
+		 */
+		setMotion: (motion) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('motion', motion)
+				return { ...state, motion }
+			})
+		},
+		/**
+		 * Tilting the phone turns the cartridges in the cartridge view
+		 * @param {boolean} enabled
+		 */
+		setGridTilt: (enabled) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('grid_tilt', enabled.toString())
+				return { ...state, gridTilt: enabled }
+			})
+		},
+		/**
+		 * Seasonal effects: follow the calendar, or never
+		 * @param {'auto' | 'off'} seasonal
+		 */
+		setSeasonal: (seasonal) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('seasonal', seasonal)
+				return { ...state, seasonal }
+			})
+		},
+		/**
+		 * How the cartridges are shown in the cartridge view
+		 * @param {'flat' | 'angled' | 'sway' | 'float'} style
+		 */
+		setCartridgeStyle: (style) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('cartridge_style', style)
+				return { ...state, cartridgeStyle: style }
+			})
+		},
+		/**
 		 * Updates the favorite color preference
 		 * @param {string} color - Hex color code
 		 */
@@ -171,3 +239,16 @@ function createPreferencesStore () {
 }
 
 export const preferences = createPreferencesStore()
+
+/**
+ * Whether motion should be kept to a minimum: the visitor said so, or their
+ * device did and they have not said otherwise
+ * @param {{ motion?: 'system' | 'reduced' | 'full' }} prefs
+ * @returns {boolean}
+ */
+export function isReducedMotion (prefs) {
+	if (!browser) return false
+	if (prefs.motion === 'reduced') return true
+	if (prefs.motion === 'full') return false
+	return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}

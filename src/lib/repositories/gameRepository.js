@@ -1,5 +1,6 @@
 import { games, performanceProfiles, graphicsSettings, gameGroups, youtubeLinks, submissions } from '$lib/db/schema'
 import { desc, eq, sql, inArray, and, or } from 'drizzle-orm'
+import { pickCanonicalTitleId, hasIndexableData } from '$lib/seo'
 
 /**
  * Find a single game by ID
@@ -32,25 +33,54 @@ export async function getGameDetails (db, titleId) {
 
 	const { groupId } = game
 
-	const [groupInfo, allTitlesInGroup, allPerformanceProfiles, graphics, links, pendingSubmissions] = await Promise.all([
+	// The page lists every title sharing this game's name as a sibling, so the
+	// data has to follow the same rule. Data is stored per group ID, and a
+	// regional release or re-release can land in a different group than the
+	// title that has the profiles: its artwork (stored on the title) loaded
+	// while its performance data (stored on the group) came up empty
+	const allTitlesInGroup = await db.query.games.findMany({
+		where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
+		columns: { id: true, names: true, regions: true, groupId: true }
+	})
+	// Profiles are filed under the folder they were contributed in, which is a
+	// title's own base ID (its first 13 characters + '000'). Putting titles
+	// into a custom group moves games.group_id but not those folders, so the
+	// data of a grouped title stays under its old base ID and a lookup by the
+	// new group ID finds nothing
+	const baseId = (/** @type {string} */ id) => id.substring(0, 13) + '000'
+	const groupIds = [...new Set([
+		groupId,
+		...allTitlesInGroup.flatMap(t => [t.groupId, baseId(t.id)]).filter(Boolean)
+	])]
+
+	const [groupInfo, siblingProfiles, siblingGraphics, siblingLinks, pendingSubmissions] = await Promise.all([
 		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
-		db.query.games.findMany({
-			where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
-			columns: { id: true, names: true, regions: true }
-		}),
 		db.query.performanceProfiles.findMany({
-			where: and(eq(performanceProfiles.groupId, groupId), eq(performanceProfiles.status, 'approved'))
+			where: and(inArray(performanceProfiles.groupId, groupIds), eq(performanceProfiles.status, 'approved'))
 		}),
-		db.query.graphicsSettings.findFirst({
-			where: and(eq(graphicsSettings.groupId, groupId), eq(graphicsSettings.status, 'approved'))
+		db.query.graphicsSettings.findMany({
+			where: and(inArray(graphicsSettings.groupId, groupIds), eq(graphicsSettings.status, 'approved'))
 		}),
 		db.query.youtubeLinks.findMany({
-			where: and(eq(youtubeLinks.groupId, groupId), eq(youtubeLinks.status, 'approved'))
+			where: and(inArray(youtubeLinks.groupId, groupIds), eq(youtubeLinks.status, 'approved'))
 		}),
 		db.select().from(submissions).where(
-			and(eq(submissions.groupId, groupId), eq(submissions.status, 'pending'))
+			and(inArray(submissions.groupId, groupIds), eq(submissions.status, 'pending'))
 		)
 	])
+
+	// Where a version exists in more than one group, this title's own group wins
+	const ownFirst = (/** @type {any} */ a, /** @type {any} */ b) => Number(b.groupId === groupId) - Number(a.groupId === groupId)
+	const seenVersions = new Set()
+	const allPerformanceProfiles = [...siblingProfiles].sort(ownFirst).filter(p => {
+		const key = `${p.gameVersion}|${p.suffix ?? ''}`
+		if (seenVersions.has(key)) return false
+		seenVersions.add(key)
+		return true
+	})
+	const graphics = [...siblingGraphics].sort(ownFirst)[0] ?? null
+	const seenLinks = new Set()
+	const links = [...siblingLinks].sort(ownFirst).filter(l => !seenLinks.has(l.url) && seenLinks.add(l.url))
 
 	// Sort profiles by semantic version
 	allPerformanceProfiles.sort((a, b) => {
@@ -100,7 +130,12 @@ export async function getGameDetails (db, titleId) {
 			...pendingProfiles
 		],
 		contributor: latestProfile?.contributor,
-		sourcePrUrl: latestProfile?.sourcePrUrl
+		sourcePrUrl: latestProfile?.sourcePrUrl,
+		seo: {
+			canonicalTitleId: pickCanonicalTitleId(allTitlesInGroup, groupId, game.id),
+			// Approved data only: a pending submission is unreviewed
+			indexable: hasIndexableData({ profiles: allPerformanceProfiles, graphics, videoCount: links.length })
+		}
 	}
 
 	return {
@@ -122,13 +157,29 @@ export async function getGameDetails (db, titleId) {
  * @returns {Promise<Array<{id: string, lastUpdated: Date|null}>>}
  */
 export async function getGameIdsForSitemap (db, limit = 45000) {
-	return await db.select({
-		id: games.id,
-		lastUpdated: games.lastUpdated
-	})
-		.from(games)
-		.orderBy(desc(games.lastUpdated))
-		.limit(limit)
+	// One row per game, not per title: the US release, or the lowest ID, as
+	// pickCanonicalTitleId chooses. And only games with something to show, the
+	// same test the page applies before it allows itself to be indexed
+	const rows = await db.execute(sql`
+		WITH has_data AS (
+			SELECT group_id FROM active_performance_data
+			WHERE status = 'approved' AND (
+				profiles->'docked'->>'target_fps' IS NOT NULL OR profiles->'docked'->>'resolution_type' IS NOT NULL OR
+				profiles->'handheld'->>'target_fps' IS NOT NULL OR profiles->'handheld'->>'resolution_type' IS NOT NULL
+			)
+			UNION SELECT group_id FROM active_graphics_settings WHERE status = 'approved' AND settings <> '{}'::jsonb
+			UNION SELECT group_id FROM active_youtube_links WHERE status = 'approved'
+		), canonical AS (
+			SELECT DISTINCT ON (g.group_id) g.id, g.last_updated
+			FROM active_games g
+			WHERE g.group_id IN (SELECT group_id FROM has_data)
+				-- data filed before titles were grouped stays under a member's base ID
+				OR substring(g.id, 1, 13) || '000' IN (SELECT group_id FROM has_data)
+			ORDER BY g.group_id, (COALESCE(g.regions, ARRAY[]::text[]) @> ARRAY['US']) DESC, g.id
+		)
+		SELECT id, last_updated AS "lastUpdated" FROM canonical ORDER BY last_updated DESC LIMIT ${limit}
+	`)
+	return /** @type {Array<{ id: string, lastUpdated: Date | null }>} */ (/** @type {any} */ (rows))
 }
 
 /**

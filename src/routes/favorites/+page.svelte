@@ -1,5 +1,5 @@
 <script>
-	import Icon from '@iconify/svelte'
+	import CartridgeItem from '../CartridgeItem.svelte'
 
 	/** @type {import('./$types').PageData} */
 	export let data
@@ -19,15 +19,12 @@
 	</div>
 
 	{#if favoritedGames.length > 0}
-		<div class="results-container">
-			{#each favoritedGames as game (game.id)}
-				<a href={`/title/${game.id}`} class="list-item">
-					<div class="list-item-info">
-						<span class="title-name">{game.names[0]}</span>
-						<span class="title-id">{game.id}</span>
-					</div>
-					<Icon icon="mdi:chevron-right" class="chevron-icon" />
-				</a>
+		<!-- The games, standing on a shelf. Each is still a link to its page -->
+		<div class="shelf">
+			{#each favoritedGames as game, i (game.id)}
+				<div class="slot">
+					<CartridgeItem titleData={game} index={i} pose="angled" />
+				</div>
 			{/each}
 		</div>
 	{:else}
@@ -65,44 +62,38 @@
 		margin: 0;
 	}
 
-	.results-container {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
+	.shelf {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+		column-gap: 1rem;
+		row-gap: 2.75rem;
+		padding: 1.5rem 0 0;
 	}
 
-	.list-item {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding: 1rem;
-		background-color: var(--surface-color);
-		border: 1px solid var(--border-color);
-		border-radius: var(--radius-md);
-		transition: all 0.2s ease;
+	/* Each cartridge stands on its own piece of ledge, wide enough that the pieces
+	   meet and read as one shelf along a row */
+	.slot {
+		position: relative;
+		padding-bottom: 1.1rem;
 	}
-	.list-item:hover {
-		border-color: var(--primary-color);
-		background-color: color-mix(
-			in srgb,
-			var(--primary-color) 5%,
-			transparent
+
+	.slot::after {
+		content: '';
+		position: absolute;
+		left: -0.55rem;
+		right: -0.55rem;
+		bottom: 0;
+		height: 0.8rem;
+		border-radius: 0.25rem;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--text-secondary) 38%, var(--surface-color)),
+			color-mix(in srgb, var(--text-secondary) 18%, var(--surface-color)) 40%,
+			color-mix(in srgb, var(--text-secondary) 10%, var(--surface-color))
 		);
-		text-decoration: none;
-	}
-
-	.list-item-info {
-		flex-grow: 1;
-	}
-	.title-name {
-		font-weight: 500;
-		color: var(--text-primary);
-	}
-	.title-id {
-		display: block;
-		margin-top: 0.1rem;
-		font-size: 0.8rem;
-		color: var(--text-secondary);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.35),
+			0 6px 12px -4px rgba(0, 0, 0, 0.25);
 	}
 
 	.empty-state {

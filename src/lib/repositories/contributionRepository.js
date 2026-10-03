@@ -117,6 +117,12 @@ export async function rejectContribution (db, prNumber) {
  * @returns {Promise<{perfContribs: Array<any>, graphicsContribs: Array<any>, videoContribs: Array<any>}>}
  */
 export async function getUserContributionStats (db, username) {
+    // Exact, case-insensitive match against each listed name. `ILIKE` here
+    // treated `_` and `%` in a name as wildcards, and a name with stray
+    // whitespace in a data file never matched at all
+    const name = username.trim().toLowerCase()
+    const listsUser = (/** @type {any} */ column) => sql`EXISTS (SELECT 1 FROM unnest(${column}) AS c WHERE lower(btrim(c)) = ${name})`
+
     const [perfContribs, graphicsContribs, videoContribs] = await Promise.all([
         db.select({
             groupId: performanceProfiles.groupId,
@@ -126,7 +132,7 @@ export async function getUserContributionStats (db, username) {
             prNumber: performanceProfiles.prNumber
         }).from(performanceProfiles).where(
             and(
-                sql`${username} ILIKE ANY(${performanceProfiles.contributor})`,
+                listsUser(performanceProfiles.contributor),
                 eq(performanceProfiles.status, 'approved')
             )
         ),
@@ -136,7 +142,7 @@ export async function getUserContributionStats (db, username) {
             prNumber: graphicsSettings.prNumber
         }).from(graphicsSettings).where(
             and(
-                sql`${username} ILIKE ANY(${graphicsSettings.contributor})`,
+                listsUser(graphicsSettings.contributor),
                 eq(graphicsSettings.status, 'approved')
             )
         ),
@@ -146,7 +152,7 @@ export async function getUserContributionStats (db, username) {
             prNumber: youtubeLinks.prNumber
         }).from(youtubeLinks).where(
             and(
-                sql`${youtubeLinks.submittedBy} ILIKE ${username}`,
+                sql`lower(btrim(${youtubeLinks.submittedBy})) = ${name}`,
                 eq(youtubeLinks.status, 'approved')
             )
         )

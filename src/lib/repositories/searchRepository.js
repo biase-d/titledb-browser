@@ -1,35 +1,11 @@
 import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
 import { desc, eq, sql, or, and, countDistinct, isNotNull, exists, inArray } from 'drizzle-orm'
 import { calculatePlayabilityScore } from '$lib/playability'
+import { mapGraphicsToPerformance } from '$lib/graphicsPerformance'
+
+export { mapGraphicsToPerformance }
 
 const PAGE_SIZE = 50
-
-/**
- * Present a graphics record in the shape the list and card components read
- * Exported for tests: the lockType/targetFps precedence here is easy to get
- * backwards and the failure is silent - a wrong number, not an error
- */
-export function mapGraphicsToPerformance (graphics) {
-	if (!graphics) return null
-	const mapMode = (gMode) => {
-		if (!gMode) return {}
-		const res = gMode.resolution || {}
-		const fps = gMode.framerate || {}
-		return {
-			resolution_type: res.resolutionType,
-			resolution: res.fixedResolution,
-			min_res: res.minResolution,
-			max_res: res.maxResolution,
-			resolutions: res.multipleResolutions?.join(', '),
-			// lockType wins: a record switched to Unlocked can still carry the
-			// targetFps that was set before, and reading that first reports the
-			// stale number as the target
-			target_fps: fps.lockType === 'Unlocked' ? 'Unlocked' : (fps.targetFps || null),
-			fps_behavior: fps.lockType === 'API' ? 'Locked' : 'Stable'
-		}
-	}
-	return { docked: mapMode(graphics.docked), handheld: mapMode(graphics.handheld) }
-}
 
 function isPerformanceValid (perf) {
 	if (!perf) return false

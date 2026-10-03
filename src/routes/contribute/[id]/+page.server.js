@@ -3,7 +3,7 @@ import { GitHubService, GitConflictError } from '$lib/services/GitHubService'
 import { prepareFileUpdate, prepareGroupUpdate, submitContribution } from '$lib/services/ContributionService'
 import { error, redirect, fail } from '@sveltejs/kit'
 import stringify from 'json-stable-stringify'
-import { pruneEmptyValues, generateChangeSummary, isProfileEmpty } from '$lib/utils.js'
+import { pruneEmptyValues, generateChangeSummary, isProfileEmpty, EMPTY_ROW_NOTE } from '$lib/utils.js'
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
@@ -39,6 +39,14 @@ export const load = async ({ params, parent }) => {
 	return {
 		id: titleId,
 		name: names[0],
+		// For the cartridge preview
+		preview: {
+			names,
+			iconUrl: game.iconUrl ?? null,
+			bannerUrl: game.bannerUrl ?? null,
+			regions: game.regions ?? [],
+			publisher: game.publisher ?? null
+		},
 		groupId,
 		allTitlesInGroup,
 		existingPerformance: performanceHistory,
@@ -157,8 +165,10 @@ export const actions = {
 			for (const [key, submittedProfile] of submittedProfilesMap.entries()) {
 				const originalProfile = originalProfilesMap.get(key)
 				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles))
-				const isNewEmptyPlaceholder = !originalProfile && isProfileEmpty(submittedProfile)
-				const needsWrite = contentChanged || isNewEmptyPlaceholder || isGroupMove
+				// A new version row with nothing in it is not saved. It used to be written
+				// as a file holding only the contributor's name, which the site does not
+				// count as data and which about 1,300 files in the data repository now are
+				const needsWrite = contentChanged || isGroupMove
 
 				if (needsWrite) {
 					const profiles = pruneEmptyValues(submittedProfile.profiles)
@@ -173,11 +183,9 @@ export const actions = {
 						finalSha = shas.performance[key]
 					}
 
-					if (!isProfileEmpty(submittedProfile) || isNewEmptyPlaceholder) {
+					if (!isProfileEmpty(submittedProfile)) {
 						filesToCommit.push({ path: filePath, content: update.content, sha: finalSha })
-						if (!isProfileEmpty(submittedProfile)) {
-							changedPerformanceData.push(submittedProfile)
-						}
+						changedPerformanceData.push(submittedProfile)
 					} else if (originalProfile && !isProfileEmpty(originalProfile) && !isGroupMove) {
 						filesToCommit.push({ path: filePath, content: null, sha: finalSha })
 					}
@@ -278,7 +286,7 @@ export const actions = {
 				return fail(400, { error: 'No changes were detected.' })
 			}
 
-			if (changeSummary.every(s => s.includes('Added empty placeholder'))) {
+			if (changeSummary.every(s => s.includes(EMPTY_ROW_NOTE))) {
 				return fail(400, { error: 'No new information was provided.' })
 			}
 
