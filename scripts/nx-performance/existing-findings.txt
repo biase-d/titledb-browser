@@ -1,0 +1,42 @@
+ERROR profiles/010005F00E036000/1.0.0.json: docked.resolution must look like 1920x1080 for a Fixed resolution (found undefined)
+ERROR profiles/010005F00E036000/1.0.0.json: handheld.resolution must look like 1920x1080 for a Fixed resolution (found undefined)
+WARNING profiles/01001040220E8000/v1.0.2.json: "contributor" is empty, so nobody is credited
+WARNING profiles/01001AC019A0C000/v1.5.6.json: "contributor" is empty, so nobody is credited
+WARNING profiles/010047F01AA10000/2.0.0.json: "contributor" is empty, so nobody is credited
+WARNING profiles/010062F01E0E8000/v1.0.1.json: "contributor" is empty, so nobody is credited
+ERROR profiles/0100633007D48000/1.5.12459 .json: The version in the file name is empty or has stray spaces. The name is "<version>.json" or "<version>$<suffix>.json"
+WARNING profiles/010070B01C55A000/v1.11.0.json: "contributor" is empty, so nobody is credited
+ERROR profiles/0100748021808000/1.1.1.json: docked.target_fps must be a positive whole number, or null (found undefined)
+WARNING profiles/01008C0016544000/2.0.58940.json: "contributor" is empty, so nobody is credited
+WARNING profiles/01009040091E0000/1.5.json: "contributor" is empty, so nobody is credited
+WARNING profiles/010099A00BC1E000/1.0.2.json: "contributor" is empty, so nobody is credited
+WARNING profiles/01009AA000FAA000/1.04.json: "contributor" is empty, so nobody is credited
+WARNING profiles/0100A410169A4000/1.3.1.json: "contributor" is empty, so nobody is credited
+WARNING profiles/0100A8B00E14A000/v1.0.0.json: "contributor" is empty, so nobody is credited
+WARNING profiles/0100B2E01D166000/1.0.3.json: "contributor" is empty, so nobody is credited
+WARNING profiles/0100BF00112C0000/1.0.1a.json: "contributor" is empty, so nobody is credited
+WARNING profiles/0100E95004038000/2.1.0$non-JP.json: "contributor" is empty, so nobody is credited
+WARNING profiles/0100F3400332C000/2.0.2$JP.json: "contributor" is empty, so nobody is credited
+ERROR videos/010095D012E5E000.json: Entry 1: "url" must be a full http(s) link (found "Docked gameplay with FPS Counter")
+ERROR profiles/010005C00EE90000/1.0.0.json: This data is filed under 010005C00EE90000, which is now part of group 0100DD200EC7A000. Move it to 0100DD200EC7A000 (merge it with that group's data if it has any)
+ERROR profiles/01000CE002072000/1.0.3.json: This data is filed under 01000CE002072000, which is now part of group 01007FC00206E000. Move it to 01007FC00206E000 (merge it with that group's data if it has any)
+ERROR profiles/01000F9020CD4000/1.2a.json: This data is filed under 01000F9020CD4000, which is now part of group 010051A020C6E000. Move it to 010051A020C6E000 (merge it with that group's data if it has any)
+ERROR profiles/010023201421E000/1.0.4.json: This data is filed under 010023201421E000, which is now part of group 0100ECE014036000. Move it to 0100ECE014036000 (merge it with that group's data if it has any)
+ERROR profiles/0100422020BC4000/1.1.3.json: This data is filed under 0100422020BC4000, which is now part of group 0100821020BBC000. Move it to 0100821020BBC000 (merge it with that group's data if it has any)
+ERROR profiles/01005EA01C0FC000/1.10.json: This data is filed under 01005EA01C0FC000, which is now part of group 0400E140216D4000. Move it to 0400E140216D4000 (merge it with that group's data if it has any)
+ERROR profiles/01006ED00BC76000/1.0.3.json: This data is filed under 01006ED00BC76000, which is now part of group 0100F4C00B1DE000. Move it to 0100F4C00B1DE000 (merge it with that group's data if it has any)
+ERROR profiles/0100748021808000/1.1.1.json: This data is filed under 0100748021808000, which is now part of group 010079C01CFA6000. Move it to 010079C01CFA6000 (merge it with that group's data if it has any)
+ERROR profiles/010082A01538E000/1.0.8.json: This data is filed under 010082A01538E000, which is now part of group 0100661013EEE000. Move it to 0100661013EEE000 (merge it with that group's data if it has any)
+ERROR profiles/010088600C66E000/1.0.1.json: This data is filed under 010088600C66E000, which is now part of group 01002D700B906000. Move it to 01002D700B906000 (merge it with that group's data if it has any)
+ERROR profiles/0100B1400CD50000/1.0.3.json: This data is filed under 0100B1400CD50000, which is now part of group 0100B2B00BDEE000. Move it to 0100B2B00BDEE000 (merge it with that group's data if it has any)
+ERROR profiles/0100D8701421C000/1.0.3.json: This data is filed under 0100D8701421C000, which is now part of group 0100BCC014032000. Move it to 0100BCC014032000 (merge it with that group's data if it has any)
+ERROR profiles/0100D9D00EE8C000/1.0.0.json: This data is filed under 0100D9D00EE8C000, which is now part of group 010092800EC76000. Move it to 010092800EC76000 (merge it with that group's data if it has any)
+ERROR profiles/0100E5600EE8E000/1.0.0.json: This data is filed under 0100E5600EE8E000, which is now part of group 010056A00EC78000. Move it to 010056A00EC78000 (merge it with that group's data if it has any)
+ERROR profiles/0100EAE019904000/1.0.0a.json: This data is filed under 0100EAE019904000, which is now part of group 0100DA7019900000. Move it to 0100DA7019900000 (merge it with that group's data if it has any)
+ERROR profiles/0100F3400332C000/2.0.2$JP.json: This data is filed under 0100F3400332C000, which is now part of group 0100E95004038000. Move it to 0100E95004038000 (merge it with that group's data if it has any)
+ERROR graphics/010020700C952000.json: This data is filed under 010020700C952000, which is now part of group 0100C7600C7D6000. Move it to 0100C7600C7D6000 (merge it with that group's data if it has any)
+ERROR graphics/010033900F308000.json: This data is filed under 010033900F308000, which is now part of group 0100B6800B5C8000. Move it to 0100B6800B5C8000 (merge it with that group's data if it has any)
+ERROR graphics/01008D100D43E000.json: This data is filed under 01008D100D43E000, which is now part of group 010082A00D444000. Move it to 010082A00D444000 (merge it with that group's data if it has any)
+ERROR graphics/0100AFC0174A2000.json: This data is filed under 0100AFC0174A2000, which is now part of group 010039B015CB6000. Move it to 010039B015CB6000 (merge it with that group's data if it has any)
+
+Checked the whole repository: 25 error(s), 15 warning(s)

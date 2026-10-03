@@ -10,6 +10,7 @@ vi.mock('$lib/repositories/userRepository', () => ({
 const githubRepo = await import('$lib/repositories/githubRepository')
 const userRepo = await import('$lib/repositories/userRepository')
 const { submitContribution } = await import('../src/lib/services/ContributionService.js')
+const { DatabaseAndGitHubStrategy } = await import('../src/lib/services/contributionStrategies.js')
 
 /**
  * The database + GitHub flow, which every contribution now takes. A submission
@@ -65,12 +66,28 @@ describe('Contribution flow', () => {
 		expect(inserted.every(r => r.status === 'pending')).toBe(true)
 	})
 
-	it('approves a trusted contributor immediately', async () => {
-		vi.mocked(userRepo.upsertUserAndGetKarma).mockResolvedValue(50)
+	it('holds a high-karma contributor as pending too, since approval comes from the PR', async () => {
+		vi.mocked(userRepo.upsertUserAndGetKarma).mockResolvedValue(500)
 
 		await submitContribution(details, user, db)
 
+		expect(inserted.every(r => r.status === 'pending')).toBe(true)
+	})
+
+	it('can approve a trusted contributor immediately when a threshold is set', async () => {
+		vi.mocked(userRepo.upsertUserAndGetKarma).mockResolvedValue(50)
+
+		await new DatabaseAndGitHubStrategy({ autoApproveAboveKarma: 10 }).submit(details, user, db)
+
 		expect(inserted.every(r => r.status === 'approved')).toBe(true)
+	})
+
+	it('still holds a contributor at or under the threshold as pending', async () => {
+		vi.mocked(userRepo.upsertUserAndGetKarma).mockResolvedValue(10)
+
+		await new DatabaseAndGitHubStrategy({ autoApproveAboveKarma: 10 }).submit(details, user, db)
+
+		expect(inserted.every(r => r.status === 'pending')).toBe(true)
 	})
 
 	it('ties every row to the PR, so the sync can promote them on merge', async () => {

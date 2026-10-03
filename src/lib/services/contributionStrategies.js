@@ -3,7 +3,14 @@ import { submissions } from '$lib/db/schema'
 import { upsertUserAndGetKarma } from '$lib/repositories/userRepository'
 import logger from '$lib/services/loggerService'
 
-const KARMA_APPROVAL_THRESHOLD = 10
+/**
+ * Karma above which a contribution is shown as approved before its PR is
+ * merged. null means never: every contribution is pending until its PR is
+ * approved, whoever sent it. Was 10; switched off so that approval always
+ * comes from review. To bring it back, set a number here
+ * @type {number | null}
+ */
+export const AUTO_APPROVE_ABOVE_KARMA = null
 
 /**
  * @typedef {Object} ContributionDetails
@@ -28,14 +35,20 @@ const KARMA_APPROVAL_THRESHOLD = 10
  * public.submissions at the same time so the change is visible on the site
  * straight away rather than only after the PR is merged and the next sync runs
  *
- * Contributors with karma over the threshold land as 'approved'; everyone else
- * as 'pending', which the title page renders with a "Pending Review" badge. The
- * sync pipeline promotes pending rows once their PR is merged
+ * Every contribution lands as 'pending', which the title page renders with a
+ * "Pending Review" badge, and is promoted once its PR is merged. A karma
+ * threshold can let trusted contributors skip that wait (see
+ * AUTO_APPROVE_ABOVE_KARMA); it is off
  *
  * This replaced a PR-only flow that left contributors staring at an unchanged
  * page, wondering whether the submission had worked
  */
 export class DatabaseAndGitHubStrategy {
+	/** @param {{ autoApproveAboveKarma?: number | null }} [options] */
+	constructor ({ autoApproveAboveKarma = AUTO_APPROVE_ABOVE_KARMA } = {}) {
+		this.autoApproveAboveKarma = autoApproveAboveKarma
+	}
+
 	/**
 	 * @param {ContributionDetails} details
 	 * @param {SessionUser} user
@@ -74,7 +87,7 @@ export class DatabaseAndGitHubStrategy {
 				{ user: user.login }
 			)
 		}
-		const status = karma > KARMA_APPROVAL_THRESHOLD ? 'approved' : 'pending'
+		const status = this.autoApproveAboveKarma !== null && karma > this.autoApproveAboveKarma ? 'approved' : 'pending'
 
 		/** @type {Array<{userId: string, githubPrNumber: number, groupId: string, data: any, status: string, type: string}>} */
 		const rows = []
