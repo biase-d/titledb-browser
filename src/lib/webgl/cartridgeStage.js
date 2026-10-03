@@ -23,6 +23,7 @@ import {
 	MeshToonMaterial, MeshBasicMaterial, AmbientLight, DirectionalLight, CanvasTexture, DataTexture,
 	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter, Plane, Vector3, AdditiveBlending
 } from 'three'
+import { followTilt } from '$lib/sensors'
 
 // Opening a card: a small pull back, then it slides down into an invisible slot
 const INSERT_PULL_MS = 140
@@ -38,7 +39,9 @@ const D = (3.4 * 0.8) / 21
 const FACE_PX = 512
 const FACE_PX_H = Math.round(FACE_PX * H)
 const FOV = 30
-const FLIP_MS = 900
+// A card eases into view: a short turn from the side, a small rise and a fade
+const FLIP_MS = 650
+const ENTRY_YAW = 0.9
 
 const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
 
@@ -518,8 +521,16 @@ export class CartridgeStage {
 		this.lastScroll = 0
 		this.lastFrame = 0
 		this.lastFrameTime = 0
+		// The phone's tilt, applied to every card a little, when asked for
+		this.gridYaw = 0
+		this.gridPitch = 0
+		this.gx = 0
+		this.gy = 0
+		/** @type {(() => void) | null} */
+		this.stopGridTilt = null
 		this.lastScrollY = window.scrollY
 		this.snapUntil = 0
+		this.clipCount = 0
 		this.scrollVel = 0
 		/** @type {{ style: 'flat' | 'angled' | 'sway' | 'float', reduced: boolean }} */
 		this.options = { style: 'flat', reduced: false }
@@ -586,7 +597,10 @@ export class CartridgeStage {
 	 */
 	register (el, data, opts = {}) {
 		const group = new Group()
-		const shell = new Mesh(this.geometry, this.shellMaterial)
+		// Its own copy of the shell material, so this card can fade and be clipped
+		// without touching any other
+		const shellMat = this.shellMaterial.clone()
+		const shell = new Mesh(this.geometry, shellMat)
 		group.add(shell)
 
 		const frontCanvas = Object.assign(document.createElement('canvas'), { width: FACE_PX, height: FACE_PX_H })
@@ -612,11 +626,8 @@ export class CartridgeStage {
 		group.add(glare)
 		if (opts.ghost) {
 			// A stand-in: see-through, so it reads as a place for a game and not a game
-			const veil = this.shellMaterial.clone()
-			veil.transparent = true
-			veil.opacity = 0.5
-			shell.material = veil
-			for (const m of [front, back]) /** @type {any} */ (m.material).opacity = 0.62
+			shellMat.transparent = true
+			shellMat.opacity = 0.5
 		}
 		group.visible = false
 		this.scene.add(group)
@@ -631,6 +642,17 @@ export class CartridgeStage {
 			ready: false,
 			revealAt: /** @type {number | null} */ (null),
 			flip: 1,
+			shellMat,
+			// How opaque a fully shown card is (a stand-in is see-through), and how much of
+			// that is showing now: it fades in as it eases into view
+			baseShell: opts.ghost ? 0.5 : 1,
+			baseFace: opts.ghost ? 0.62 : 1,
+			fade: 0,
+			appliedFade: -1,
+			readyAt: 0,
+			hidden: false,
+			clipEl: /** @type {Element | null} */ (null),
+			clipPlanes: /** @type {Plane[] | null} */ (null),
 			hover: 0, hoverTarget: 0,
 			poseRx: 0, poseRy: 0, bob: 0,
 			scrollRx: 0, scrollRy: 0,
@@ -710,6 +732,28 @@ export class CartridgeStage {
 			 * @param {number} pitch radians
 			 */
 			setSensor: (yaw, pitch) => { handle.sensorYaw = yaw; handle.sensorPitch = pitch; this.wake() },
+			/**
+			 * Not drawn at all (a slide that is not the one showing). Showing it again
+			 * eases it in afresh
+			 * @param {boolean} hide
+			 */
+			setHidden: (hide) => {
+				if (hide === handle.hidden) return
+				handle.hidden = hide
+				handle.appliedFade = -1
+				if (hide) {
+					handle.revealAt = null
+					handle.flip = 1
+				} else {
+					handle.revealAt = this.options.reduced ? performance.now() - FLIP_MS : performance.now() + 140
+				}
+				this.wake()
+			},
+			/**
+			 * Draw it only inside an element, as overflow: hidden would for the page
+			 * @param {Element | null} el
+			 */
+			setClip: (el) => this.setClip(handle, el),
 			beginDrag: () => { handle.dragging = true; handle.spinVel = 0; this.wake() },
 			/** @param {number} dx @param {number} dy pixels */
 			dragBy: (dx, dy) => {
@@ -735,6 +779,7 @@ export class CartridgeStage {
 			frontTex.needsUpdate = true
 			backTex.needsUpdate = true
 			handle.ready = true
+			handle.readyAt = performance.now()
 			this.wake()
 		}
 		handle.loaded = paint()
@@ -779,17 +824,16 @@ export class CartridgeStage {
 	beginInsert (handle) {
 		if (this.inserting) return Promise.resolve()
 		// This card gets its own shell material, so the clip does not touch the others
-		const shell = handle.group.children[0]
-		const clippedShell = this.shellMaterial.clone()
 		const clip = new Plane(new Vector3(0, 1, 0), 0)
+		const clippedShell = handle.shellMat
 		clippedShell.clippingPlanes = [clip]
+		clippedShell.needsUpdate = true
 		const faceMaterials = handle.group.children.slice(1).map((/** @type {any} */ m) => m.material)
 		faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = [clip]; m.needsUpdate = true })
-		shell.material = clippedShell
 		this.renderer.localClippingEnabled = true
 
 		this.inserting = {
-			handle, shell, clippedShell, clip, faceMaterials,
+			handle, clippedShell, clip, faceMaterials,
 			start: performance.now(),
 			hidden: false,
 			/** @type {() => void} */
@@ -804,10 +848,12 @@ export class CartridgeStage {
 	endInsert () {
 		const st = this.inserting
 		if (!st) return
-		st.shell.material = this.shellMaterial
-		st.clippedShell.dispose()
-		st.faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = null; m.needsUpdate = true })
-		this.renderer.localClippingEnabled = false
+		// Back to whatever clip the card had before it was opened (usually none)
+		const planes = st.handle.clipPlanes && st.handle.clipEl ? st.handle.clipPlanes : null
+		st.clippedShell.clippingPlanes = planes
+		st.clippedShell.needsUpdate = true
+		st.faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = planes; m.needsUpdate = true })
+		this.renderer.localClippingEnabled = this.clipCount > 0
 		st.handle.group.visible = true
 		this.inserting = null
 		this.wake()
@@ -888,6 +934,24 @@ export class CartridgeStage {
 	}
 
 	/**
+	 * @param {any} h
+	 * @param {Element | null} el
+	 */
+	setClip (h, el) {
+		const had = !!h.clipEl
+		h.clipEl = el
+		const mats = [h.shellMat, ...h.group.children.slice(1).map((/** @type {any} */ m) => m.material)]
+		if (el && !h.clipPlanes) {
+			h.clipPlanes = [new Plane(new Vector3(1, 0, 0), 0), new Plane(new Vector3(-1, 0, 0), 0), new Plane(new Vector3(0, 1, 0), 0), new Plane(new Vector3(0, -1, 0), 0)]
+		}
+		for (const m of mats) { m.clippingPlanes = el ? h.clipPlanes : null; m.needsUpdate = true }
+		if (el && !had) this.clipCount++
+		if (!el && had) this.clipCount--
+		this.renderer.localClippingEnabled = this.clipCount > 0
+		this.wake()
+	}
+
+	/**
 	 * Style and motion can change while the page is open (Settings)
 	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float', reduced?: boolean, light?: number }} next
 	 */
@@ -909,6 +973,28 @@ export class CartridgeStage {
 			}
 		}
 		this.wake()
+	}
+
+	/**
+	 * Turn every card a little with the phone's tilt. Starting it needs the
+	 * permission to have been given already (from a tap in Settings)
+	 * @param {boolean} on
+	 */
+	setGridTilt (on) {
+		if (on === !!this.stopGridTilt) return
+		if (on) {
+			this.stopGridTilt = followTilt(({ yaw, pitch }) => {
+				this.gridYaw = yaw * 0.4
+				this.gridPitch = pitch * 0.4
+				this.wake()
+			})
+		} else {
+			this.stopGridTilt?.()
+			this.stopGridTilt = null
+			this.gridYaw = 0
+			this.gridPitch = 0
+			this.wake()
+		}
 	}
 
 	wake () {
@@ -938,6 +1024,11 @@ export class CartridgeStage {
 		this.scrollVel = this.scrollVel * 0.8 + (sy - this.lastScrollY) * 0.2
 		this.lastScrollY = sy
 
+		// The phone's tilt, eased
+		this.gx += (this.gridYaw - this.gx) * 0.14
+		this.gy += (this.gridPitch - this.gy) * 0.14
+		if (Math.abs(this.gx - this.gridYaw) > 0.002 || Math.abs(this.gy - this.gridPitch) > 0.002) animating = true
+
 		// Read every position first, then write: no layout thrash
 		const rects = []
 		for (const h of this.handles.values()) rects.push(h.near || h.dockT > 0 || h.dockTarget ? h.el.getBoundingClientRect() : null)
@@ -950,6 +1041,11 @@ export class CartridgeStage {
 			let r = rects[i++]
 			if (this.inserting && this.inserting.handle === h) continue
 			const g = h.group
+			if (h.hidden) {
+				g.visible = false
+				h.shadow.visible = false
+				continue
+			}
 			const away = h.dockT > 0 || h.dockTarget
 			if (r && h.layoutMode === 'glide' && !away && r.width > 0) {
 				const glided = this.glide(h, r, dtFrame, now)
@@ -965,7 +1061,10 @@ export class CartridgeStage {
 				continue
 			}
 
-			// Turn from the back to the front
+			// If nothing has asked for it to appear (no observer), it appears anyway
+			if (h.revealAt === null && h.ready && now - h.readyAt > 4000) h.revealAt = now
+
+			// Ease in from the side
 			if (h.revealAt !== null && h.flip > 0) {
 				h.flip = Math.max(0, 1 - easeOutCubic(Math.min(1, Math.max(0, (now - h.revealAt) / FLIP_MS))))
 				if (now - h.revealAt < FLIP_MS) animating = true
@@ -1093,19 +1192,39 @@ export class CartridgeStage {
 				flightYaw = e * Math.PI * 2
 			}
 
-			const s = width * (1 + 0.04 * h.hover)
+			// Fading in as it eases in: nothing at the start, all of it a little before the end
+			const fade = h.revealAt === null ? 0 : Math.min(1, (1 - h.flip) * 1.8)
+			if (fade !== h.appliedFade) {
+				const wasTransparent = h.shellMat.transparent
+				h.shellMat.transparent = fade < 1 || h.baseShell < 1
+				h.shellMat.opacity = h.baseShell * fade
+				if (h.shellMat.transparent !== wasTransparent) h.shellMat.needsUpdate = true
+				for (const m of [g.children[1], g.children[2]]) /** @type {any} */ (m).material.opacity = h.baseFace * fade
+				h.appliedFade = fade
+			}
+
+			// Its clip, when it has one: the element it is not to be drawn outside of
+			if (h.clipEl && h.clipPlanes) {
+				const c = h.clipEl.getBoundingClientRect()
+				h.clipPlanes[0].constant = -c.left
+				h.clipPlanes[1].constant = c.right
+				h.clipPlanes[2].constant = -(this.viewH - c.bottom)
+				h.clipPlanes[3].constant = this.viewH - c.top
+			}
+
+			const s = width * (1 + 0.04 * h.hover) * (1 - 0.06 * h.flip)
 			g.scale.setScalar(s)
 			g.rotation.set(
-				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX,
-				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.leanY + h.flip * Math.PI + flightYaw,
+				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX + this.gy * stay,
+				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.leanY + this.gx * stay + h.flip * ENTRY_YAW + flightYaw,
 				0
 			)
 			g.position.set(
 				cx,
-				this.viewH - cy + (6 * h.hover + h.bob * width) * stay,
+				this.viewH - cy + (6 * h.hover + h.bob * width) * stay - h.flip * width * 0.1,
 				-(D * s) / 2
 			)
-			g.visible = true
+			g.visible = fade > 0.01
 
 			// A floating card casts a shadow that thins as it rises
 			const sh = h.shadow
@@ -1113,7 +1232,7 @@ export class CartridgeStage {
 			if (sh.visible) {
 				sh.scale.set(r.width * 0.9, r.width * 0.2, 1)
 				sh.position.set(r.left + r.width / 2, this.viewH - (r.top + r.width * H + r.width * 0.06), -2)
-				sh.material.opacity = Math.max(0.05, 0.34 - h.bob * 3.2)
+				sh.material.opacity = Math.max(0.05, 0.34 - h.bob * 3.2) * fade
 			}
 
 			// A highlight that follows the pointer across the card
@@ -1146,6 +1265,7 @@ export class CartridgeStage {
 	dispose () {
 		window.removeEventListener('scroll', this.onScroll)
 		window.removeEventListener('resize', this.onResize)
+		this.stopGridTilt?.()
 		this.visibility.disconnect()
 		for (const el of [...this.handles.keys()]) this.unregister(el)
 		this.shadowTexture.dispose()

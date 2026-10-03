@@ -4,8 +4,9 @@
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
     import CountryFlag from '$lib/components/CountryFlag.svelte'
     import { uiStore } from '$lib/stores/ui.svelte'
-    import { tick } from 'svelte'
+    import { tick, onMount } from 'svelte'
     import { getCountryName } from '$lib/flags'
+    import { sensorsPossible, requestPermission } from '$lib/sensors'
 
     let { show = $bindable() } = $props()
 
@@ -39,6 +40,29 @@
             })
         }
     })
+
+    /** Only offered where there are sensors to read: a touch screen with the event */
+    let canTilt = $state(false)
+    let tiltMessage = $state('')
+    onMount(() => {
+        canTilt = sensorsPossible() && window.matchMedia('(pointer: coarse)').matches
+    })
+
+    /** From a tap, which is what iOS insists on before it will ask */
+    async function toggleGridTilt () {
+        if ($preferences.gridTilt) {
+            preferences.setGridTilt(false)
+            tiltMessage = ''
+            return
+        }
+        const answer = await requestPermission()
+        if (answer === 'granted') {
+            preferences.setGridTilt(true)
+            tiltMessage = ''
+        } else {
+            tiltMessage = 'Motion access was declined, so tilting is off.'
+        }
+    }
 </script>
 
 {#if show}
@@ -259,6 +283,28 @@
                             {/each}
                         </div>
                     </div>
+
+                    {#if canTilt}
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Tilt to turn cartridges</span>
+                                <span class="setting-desc"
+                                    >In the cartridge view, tilting your phone turns
+                                    the cartridges a little. Uses the motion
+                                    sensors and some battery.</span
+                                >
+                                {#if tiltMessage}<span class="setting-desc warning">{tiltMessage}</span>{/if}
+                            </div>
+                            <label class="switch">
+                                <input
+                                    type="checkbox"
+                                    checked={$preferences.gridTilt}
+                                    onchange={toggleGridTilt}
+                                />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    {/if}
 
                     <div class="setting-item stacked">
                         <div class="setting-info">

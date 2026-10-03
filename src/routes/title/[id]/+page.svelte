@@ -548,7 +548,7 @@
 							{#if heroGl}
 								<button class="pill" onclick={() => (focused = true)}>
 									<Icon icon="mdi:rotate-3d-variant" width="20" height="20" />
-									<span>Inspect<span class="long"> cartridge</span></span>
+									<span>Inspect<span class="long">&nbsp;cartridge</span></span>
 								</button>
 							{/if}
 							{#if session?.user}
@@ -1153,8 +1153,11 @@
 		width: 100%;
 	}
 
+	/* 'backwards', not 'both': holding the finished animation's state would keep every
+	   line in its own stacking layer, with each later line painting over the one
+	   before it, including a dropdown that opens from the first */
 	.hero-info > * {
-		animation: hero-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+		animation: hero-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 	}
 
 	.hero-info > :nth-child(2) { animation-delay: 0.06s; }
@@ -1166,7 +1169,10 @@
 		to { opacity: 1; transform: none; }
 	}
 
+	/* Above the lines after it, so the region list opens over the title and not behind it */
 	.eyebrow {
+		position: relative;
+		z-index: 5;
 		display: flex;
 		align-items: center;
 		flex-wrap: wrap;

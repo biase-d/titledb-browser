@@ -34,9 +34,13 @@
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
    * ghost: a see-through, unlabelled stand-in that invites someone to add data
    * css: draw it in CSS even where WebGL is available, for somewhere the canvas cannot reach (a modal)
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, css?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
+   * pose: ride in a given pose ('hero' for a three-quarter view) without being a hero
+   * shown: false to keep it from being drawn (a slide that is not the one showing)
+   * clipTo: an element it must stay inside (a carousel that scrolls its slides)
+   * layout: 'snap' for a card inside something that scrolls on its own
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, css = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -126,6 +130,14 @@
   $effect(() => { glActive = gl })
   $effect(() => { handleRef = gl ? handle : null })
 
+  // Not drawn while it is not the one showing, and kept inside what clips it
+  $effect(() => {
+    if (gl && handle) {
+      handle.setClip(clipTo ?? null)
+      handle.setHidden(!shown)
+    }
+  })
+
   // A hero flies to its dock when told to, and back
   $effect(() => {
     // `gl` is read so this runs again once the card is in 3D
@@ -137,6 +149,8 @@
     const light = lightFor(activeScenes($preferences.seasonal, page.url.searchParams))
     const options = { style: $preferences.cartridgeStyle, reduced: isReducedMotion($preferences), light }
     stageRef?.setOptions(options)
+    // The grid cards only: a hero has its own tilt when inspected
+    if (!hero) stageRef?.setGridTilt($preferences.gridTilt && !options.reduced)
   })
 
   /** The CSS card's own entrance: turned away, then round to the front */
@@ -155,8 +169,8 @@
         requestAnimationFrame(() => { side = 'front' })
         // Time-based rather than waiting for transitionend, which never comes if
         // the turn is interrupted or the tab is in the background; hover would
-        // then stay off for good. The turn is 900ms plus up to 7 x 55ms of stagger
-        settleTimer = setTimeout(() => { settled = true }, 1400)
+        // then stay off for good. The turn is 650ms plus up to 7 x 28ms of stagger
+        settleTimer = setTimeout(() => { settled = true }, 1000)
         observer.disconnect()
       }
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.15 })
@@ -194,7 +208,7 @@
             reduced: isReducedMotion(prefs),
             light: lightFor(activeScenes(prefs.seasonal, page.url.searchParams))
           })
-          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost } : {})
+          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost } : { style: pose, layout })
           await h.loaded
           if (cancelled) { h.dispose(); return }
           handle = h
@@ -208,7 +222,7 @@
 
           const observer = new IntersectionObserver((entries) => {
             if (entries.some(e => e.isIntersecting)) {
-              h.reveal((index % 8) * 55)
+              h.reveal((index % 8) * 28)
               observer.disconnect()
             }
           }, { rootMargin: '0px 0px -8% 0px', threshold: 0.15 })
@@ -491,12 +505,13 @@
 
   /* Turned to its back, before it scrolls into view */
   .cart.back {
-    transform: rotateY(180deg);
+    transform: translateY(8%) rotateY(48deg) scale(0.95);
+    opacity: 0;
   }
 
   .cart.turning {
-    transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
-    transition-delay: calc(var(--i) * 55ms);
+    transition: transform 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 450ms ease-out;
+    transition-delay: calc(var(--i) * 28ms);
   }
 
   /* Hover is for a mouse: a hover-capable pointer only, and only once settled */

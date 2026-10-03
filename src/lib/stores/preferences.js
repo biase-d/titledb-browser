@@ -99,7 +99,11 @@ function createPreferencesStore () {
 	/** @type {'auto' | 'off'} */
 	const initialSeasonal = browser && localStorage.getItem('seasonal') === 'off' ? 'off' : 'auto'
 
+	// Off until asked for: it reads the phone's sensors and keeps the screen busy
+	const initialGridTilt = browser && localStorage.getItem('grid_tilt') === 'true'
+
 	const { subscribe, update } = writable({
+		gridTilt: initialGridTilt,
 		seasonal: initialSeasonal,
 		motion: initialMotion,
 		cartridgeStyle: initialCartridgeStyle,
@@ -179,6 +183,18 @@ function createPreferencesStore () {
 			update(state => {
 				localStorage.setItem('motion', motion)
 				return { ...state, motion }
+			})
+		},
+		/**
+		 * Tilting the phone turns the cartridges in the cartridge view
+		 * @param {boolean} enabled
+		 */
+		setGridTilt: (enabled) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('grid_tilt', enabled.toString())
+				return { ...state, gridTilt: enabled }
 			})
 		},
 		/**

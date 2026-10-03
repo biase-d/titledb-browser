@@ -8,11 +8,15 @@
     import { getLocalizedName } from '$lib/i18n'
     import { preferences, isReducedMotion } from '$lib/stores/preferences'
     import { extractTheme } from '$lib/utils/theme' // Your new theme engine
+    import CartridgeItem from '../../routes/CartridgeItem.svelte'
 
     let { recentUpdates = [], preferredRegion = 'US' } = $props()
 
     /** @type {HTMLElement | undefined} */
     let container = $state()
+    /** The whole carousel: what each slide's cartridge is clipped to */
+    /** @type {HTMLElement | undefined} */
+    let carousel = $state()
     let heroIndex = $state(0)
     let isPaused = $state(false)
 
@@ -122,6 +126,7 @@
 
 {#if recentUpdates.length > 0}
     <section
+        bind:this={carousel}
         class="hero-carousel"
         style:--dynamic-primary={dynamicTheme?.primary || 'var(--primary-color)'}
         style:--dynamic-accent={dynamicTheme?.accent || 'rgba(255,255,255,0.1)'}
@@ -202,6 +207,19 @@
                                 View Details <Icon icon="mdi:arrow-right" />
                             </a>
                         </div>
+                    </div>
+
+                    <!-- The game's cartridge, on the right. Only the slide that is showing
+                         has one drawn, and it never leaves the carousel while the slides
+                         move. It is a link like the cards below, so opening it slides it in -->
+                    <div class="hero-cart" aria-hidden={!isActive}>
+                        <CartridgeItem
+                            titleData={game}
+                            pose="hero"
+                            layout="snap"
+                            shown={isActive}
+                            clipTo={carousel}
+                        />
                     </div>
                 </div>
             {/each}
@@ -314,6 +332,23 @@
             color-mix(in srgb, var(--dynamic-primary) 10%, rgba(5, 5, 5, 0.8) 90%) 50%,
             transparent 100%
         );
+    }
+
+    /* The cartridge: on the right, at the vertical middle of the carousel */
+    .hero-cart {
+        position: absolute;
+        z-index: 1;
+        right: clamp(1.5rem, 8%, 6.5rem);
+        top: 50%;
+        width: clamp(7rem, 17vw, 12.5rem);
+        translate: 0 -52%;
+        --cart-max: 100%;
+        opacity: 0;
+        transition: opacity 0.5s ease 0.15s;
+    }
+
+    .carousel-slide.is-active .hero-cart {
+        opacity: 1;
     }
 
     .hero-content {
@@ -521,6 +556,14 @@
         
         .carousel-slide {
             padding: 2rem 1.25rem 4.5rem; /* Tighter side padding, room for controls at bottom */
+        }
+
+        /* Above the text, in the middle, rather than beside it */
+        .hero-cart {
+            top: 1.75rem;
+            right: 50%;
+            translate: 50% 0;
+            width: 7.25rem;
         }
 
         .hero-content {
