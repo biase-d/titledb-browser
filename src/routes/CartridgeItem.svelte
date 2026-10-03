@@ -415,7 +415,7 @@
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     overflow: hidden;
-    border-radius: 3.4cqw;
+    border-radius: 7cqw;
     background:
       radial-gradient(120% 70% at 20% 0%, rgba(255, 255, 255, 0.10), transparent 60%),
       linear-gradient(160deg, var(--shell-light), var(--shell) 55%, var(--shell-dark));
@@ -448,13 +448,14 @@
   .edge.top { top: 0; transform: translateY(-50%) rotateX(90deg); }
   .edge.bottom { bottom: 0; transform: translateY(50%) rotateX(-90deg); }
 
-  /* --- front: label 84 wide, 108 tall (band 17, art 66, strip 25) --- */
+  /* --- front: the label window is 82.6 wide and 117.1 tall, under a 28.4 band --- */
   .label {
     position: absolute;
-    top: 8cqw;
-    left: 8cqw;
-    width: 84cqw;
-    height: 108cqw;
+    /* Measured from a photograph of a real card */
+    top: 12.4cqw;
+    left: 8.7cqw;
+    width: 82.6cqw;
+    height: 117.1cqw;
     display: flex;
     flex-direction: column;
     border-radius: 1.6cqw;
@@ -465,11 +466,11 @@
 
   .band {
     flex: none;
-    height: 17cqw;
+    height: 28.4cqw;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5cqw;
+    gap: 8cqw;
     background: linear-gradient(180deg, #f0192b, #d80f20);
     color: #fff;
   }
@@ -479,8 +480,8 @@
   .band span {
     display: inline-flex;
     align-items: center;
-    gap: 2cqw;
-    font-size: 9.5cqw;
+    gap: 3cqw;
+    font-size: 14cqw;
     font-weight: 800;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -488,7 +489,7 @@
   }
 
   .band .no-data {
-    font-size: 6.4cqw;
+    font-size: 8.6cqw;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -563,11 +564,11 @@
   .mark {
     position: absolute;
     left: 50%;
-    bottom: 16cqw;
-    width: 11cqw;
-    height: 7cqw;
+    bottom: 4.1cqw;
+    width: 16.2cqw;
+    height: 7.4cqw;
     translate: -50% 0;
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.18);
     clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 

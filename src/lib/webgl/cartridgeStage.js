@@ -134,10 +134,14 @@ function drawFront (canvas, d, art) {
 	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
 	ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-	const lx = 8 * u
-	const ly = 8 * u
-	const lw = 84 * u
-	const lh = 108 * u
+	// Measured from a photograph of a real card, in 1% of its width (it is 147.6
+	// tall): the label window starts 12.4 down, is 82.6 wide and 117.1 tall, with
+	// a 28.4 band, leaving 18 below it for the arrow
+	const lx = 8.7 * u
+	const ly = 12.4 * u
+	const lw = 82.6 * u
+	const lh = 117.1 * u
+	const bandH = 28.4 * u
 
 	// A dark bezel under the label
 	ctx.fillStyle = '#050506'
@@ -153,34 +157,34 @@ function drawFront (canvas, d, art) {
 
 	// Band
 	const hasData = !!(d.dockedFps || d.handheldFps)
-	const band = ctx.createLinearGradient(0, ly, 0, ly + 17 * u)
+	const band = ctx.createLinearGradient(0, ly, 0, ly + bandH)
 	band.addColorStop(0, hasData ? '#f0192b' : '#6d6d74')
 	band.addColorStop(1, hasData ? '#d80f20' : '#55555c')
 	ctx.fillStyle = band
-	ctx.fillRect(lx, ly, lw, 17 * u)
+	ctx.fillRect(lx, ly, lw, bandH)
 
 	ctx.fillStyle = '#fff'
 	ctx.textBaseline = 'middle'
-	const cy = ly + 8.5 * u
+	const cy = ly + bandH / 2
 	if (hasData) {
-		ctx.font = `800 ${9.5 * u}px ${sans}`
+		ctx.font = `800 ${14 * u}px ${sans}`
 		const items = [
 			d.dockedFps && { draw: drawTv, text: d.dockedFps },
 			d.handheldFps && { draw: drawHandheld, text: d.handheldFps }
 		].filter(Boolean)
-		const iconW = 7.5 * u
-		const gap = 2 * u
+		const iconW = 11 * u
+		const gap = 3 * u
 		const widths = items.map(i => iconW + gap + ctx.measureText(i.text).width)
-		const between = 5 * u
+		const between = 8 * u
 		let x = lx + (lw - (widths.reduce((a, b) => a + b, 0) + between * (items.length - 1))) / 2
 		items.forEach((item, i) => {
-			item.draw(ctx, x, cy - 4 * u, 5.6 * u)
+			item.draw(ctx, x, cy - 6 * u, 8.4 * u)
 			ctx.fillStyle = '#fff'
-			ctx.fillText(item.text, x + iconW + gap, cy + 0.4 * u)
+			ctx.fillText(item.text, x + iconW + gap, cy + 0.6 * u)
 			x += widths[i] + between
 		})
 	} else {
-		ctx.font = `700 ${6.4 * u}px ${sans}`
+		ctx.font = `700 ${8.6 * u}px ${sans}`
 		ctx.textAlign = 'center'
 		ctx.fillText('NO DATA YET', lx + lw / 2, cy)
 		ctx.textAlign = 'left'
@@ -188,8 +192,8 @@ function drawFront (canvas, d, art) {
 
 	// Art, cropped to cover, running down to the bottom of the label: the title
 	// and code sit on a blur of it rather than on a white strip
-	const ay = ly + 17 * u
-	const ah = lh - 17 * u
+	const ay = ly + bandH
+	const ah = lh - bandH
 	ctx.fillStyle = '#2a2c33'
 	ctx.fillRect(lx, ay, lw, ah)
 	if (art) {
@@ -262,12 +266,12 @@ function drawFront (canvas, d, art) {
 	ctx.restore()
 	ctx.restore()
 
-	// The mark under the label
-	ctx.fillStyle = 'rgba(255,255,255,0.16)'
+	// The arrow: 16.2 wide, 7.4 tall, its tip 4.1 above the bottom edge
+	ctx.fillStyle = 'rgba(255,255,255,0.18)'
 	ctx.beginPath()
-	ctx.moveTo(44.5 * u, 124 * u)
-	ctx.lineTo(55.5 * u, 124 * u)
-	ctx.lineTo(50 * u, 131 * u)
+	ctx.moveTo(41.9 * u, 136.1 * u)
+	ctx.lineTo(58.1 * u, 136.1 * u)
+	ctx.lineTo(50 * u, 143.5 * u)
 	ctx.closePath()
 	ctx.fill()
 }
@@ -356,7 +360,7 @@ function toonGradient () {
 
 /** The card's body: a rounded rectangle whose corners are only a couple of facets */
 function shellGeometry () {
-	const r = 0.07
+	const r = 0.075
 	const shape = new Shape()
 	shape.moveTo(r, 0)
 	shape.lineTo(1 - r, 0)
