@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
 import { getGameDetails } from '../src/lib/repositories/gameRepository.js'
 
 const mockGame = {
@@ -48,7 +49,7 @@ function buildDbMock ({ pendingSubmissions = [] } = {}) {
 			findMany: vi.fn().mockResolvedValue([mockApprovedProfile])
 		},
 		graphicsSettings: {
-			findFirst: vi.fn().mockResolvedValue(null)
+			findMany: vi.fn().mockResolvedValue([])
 		},
 		youtubeLinks: {
 			findMany: vi.fn().mockResolvedValue([])
@@ -115,6 +116,45 @@ describe('getGameDetails — hybrid pending + approved', () => {
 		expect(result.allTitlesInGroup).toHaveLength(2)
 		expect(result.allTitlesInGroup.map(t => t.id)).toContain('010019C023004000')
 		expect(result.allTitlesInGroup.map(t => t.id)).toContain('010019C023005000')
+	})
+
+	it('shows data stored under a sibling title\'s group when the titles share a name', async () => {
+		// The reported case: two title IDs for one game sit in different groups,
+		// and the profiles belong to the other one
+		const db = buildDbMock()
+		db.query.games.findFirst = vi.fn().mockResolvedValue({ ...mockGame, id: '010043600B6A6000', groupId: '010043600B6A6000' })
+		db.query.games.findMany = vi.fn().mockResolvedValue([
+			{ id: '010043600B6A6000', groupId: '010043600B6A6000', names: ['Test Game'], regions: ['US'] },
+			{ id: '01000F900B6CC000', groupId: '01000F900B6CC000', names: ['Test Game'], regions: ['JP'] }
+		])
+		db.query.performanceProfiles.findMany = vi.fn().mockResolvedValue([
+			{ ...mockApprovedProfile, groupId: '01000F900B6CC000' }
+		])
+
+		const result = await getGameDetails(db, '010043600B6A6000')
+
+		expect(result.game.performanceHistory).toHaveLength(1)
+		// Both groups were asked for, not just the page's own
+		const where = db.query.performanceProfiles.findMany.mock.calls[0][0].where
+		const { params } = new PgDialect().sqlToQuery(where)
+		expect(params).toEqual(expect.arrayContaining(['01000F900B6CC000', '010043600B6A6000']))
+	})
+
+	it('keeps one profile per version, preferring the title\'s own group', async () => {
+		const db = buildDbMock()
+		db.query.games.findMany = vi.fn().mockResolvedValue([
+			{ id: mockGame.id, groupId: mockGame.groupId, names: ['Test Game'], regions: ['US'] },
+			{ id: 'OTHER', groupId: 'OTHERGROUP', names: ['Test Game'], regions: ['JP'] }
+		])
+		db.query.performanceProfiles.findMany = vi.fn().mockResolvedValue([
+			{ ...mockApprovedProfile, id: 2, groupId: 'OTHERGROUP', contributor: ['other'] },
+			{ ...mockApprovedProfile, id: 1, groupId: mockGame.groupId }
+		])
+
+		const result = await getGameDetails(db, mockGame.id)
+
+		expect(result.game.performanceHistory).toHaveLength(1)
+		expect(result.game.performanceHistory[0].id).toBe(1)
 	})
 
 	it('returns null when game is not found', async () => {

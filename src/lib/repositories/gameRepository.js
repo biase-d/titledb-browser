@@ -32,25 +32,45 @@ export async function getGameDetails (db, titleId) {
 
 	const { groupId } = game
 
-	const [groupInfo, allTitlesInGroup, allPerformanceProfiles, graphics, links, pendingSubmissions] = await Promise.all([
+	// The page lists every title sharing this game's name as a sibling, so the
+	// data has to follow the same rule. Data is stored per group ID, and a
+	// regional release or re-release can land in a different group than the
+	// title that has the profiles: its artwork (stored on the title) loaded
+	// while its performance data (stored on the group) came up empty
+	const allTitlesInGroup = await db.query.games.findMany({
+		where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
+		columns: { id: true, names: true, regions: true, groupId: true }
+	})
+	const groupIds = [...new Set([groupId, ...allTitlesInGroup.map(t => t.groupId).filter(Boolean)])]
+
+	const [groupInfo, siblingProfiles, siblingGraphics, siblingLinks, pendingSubmissions] = await Promise.all([
 		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
-		db.query.games.findMany({
-			where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
-			columns: { id: true, names: true, regions: true }
-		}),
 		db.query.performanceProfiles.findMany({
-			where: and(eq(performanceProfiles.groupId, groupId), eq(performanceProfiles.status, 'approved'))
+			where: and(inArray(performanceProfiles.groupId, groupIds), eq(performanceProfiles.status, 'approved'))
 		}),
-		db.query.graphicsSettings.findFirst({
-			where: and(eq(graphicsSettings.groupId, groupId), eq(graphicsSettings.status, 'approved'))
+		db.query.graphicsSettings.findMany({
+			where: and(inArray(graphicsSettings.groupId, groupIds), eq(graphicsSettings.status, 'approved'))
 		}),
 		db.query.youtubeLinks.findMany({
-			where: and(eq(youtubeLinks.groupId, groupId), eq(youtubeLinks.status, 'approved'))
+			where: and(inArray(youtubeLinks.groupId, groupIds), eq(youtubeLinks.status, 'approved'))
 		}),
 		db.select().from(submissions).where(
-			and(eq(submissions.groupId, groupId), eq(submissions.status, 'pending'))
+			and(inArray(submissions.groupId, groupIds), eq(submissions.status, 'pending'))
 		)
 	])
+
+	// Where a version exists in more than one group, this title's own group wins
+	const ownFirst = (/** @type {any} */ a, /** @type {any} */ b) => Number(b.groupId === groupId) - Number(a.groupId === groupId)
+	const seenVersions = new Set()
+	const allPerformanceProfiles = [...siblingProfiles].sort(ownFirst).filter(p => {
+		const key = `${p.gameVersion}|${p.suffix ?? ''}`
+		if (seenVersions.has(key)) return false
+		seenVersions.add(key)
+		return true
+	})
+	const graphics = [...siblingGraphics].sort(ownFirst)[0] ?? null
+	const seenLinks = new Set()
+	const links = [...siblingLinks].sort(ownFirst).filter(l => !seenLinks.has(l.url) && seenLinks.add(l.url))
 
 	// Sort profiles by semantic version
 	allPerformanceProfiles.sort((a, b) => {

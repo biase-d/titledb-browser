@@ -1,239 +1,307 @@
-import { games, performanceProfiles, graphicsSettings, youtubeLinks, gameGroups, dataRequests, favorites } from '$lib/db/schema'
-import { and, count, countDistinct, desc, eq, gte, lt, sql, sum } from 'drizzle-orm'
+import { games, performanceProfiles, graphicsSettings, youtubeLinks, dataRequests, favorites } from '$lib/db/schema'
+import { and, count, countDistinct, desc, eq, gte, inArray, lt, sql, sum } from 'drizzle-orm'
+import { countContributions, tallyContributors } from '$lib/contributions'
+
+const GB = 1024 ** 3
+const MB = 1024 ** 2
 
 /**
- * Get comprehensive database statistics
+ * Size buckets, in display order. The filter, the CASE expression and the sort
+ * order are all generated from this one list
+ * @type {Array<{ label: string, min: number, max: number | null }>}
+ */
+export const SIZE_BUCKETS = [
+	{ label: '<100MB', min: 0, max: 100 * MB },
+	{ label: '100-200MB', min: 100 * MB, max: 200 * MB },
+	{ label: '200-300MB', min: 200 * MB, max: 300 * MB },
+	{ label: '300-400MB', min: 300 * MB, max: 400 * MB },
+	{ label: '400-500MB', min: 400 * MB, max: 500 * MB },
+	{ label: '500MB-1GB', min: 500 * MB, max: GB },
+	{ label: '1-2GB', min: GB, max: 2 * GB },
+	{ label: '2-3GB', min: 2 * GB, max: 3 * GB },
+	{ label: '3-4GB', min: 3 * GB, max: 4 * GB },
+	{ label: '4-5GB', min: 4 * GB, max: 5 * GB },
+	{ label: '5-10GB', min: 5 * GB, max: 10 * GB },
+	{ label: '10-15GB', min: 10 * GB, max: 15 * GB },
+	{ label: '15-20GB', min: 15 * GB, max: 20 * GB },
+	{ label: '>20GB', min: 20 * GB, max: null }
+]
+
+const REGION_CODE = /^[A-Z]{2}$/
+
+/**
+ * Turns a raw frame-rate value from a profile into a bucket label
+ * @param {string | null} value
+ * @returns {string | null} null when the profile has no value for it
+ */
+function fpsBucket (value) {
+	if (value === null || value === undefined || value === '') return null
+	if (/^unlocked$/i.test(value)) return 'Unlocked'
+	const n = Number(value)
+	return Number.isFinite(n) && n > 0 ? String(Math.round(n)) : 'Other'
+}
+
+/**
+ * @param {Array<string | null>} values
+ * @returns {Array<{ label: string, count: number }>} numeric buckets ascending, then Unlocked, then Other
+ */
+function tallyFps (values) {
+	/** @type {Map<string, number>} */
+	const counts = new Map()
+	for (const v of values) {
+		const bucket = fpsBucket(v)
+		if (bucket) counts.set(bucket, (counts.get(bucket) ?? 0) + 1)
+	}
+	const rank = (/** @type {string} */ label) => label === 'Other' ? Infinity : label === 'Unlocked' ? 1e6 : Number(label)
+	return [...counts.entries()]
+		.map(([label, n]) => ({ label, count: n }))
+		.sort((a, b) => rank(a.label) - rank(b.label))
+}
+
+/**
+ * Get statistics for the library, scoped by the given filters
+ *
+ * Every figure on the page reflects the filters, including the contribution
+ * numbers: they are computed for the title groups that have at least one title
+ * matching, so choosing a region shows that region's data and its contributors
+ *
  * @param {import('$lib/database/types').DatabaseAdapter} db
- * @param {URLSearchParams} searchParams - Filter parameters
+ * @param {URLSearchParams} searchParams - region, publisher, year, sizeBucket
  * @returns {Promise<Object>}
  */
 export async function getStats (db, searchParams) {
-	const publisher = searchParams.get('publisher')
-	const year = searchParams.get('year')
-	const sizeBucket = searchParams.get('sizeBucket')
+	const regionParam = searchParams.get('region')?.toUpperCase() ?? null
+	const region = regionParam && REGION_CODE.test(regionParam) ? regionParam : null
+	const publisher = searchParams.get('publisher') || null
+	const yearParam = Number(searchParams.get('year'))
+	const year = Number.isInteger(yearParam) && yearParam > 0 ? yearParam : null
+	const sizeBucket = SIZE_BUCKETS.some(b => b.label === searchParams.get('sizeBucket')) ? searchParams.get('sizeBucket') : null
 
-	const whereConditions = []
+	const yearExpr = sql`CAST(FLOOR(${games.releaseDate} / 10000) AS INTEGER)`
 
-	if (publisher) {
-		whereConditions.push(eq(games.publisher, publisher))
-	}
-
-	if (year) {
-		whereConditions.push(sql`CAST(FLOOR("release_date" / 10000) AS INTEGER) = ${Number(year)}`)
-	}
-
-	if (sizeBucket) {
-		const sizeRanges = {
-			'<100MB': { max: '104857600' },
-			'100-200MB': { min: '104857600', max: '209715200' },
-			'200-300MB': { min: '209715200', max: '314572800' },
-			'300-400MB': { min: '314572800', max: '419430400' },
-			'400-500MB': { min: '419430400', max: '524288000' },
-			'500MB-1GB': { min: '524288000', max: '1073741824' },
-			'1-2GB': { min: '1073741824', max: '2147483648' },
-			'2-3GB': { min: '2147483648', max: '3221225472' },
-			'3-4GB': { min: '3221225472', max: '4294967296' },
-			'4-5GB': { min: '4294967296', max: '5368709120' },
-			'5-10GB': { min: '5368709120', max: '10737418240' },
-			'10-15GB': { min: '10737418240', max: '16106127360' },
-			'15-20GB': { min: '16106127360', max: '21474836480' },
-			'>20GB': { min: '21474836480' }
+	/**
+	 * The WHERE clause for the active filters, optionally leaving one out. A
+	 * chart that picks a filter is drawn without it, so choosing a year leaves
+	 * the other years visible to switch to
+	 * @param {'region' | 'publisher' | 'year' | 'sizeBucket'} [except]
+	 */
+	const scopeWithout = (except) => {
+		const conditions = []
+		if (region && except !== 'region') conditions.push(sql`${games.regions} @> ARRAY[${region}]::text[]`)
+		if (publisher && except !== 'publisher') conditions.push(eq(games.publisher, publisher))
+		if (year && except !== 'year') conditions.push(sql`${yearExpr} = ${year}`)
+		if (sizeBucket && except !== 'sizeBucket') {
+			const bucket = /** @type {NonNullable<typeof SIZE_BUCKETS[number]>} */ (SIZE_BUCKETS.find(b => b.label === sizeBucket))
+			conditions.push(gte(games.sizeInBytes, bucket.min === 0 ? 1 : bucket.min))
+			if (bucket.max !== null) conditions.push(lt(games.sizeInBytes, bucket.max))
 		}
-		const range = (/** @type {any} */ (sizeRanges))[sizeBucket]
-		if (range) {
-			if (range.min) whereConditions.push(gte(games.sizeInBytes, range.min))
-			if (range.max) whereConditions.push(lt(games.sizeInBytes, range.max))
-		}
+		return conditions.length > 0 ? and(...conditions) : undefined
 	}
+	const gameScope = scopeWithout()
 
-	// Always exclude titles with 0 size (likely placeholders or data entry errors)
-	whereConditions.push(gte(games.sizeInBytes, 1))
+	// Title groups with at least one title in scope. Contributions belong to
+	// groups, not titles, so this is what carries the region over to them
+	const groupsInScope = db.select({ id: games.groupId }).from(games).where(gameScope)
 
-	const combinedWheres = whereConditions.length > 0 ? and(...whereConditions) : undefined
+	const sizeBucketCase = sql.raw(`CASE ${SIZE_BUCKETS.map(b =>
+		`WHEN "size_in_bytes" >= ${b.min === 0 ? 1 : b.min}${b.max !== null ? ` AND "size_in_bytes" < ${b.max}` : ''} THEN '${b.label}'`
+	).join(' ')} END`)
+	const sizeBucketOrder = sql.raw(`CASE ${SIZE_BUCKETS.map((b, i) => `WHEN "size_in_bytes" >= ${b.min === 0 ? 1 : b.min}${b.max !== null ? ` AND "size_in_bytes" < ${b.max}` : ''} THEN ${i}`).join(' ')} END`)
 
-	// KPI queries
-	const basicKpisQuery = db
-		.select({
-			total_titles: count(games.id),
-			total_publishers: countDistinct(games.publisher),
-			total_size: sum(games.sizeInBytes)
-		})
-		.from(games)
-		.where(combinedWheres)
+	const approved = (/** @type {any} */ table) => eq(table.status, 'approved')
 
-	const yearExpr = sql`CAST(FLOOR("release_date" / 10000) AS INTEGER)`
-	const releasesByYearQuery = db
-		.select({
-			year: yearExpr.as('year'),
-			count: count(games.id)
-		})
-		.from(games)
-		.where(
-			and(
-				sql`"release_date" IS NOT NULL`,
-				combinedWheres,
-				gte(yearExpr, 1990),
-				lt(yearExpr, 2027)
-			)
-		)
-		.groupBy(sql`year`)
-		.orderBy(sql`year`)
+	const [
+		[libraryKpis],
+		regionOptions,
+		releasesByYear,
+		topPublishers,
+		sizeDistribution,
+		perfRows,
+		graphicsRows,
+		videoRows,
+		latestProfiles,
+		activityByMonth,
+		[requestsTotal],
+		[favoritesTotal],
+		topRequested,
+		topFavorited,
+		filteredGames
+	] = await Promise.all([
+		db.select({
+			titles: count(games.id),
+			groups: countDistinct(games.groupId),
+			publishers: countDistinct(games.publisher),
+			totalSize: sum(games.sizeInBytes)
+		}).from(games).where(gameScope),
 
-	const topPublishersQuery = db
-		.select({
-			publisher: games.publisher,
-			count: count(games.id)
-		})
-		.from(games)
-		.where(and(sql`"publisher" IS NOT NULL`, combinedWheres))
-		.groupBy(games.publisher)
-		.orderBy(desc(count(games.id)))
-		.limit(10)
+		// The region picker lists every region, whatever is selected now
+		db.select({ code: sql`region`.as('code'), titles: count() })
+			.from(sql`${games}, unnest(${games.regions}) AS region`)
+			.groupBy(sql`region`)
+			.orderBy(desc(count()), sql`region`),
 
-	const sizeBucketCase = sql`
-        CASE
-            WHEN "size_in_bytes" < 104857600 THEN '<100MB'
-            WHEN "size_in_bytes" >= 104857600 AND "size_in_bytes" < 209715200 THEN '100-200MB'
-            WHEN "size_in_bytes" >= 209715200 AND "size_in_bytes" < 314572800 THEN '200-300MB'
-            WHEN "size_in_bytes" >= 314572800 AND "size_in_bytes" < 419430400 THEN '300-400MB'
-            WHEN "size_in_bytes" >= 419430400 AND "size_in_bytes" < 524288000 THEN '400-500MB'
-            WHEN "size_in_bytes" >= 524288000 AND "size_in_bytes" < 1073741824 THEN '500MB-1GB'
-            WHEN "size_in_bytes" >= 1073741824 AND "size_in_bytes" < 2147483648 THEN '1-2GB'
-            WHEN "size_in_bytes" >= 2147483648 AND "size_in_bytes" < 3221225472 THEN '2-3GB'
-            WHEN "size_in_bytes" >= 3221225472 AND "size_in_bytes" < 4294967296 THEN '3-4GB'
-            WHEN "size_in_bytes" >= 4294967296 AND "size_in_bytes" < 5368709120 THEN '4-5GB'
-            WHEN "size_in_bytes" >= 5368709120 AND "size_in_bytes" < 10737418240 THEN '5-10GB'
-            WHEN "size_in_bytes" >= 10737418240 AND "size_in_bytes" < 16106127360 THEN '10-15GB'
-            WHEN "size_in_bytes" >= 16106127360 AND "size_in_bytes" < 21474836480 THEN '15-20GB'
-            ELSE '>20GB'
-        END`
+		db.select({ year: yearExpr.as('year'), count: count(games.id) })
+			.from(games)
+			.where(and(scopeWithout('year'), sql`${games.releaseDate} IS NOT NULL`, gte(yearExpr, 1990), lt(yearExpr, 2100)))
+			.groupBy(sql`year`)
+			.orderBy(sql`year`),
 
-	const sizeDistributionQuery = db
-		.select({
-			bucket: sizeBucketCase.as('bucket'),
-			count: count(games.id)
-		})
-		.from(games)
-		.where(and(sql`"size_in_bytes" IS NOT NULL`, combinedWheres))
-		.groupBy(sizeBucketCase)
-		.orderBy(sql`
-            CASE (${sizeBucketCase})
-                WHEN '<100MB' THEN 1
-                WHEN '100-200MB' THEN 2
-                WHEN '200-300MB' THEN 3
-                WHEN '300-400MB' THEN 4
-                WHEN '400-500MB' THEN 5
-                WHEN '500MB-1GB' THEN 6
-                WHEN '1-2GB' THEN 7
-                WHEN '2-3GB' THEN 8
-                WHEN '3-4GB' THEN 9
-                WHEN '4-5GB' THEN 10
-                WHEN '5-10GB' THEN 11
-                WHEN '10-15GB' THEN 12
-                WHEN '15-20GB' THEN 13
-                WHEN '>20GB' THEN 14
-            END
-        `)
+		db.select({ publisher: games.publisher, count: count(games.id) })
+			.from(games)
+			.where(and(scopeWithout('publisher'), sql`${games.publisher} IS NOT NULL`))
+			.groupBy(games.publisher)
+			.orderBy(desc(count(games.id)), games.publisher)
+			.limit(10),
 
-	// Top Requested Games
-	const topRequestedQuery = db
-		.select({
+		// Titles with no recorded size have no bucket and are left out of this
+		// chart only - they are still titles, and still counted everywhere else
+		db.select({ bucket: sizeBucketCase.as('bucket'), count: count(games.id) })
+			.from(games)
+			.where(and(scopeWithout('sizeBucket'), gte(games.sizeInBytes, 1)))
+			.groupBy(sizeBucketCase, sizeBucketOrder)
+			.orderBy(sizeBucketOrder),
+
+		db.select({
+			groupId: performanceProfiles.groupId,
+			prNumber: performanceProfiles.prNumber,
+			sourcePrUrl: performanceProfiles.sourcePrUrl,
+			contributor: performanceProfiles.contributor
+		}).from(performanceProfiles)
+			.where(and(approved(performanceProfiles), inArray(performanceProfiles.groupId, groupsInScope))),
+
+		db.select({
+			groupId: graphicsSettings.groupId,
+			prNumber: graphicsSettings.prNumber,
+			contributor: graphicsSettings.contributor
+		}).from(graphicsSettings)
+			.where(and(approved(graphicsSettings), inArray(graphicsSettings.groupId, groupsInScope))),
+
+		db.select({
+			groupId: youtubeLinks.groupId,
+			prNumber: youtubeLinks.prNumber,
+			submittedBy: youtubeLinks.submittedBy
+		}).from(youtubeLinks)
+			.where(and(approved(youtubeLinks), inArray(youtubeLinks.groupId, groupsInScope))),
+
+		// The newest profile of each group, reduced to the three fields charted
+		db.selectDistinctOn([performanceProfiles.groupId], {
+			dockedFps: sql`${performanceProfiles.profiles}->'docked'->>'target_fps'`.as('docked_fps'),
+			handheldFps: sql`${performanceProfiles.profiles}->'handheld'->>'target_fps'`.as('handheld_fps'),
+			dockedResolution: sql`${performanceProfiles.profiles}->'docked'->>'resolution_type'`.as('docked_resolution')
+		}).from(performanceProfiles)
+			.where(and(approved(performanceProfiles), inArray(performanceProfiles.groupId, groupsInScope)))
+			.orderBy(performanceProfiles.groupId, desc(performanceProfiles.lastUpdated)),
+
+		db.select({
+			month: sql`to_char(date_trunc('month', ${performanceProfiles.lastUpdated}), 'YYYY-MM')`.as('month'),
+			count: count()
+		}).from(performanceProfiles)
+			.where(and(
+				approved(performanceProfiles),
+				inArray(performanceProfiles.groupId, groupsInScope),
+				sql`${performanceProfiles.lastUpdated} >= date_trunc('month', now()) - interval '11 months'`
+			))
+			.groupBy(sql`month`)
+			.orderBy(sql`month`),
+
+		db.select({ count: count() }).from(dataRequests)
+			.innerJoin(games, eq(dataRequests.gameId, games.id)).where(gameScope),
+
+		db.select({ count: count() }).from(favorites)
+			.innerJoin(games, eq(favorites.gameId, games.id)).where(gameScope),
+
+		db.select({
 			gameId: dataRequests.gameId,
 			name: sql`MIN(${games.names}[1])`.as('name'),
 			count: count(dataRequests.gameId)
-		})
-		.from(dataRequests)
-		.innerJoin(games, eq(dataRequests.gameId, games.id))
-		.groupBy(dataRequests.gameId)
-		.orderBy(desc(count(dataRequests.gameId)))
-		.limit(5)
+		}).from(dataRequests)
+			.innerJoin(games, eq(dataRequests.gameId, games.id))
+			.where(gameScope)
+			.groupBy(dataRequests.gameId)
+			.orderBy(desc(count(dataRequests.gameId)))
+			.limit(5),
 
-	// Top Favorited Games
-	const topFavoritedQuery = db
-		.select({
+		db.select({
 			gameId: favorites.gameId,
 			name: sql`MIN(${games.names}[1])`.as('name'),
 			count: count(favorites.gameId)
-		})
-		.from(favorites)
-		.innerJoin(games, eq(favorites.gameId, games.id))
-		.groupBy(favorites.gameId)
-		.orderBy(desc(count(favorites.gameId)))
-		.limit(5)
+		}).from(favorites)
+			.innerJoin(games, eq(favorites.gameId, games.id))
+			.where(gameScope)
+			.groupBy(favorites.gameId)
+			.orderBy(desc(count(favorites.gameId)))
+			.limit(5),
 
-	// Total unique contributors across all tables
-	const totalContributorsQuery = db.select({
-		count: sql`COUNT(DISTINCT contributor_name)`.as('count')
-	}).from(sql`(
-        SELECT unnest(contributor) as contributor_name FROM ${performanceProfiles}
-        UNION
-        SELECT unnest(contributor) as contributor_name FROM ${graphicsSettings}
-        UNION
-        SELECT submitted_by as contributor_name FROM ${youtubeLinks}
-    ) as subquery`).where(sql`contributor_name IS NOT NULL AND contributor_name != ''`)
-
-	// Filtered games list (top 50)
-	const filteredGamesQuery = db
-		.select({
+		db.select({
 			id: games.id,
 			name: sql`${games.names}[1]`.as('name'),
 			publisher: games.publisher,
+			regions: games.regions,
 			sizeInBytes: games.sizeInBytes
-		})
-		.from(games)
-		.where(combinedWheres)
-		.orderBy(desc(games.id))
-		.limit(50)
-
-	const [
-		basicKpis,
-		releasesByYear,
-		topPublishers,
-		sizeDistribution,
-		totalPerf,
-		totalGraphics,
-		totalYoutube,
-		totalGroups,
-		totalRequests,
-		totalFavorites,
-		topRequested,
-		topFavorited,
-		contributorsResult,
-		filteredGames
-	] = await Promise.all([
-		basicKpisQuery,
-		releasesByYearQuery,
-		topPublishersQuery,
-		sizeDistributionQuery,
-		db.select({ count: count() }).from(performanceProfiles).then((/** @type {any} */ r) => r[0].count),
-		db.select({ count: count() }).from(graphicsSettings).then((/** @type {any} */ r) => r[0].count),
-		db.select({ count: count() }).from(youtubeLinks).then((/** @type {any} */ r) => r[0].count),
-		db.select({ count: count() }).from(gameGroups).then((/** @type {any} */ r) => r[0].count),
-		db.select({ count: count() }).from(dataRequests).then((/** @type {any} */ r) => r[0].count),
-		db.select({ count: count() }).from(favorites).then((/** @type {any} */ r) => r[0].count),
-		topRequestedQuery,
-		topFavoritedQuery,
-		totalContributorsQuery.then((/** @type {any} */ r) => r[0]),
-		filteredGamesQuery
+		}).from(games)
+			.where(gameScope)
+			.orderBy(sql`${games.releaseDate} DESC NULLS LAST`, games.id)
+			.limit(50)
 	])
+
+	const contributionRows = [
+		...perfRows.map(r => ({ groupId: r.groupId, prNumber: r.prNumber, sourcePrUrl: r.sourcePrUrl, contributors: r.contributor ?? [] })),
+		...graphicsRows.map(r => ({ groupId: r.groupId, prNumber: r.prNumber, contributors: r.contributor ?? [] })),
+		...videoRows.map(r => ({ groupId: r.groupId, prNumber: r.prNumber, contributors: [r.submittedBy] }))
+	]
+	const people = tallyContributors(contributionRows)
+
+	const groupsWithData = new Set([...perfRows.map(r => r.groupId), ...graphicsRows.map(r => r.groupId)]).size
+	const groups = Number(libraryKpis.groups)
+
+	// Fill months that had nothing, so the chart's axis is continuous
+	const activityByMonthMap = new Map(activityByMonth.map(m => [String(m.month), Number(m.count)]))
+	const now = new Date()
+	const activity = Array.from({ length: 12 }, (_, i) => {
+		const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (11 - i), 1))
+		const month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+		return { month, count: activityByMonthMap.get(month) ?? 0 }
+	})
 
 	return {
 		kpis: {
-			...basicKpis[0],
-			total_performance: totalPerf,
-			total_graphics: totalGraphics,
-			total_youtube: totalYoutube,
-			total_groups: totalGroups,
-			total_requests: totalRequests,
-			total_favorites: totalFavorites,
-			total_contributors: Number(contributorsResult?.count || 0)
+			titles: Number(libraryKpis.titles),
+			groups,
+			publishers: Number(libraryKpis.publishers),
+			totalSize: Number(libraryKpis.totalSize ?? 0),
+			profiles: perfRows.length,
+			graphics: graphicsRows.length,
+			videos: videoRows.length,
+			groupsWithData,
+			coverage: groups > 0 ? groupsWithData / groups : 0,
+			contributors: people.length,
+			contributions: countContributions(contributionRows),
+			requests: Number(requestsTotal.count),
+			favorites: Number(favoritesTotal.count)
 		},
-		releasesByYear,
+		regions: regionOptions.map(r => ({ code: String(r.code), titles: Number(r.titles) })),
+		releasesByYear: releasesByYear.map(r => ({ year: Number(r.year), count: Number(r.count) })),
 		topPublishers,
-		sizeDistribution,
+		sizeDistribution: sizeDistribution.map(r => ({ bucket: String(r.bucket), count: Number(r.count) })),
+		performance: {
+			sampled: latestProfiles.length,
+			dockedFps: tallyFps(latestProfiles.map(p => /** @type {string | null} */ (p.dockedFps))),
+			handheldFps: tallyFps(latestProfiles.map(p => /** @type {string | null} */ (p.handheldFps))),
+			resolutionTypes: [...latestProfiles
+				.reduce((acc, p) => {
+					const type = /** @type {string | null} */ (p.dockedResolution)
+					if (type) acc.set(type, (acc.get(type) ?? 0) + 1)
+					return acc
+				}, /** @type {Map<string, number>} */ (new Map()))
+				.entries()]
+				.map(([label, n]) => ({ label, count: n }))
+				.sort((a, b) => b.count - a.count)
+		},
+		activityByMonth: activity,
+		topContributors: people.slice(0, 10),
 		topRequested,
 		topFavorited,
 		filteredGames,
-		activeFilters: { publisher, year, sizeBucket }
+		activeFilters: { region, publisher, year: year ? String(year) : null, sizeBucket }
 	}
 }
