@@ -21,13 +21,17 @@
 import {
 	WebGLRenderer, Scene, PerspectiveCamera, Group, Mesh, Shape, ExtrudeGeometry, PlaneGeometry,
 	MeshToonMaterial, MeshBasicMaterial, AmbientLight, DirectionalLight, CanvasTexture, DataTexture,
-	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter, Plane, Vector3, AdditiveBlending
+	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter, Plane, Vector3, AdditiveBlending, InstancedMesh, BoxGeometry, Matrix4, Quaternion, Euler
 } from 'three'
 import { followTilt } from '$lib/sensors'
 
 // Opening a card: a small pull back, then it slides down into an invisible slot
 const INSERT_PULL_MS = 140
 const INSERT_SLIDE_MS = 560
+// A pile of cartridges lying flat, seen from the front and above
+const STACK_TILT = 0.66
+const STACK_GAP = 1.22
+const STACK_MAX = 70
 // How long a card takes to fly to its dock, and back
 const DOCK_SECONDS = 0.9
 const easeInOutCubic = (/** @type {number} */ t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
@@ -531,6 +535,12 @@ export class CartridgeStage {
 		this.lastScrollY = window.scrollY
 		this.snapUntil = 0
 		this.clipCount = 0
+		// For poking at in the development console
+		if (import.meta.env?.DEV) /** @type {any} */ (window).__cartridgeStage = this
+		/** Piles of cartridges (the stats timeline), drawn alongside the cards */
+		/** @type {Map<Element, any>} */
+		this.stacks = new Map()
+		this.slabGeometry = new BoxGeometry(1, D, H)
 		this.scrollVel = 0
 		/** @type {{ style: 'flat' | 'angled' | 'sway' | 'float', reduced: boolean }} */
 		this.options = { style: 'flat', reduced: false }
@@ -549,8 +559,12 @@ export class CartridgeStage {
 
 		this.visibility = new IntersectionObserver((entries) => {
 			for (const e of entries) {
-				const h = this.handles.get(e.target)
-				if (h) h.near = e.isIntersecting
+				const h = this.handles.get(e.target) ?? this.stacks.get(e.target)
+				if (h) {
+					h.near = e.isIntersecting
+					// A pile starts building the first time it is on screen
+					if (e.isIntersecting && h.kind === 'stack' && h.startAt === null) h.startAt = performance.now() + h.delay
+				}
 			}
 			this.wake()
 		}, { rootMargin: '200px' })
@@ -997,6 +1011,81 @@ export class CartridgeStage {
 		}
 	}
 
+	/**
+	 * A pile of cartridges lying flat, standing in for a bar: as tall as its
+	 * element, built one slab at a time the first time it is seen. Meant for a
+	 * chart, where the number of games becomes the number of cartridges
+	 * @param {HTMLElement} el
+	 * @param {{ delay?: number }} [opts] ms before it starts building
+	 */
+	registerStack (el, opts = {}) {
+		const topCanvas = Object.assign(document.createElement('canvas'), { width: 128, height: 189 })
+		const tctx = /** @type {CanvasRenderingContext2D} */ (topCanvas.getContext('2d'))
+		// The top of a cartridge, small: the shell, the red band, the label
+		tctx.fillStyle = '#0e0e10'
+		tctx.fillRect(0, 0, 128, 189)
+		tctx.fillStyle = '#d80f20'
+		tctx.fillRect(11, 16, 106, 36)
+		tctx.fillStyle = '#6d7280'
+		tctx.fillRect(11, 52, 106, 100)
+		const topTex = this.texture(topCanvas)
+
+		// A touch lighter than a single card's shell, so the slabs in a pile can be told apart
+		const body = new MeshToonMaterial({ color: 0x23252b, gradientMap: this.gradient, transparent: true })
+		const top = new MeshBasicMaterial({ map: topTex, transparent: true })
+		// +x, -x, +y (the top), -y, +z (the front edge), -z
+		const mesh = new InstancedMesh(this.slabGeometry, [body, body, top, body, body, body], STACK_MAX)
+		// Each slab sits a touch off true, as a real pile does: the same every time
+		const m = new Matrix4()
+		const q = new Quaternion()
+		const pos = new Vector3()
+		const scale = new Vector3(1, 1, 1)
+		for (let i = 0; i < STACK_MAX; i++) {
+			const jx = Math.sin(i * 12.9898) * 0.025
+			const jr = Math.sin(i * 78.233) * 0.03
+			pos.set(jx, D * 0.5 + i * D * STACK_GAP, 0)
+			q.setFromEuler(new Euler(0, jr, 0))
+			m.compose(pos, q, scale)
+			mesh.setMatrixAt(i, m)
+		}
+		mesh.instanceMatrix.needsUpdate = true
+		mesh.count = 0
+		const group = new Group()
+		group.add(mesh)
+		group.visible = false
+		this.scene.add(group)
+
+		const handle = {
+			kind: 'stack', el, group, mesh, body, top, topTex,
+			near: true,
+			startAt: /** @type {number | null} */ (null),
+			delay: opts.delay ?? 0,
+			built: 0,
+			dim: false,
+			/** @param {boolean} on */
+			setDim: (on) => { handle.dim = on; body.opacity = on ? 0.42 : 1; top.opacity = on ? 0.42 : 1; this.wake() },
+			dispose: () => this.unregisterStack(el)
+		}
+		this.stacks.set(el, handle)
+		this.visibility.observe(el)
+		this.wake()
+		return handle
+	}
+
+	/** @param {Element} el */
+	unregisterStack (el) {
+		const h = this.stacks.get(el)
+		if (!h) return
+		this.visibility.unobserve(el)
+		this.scene.remove(h.group)
+		h.mesh.dispose()
+		h.body.dispose()
+		h.top.dispose()
+		h.topTex.dispose()
+		this.stacks.delete(el)
+		this.wake()
+	}
+
 	wake () {
 		if (this.running || this.lost) return
 		this.running = true
@@ -1247,6 +1336,33 @@ export class CartridgeStage {
 
 		this.hovered = nextHovered
 
+		// Piles of cartridges
+		const cosT = Math.cos(STACK_TILT)
+		const sinT = Math.sin(STACK_TILT)
+		for (const h of this.stacks.values()) {
+			const r = h.near ? h.el.getBoundingClientRect() : null
+			if (!r || r.width === 0 || r.height === 0 || r.bottom < -50 || r.top > this.viewH + 50) {
+				h.group.visible = false
+				continue
+			}
+			const w = r.width
+			// As many slabs as fit in the space once the top face is allowed for
+			const fit = Math.max(1, Math.floor((r.height - H * sinT * w) / (D * STACK_GAP * cosT * w)))
+			const want = Math.min(STACK_MAX, fit)
+			if (h.startAt !== null && !this.options.reduced) {
+				// Built one at a time: about thirty a second
+				h.built = Math.min(want, Math.floor(Math.max(0, now - h.startAt) / 32))
+				if (h.built < want) animating = true
+			} else if (h.startAt !== null) {
+				h.built = want
+			}
+			h.mesh.count = Math.min(h.built, want)
+			h.group.scale.setScalar(w)
+			h.group.rotation.set(STACK_TILT, 0, 0)
+			h.group.position.set(r.left + w / 2, this.viewH - r.bottom + (H / 2) * sinT * w, 0)
+			h.group.visible = h.mesh.count > 0
+		}
+
 		if (this.inserting) {
 			if (this.updateInsert(now)) animating = true
 		}
@@ -1260,7 +1376,7 @@ export class CartridgeStage {
 		}
 	}
 
-	get size () { return this.handles.size }
+	get size () { return this.handles.size + this.stacks.size }
 
 	dispose () {
 		window.removeEventListener('scroll', this.onScroll)
@@ -1268,6 +1384,8 @@ export class CartridgeStage {
 		this.stopGridTilt?.()
 		this.visibility.disconnect()
 		for (const el of [...this.handles.keys()]) this.unregister(el)
+		for (const el of [...this.stacks.keys()]) this.unregisterStack(el)
+		this.slabGeometry.dispose()
 		this.shadowTexture.dispose()
 		this.glareTexture.dispose()
 		this.glareGeometry.dispose()

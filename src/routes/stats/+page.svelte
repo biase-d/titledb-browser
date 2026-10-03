@@ -6,6 +6,7 @@
   import { getRegionLabel } from '$lib/regions'
   import BarList from './BarList.svelte'
   import ColumnChart from './ColumnChart.svelte'
+  import CartridgeStackChart from './CartridgeStackChart.svelte'
   import CountUp from '$lib/components/CountUp.svelte'
 
   /** @type {{ data: { stats: any } }} */
@@ -304,7 +305,7 @@
       <p class="panel-note">Select a bar to filter every tab by it.</p>
       <div class="card glass-panel">
         <div class="card-head"><h2>Release timeline</h2><span class="card-note">games per year</span></div>
-        <ColumnChart
+        <CartridgeStackChart
           items={stats.releasesByYear.map((/** @type {any} */ y) => ({ label: String(y.year), value: y.count }))}
           selected={filters.year}
           onselect={(label) => setFilter('year', label)}

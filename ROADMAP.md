@@ -17,6 +17,9 @@ Everything that has come up so far, grouped so it can be ordered. Effort is a ro
 - On a phone the hero cartridge flies to the bottom corner when scrolled past, turning, and flies back when tapped; sections settle into view as they scroll in
 - Inspect view: tap the hero cartridge and it flies to the middle of the screen, turned by dragging or (on a phone) by tilting; Escape or the close button returns it
 - The stats Performance tab no longer crashes when resolution types exist
+- Game page header reworked around the cartridge (publisher eyebrow, large title, facts, Favorite and Inspect pills, the cartridge standing on the panel edge); the region dropdown no longer opens behind the title
+- Homepage hero reworked around its cartridge (standing on the panel edge, controls moved, publisher line, larger title), cartridges ease into view instead of flipping
+- 3D and motion: grid reflow, live contribute preview, ghost cartridge on no-data pages, error-page and loading cartridges, compare view with cartridges (and a fix: it could never compare more than one version), favorites shelf, badge coins, cartridge piles for the stats timeline, count-up numbers and growing bars, glare and neighbour lean on 3D cards, favorite pop, header condense, banner parallax, opt-in phone tilt for the grid
 
 ## 1. Get the existing work live (do first)
 
@@ -69,33 +72,16 @@ masagrator is not building a performance-data tool, so the plan is to make the b
 
 ### More 3D in the 2D interface
 
-All of these use the one shared canvas, so each costs a mesh and not a WebGL context. Each would be off for crawlers, still when animation is reduced, and have the CSS or plain version underneath. Ranked by how well they fit what the site is for.
-
-| Idea | Effort | Why |
-| --- | --- | --- |
-| **Live cartridge preview on the contribute page** | M | The red band updates as someone types FPS values, so they see what their data will look like on the card. Ties the 3D directly to the thing the site needs most, which is submissions |
-| **Layout animation for the grid** | S | The stage already reads where each card is in the page. Letting it glide from the old position to the new one makes filtering, sorting and paging reflow smoothly, for free, on every page that uses cartridges |
-| **Ghost cartridge on pages with no data** | S | A blank grey-band cartridge hovering above an empty slot, as the contribute prompt. Makes the "no data yet" state inviting |
-| **Homepage hero as a rotating featured cartridge** | M | Replaces the banner carousel with a large cartridge that swaps game to game, in the same inspect and tilt behaviour as the details page |
-| **Cartridge shelf for the stats timeline** | M | Release years as stacks of small cartridges instead of flat bars, with depth and hover. On-brand and shows the same data |
-| **Favorites as a shelf** | M | "Your collection" as a row of cartridges on a shelf, with depth. Drag to reorder |
-| **Badges as collectible tokens** | M | Contributor badges on profile pages as small 3D medals that flip on hover |
-| **Compare versions with two cartridges** | S to M | The comparison modal shows two cartridges side by side tilting toward each other |
-| **Loading and 404 states** | S | A cartridge sliding into a slot during navigation, and a dusty unlabelled cartridge on 404 |
-| **A region globe** | L | Region selection on the stats page and onboarding as a turning globe. Heavy, and the picker already works |
-
-### Animation bound to scroll and interaction
+Built: the live contribute preview, grid reflow, ghost cartridge, homepage hero cartridge, cartridge piles for the stats timeline, favorites shelf, badge coins, compare fan, error and loading cartridges, phone tilt for the grid.
 
 | Idea | Effort | Notes |
 | --- | --- | --- |
-| Count-up numbers and bars that grow as they scroll into view | S | Stats and profile pages |
-| Pointer-following glare on the 3D cards | S | A moving specular highlight on the front face, as the CSS card already has |
-| Neighbours leaning away from a hovered card | S | A gentle depth wave across the grid |
-| Phone tilt for the whole grid (opt-in) | S | Reuses the sensor code; battery cost, so off by default |
-| Press feedback and a pop on favorite | S | Buttons squish a little; the star bursts |
-| Scroll-linked header and banner | S | The header condenses and the banner moves slower than the page |
-| Version selector cross-fade | S | The numbers morph when the version changes |
+| A region globe | L | Region selection on the stats page and onboarding as a turning globe. Heavy, and the picker already works; only if you want it |
 | Shared-element transition from grid card to hero | M | The card flies into the hero position on opening a game, instead of sinking into the slot. A big change to something already liked, so only if wanted |
+
+### Animation bound to scroll and interaction
+
+Built: count-up numbers, growing bars and columns, glare, neighbour lean, favorite pop, press feedback, header condense, banner parallax, version cross-fade, opt-in phone tilt.
 
 ### Other
 
