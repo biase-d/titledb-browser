@@ -22,8 +22,8 @@ describe('tiltToRotation', () => {
 	it('turns with a tilt to one side and the other way for the other side', () => {
 		const right = tiltToRotation(base, { beta: 45, gamma: 20 })
 		const left = tiltToRotation(base, { beta: 45, gamma: -20 })
-		expect(right.yaw).toBeLessThan(0)
-		expect(left.yaw).toBeGreaterThan(0)
+		expect(right.yaw).toBeGreaterThan(0)
+		expect(left.yaw).toBeLessThan(0)
 		expect(Math.abs(right.yaw)).toBeCloseTo(Math.abs(left.yaw))
 	})
 

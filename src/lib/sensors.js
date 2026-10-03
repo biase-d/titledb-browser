@@ -65,7 +65,8 @@ export function tiltToRotation (base, now, screenAngle = 0) {
 
 	return {
 		// Turned a bit more than the phone is, so a small tilt is enough
-		yaw: clamp(-side * RAD * 1.5, 1.4),
+		// Tilting the right edge down turns the card's face to the right
+		yaw: clamp(side * RAD * 1.5, 1.4),
 		pitch: clamp(front * RAD * 1.2, 0.9)
 	}
 }
