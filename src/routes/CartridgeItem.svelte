@@ -144,54 +144,66 @@
       class:turning={side === 'front' && !settled}
       class:settled
     >
-      <!-- Front: the label, the title, and the numbers the card is here for -->
+      <!-- Front, as on the real card: black shell, a label with a red header band
+           (here carrying our numbers, grey when there are none), the art, and a
+           strip with the title and a code. The mark and the ridges are below it -->
       <div class="face front">
         <div class="label">
-          {#if hasArtwork}
-            <img
-              bind:this={imageElement}
-              onerror={() => (imageFailed = true)}
-              src={imageSet?.src || iconUrl || titleData.bannerUrl}
-              srcset={imageSet?.srcset}
-              sizes="(max-width: 560px) 45vw, 180px"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              width="200"
-              height="200"
-            />
-          {:else}
-            <div class="no-art"><Icon icon="mdi:controller-classic-outline" /></div>
-          {/if}
+          <div class="band" class:empty={!dockedFps && !handheldFps}>
+            {#if dockedFps}
+              <span title={`Docked: ${dockedFps} FPS`}><Icon icon="mdi:television" />{dockedFps}</span>
+            {/if}
+            {#if handheldFps}
+              <span title={`Handheld: ${handheldFps} FPS`}><Icon icon="mdi:nintendo-switch" />{handheldFps}</span>
+            {/if}
+            {#if !dockedFps && !handheldFps}
+              <span class="no-data">No data yet</span>
+            {/if}
+          </div>
+          <div class="art">
+            {#if hasArtwork}
+              <img
+                bind:this={imageElement}
+                onerror={() => (imageFailed = true)}
+                src={imageSet?.src || iconUrl || titleData.bannerUrl}
+                srcset={imageSet?.srcset}
+                sizes="(max-width: 560px) 45vw, 180px"
+                alt=""
+                loading="lazy"
+                decoding="async"
+                width="200"
+                height="200"
+              />
+            {:else}
+              <div class="no-art"><Icon icon="mdi:controller-classic-outline" /></div>
+            {/if}
+          </div>
+          <div class="info">
+            <p class="title" title={titleName}>{titleName}</p>
+            <p class="code">{id}{regionBadge ? ` · ${regionBadge}` : ''}</p>
+          </div>
         </div>
-        <p class="title" title={titleName}>{titleName}</p>
-        <div class="stats">
-          {#if dockedFps}
-            <span title={`Docked: ${dockedFps} FPS`}><Icon icon="mdi:television" />{dockedFps}</span>
-          {/if}
-          {#if handheldFps}
-            <span title={`Handheld: ${handheldFps} FPS`}><Icon icon="mdi:nintendo-switch" />{handheldFps}</span>
-          {/if}
-          {#if !dockedFps && !handheldFps}
-            <span class="no-data">No data yet</span>
-          {/if}
-        </div>
+        <div class="mark" aria-hidden="true"></div>
         <div class="grip" aria-hidden="true"></div>
         <div class="sheen" aria-hidden="true"></div>
       </div>
 
-      <!-- Back: the sticker and the contacts. Decorative: the link's own label says it all -->
+      <!-- Back: the five contacts, and our details etched where the maker's are.
+           Decorative: the link's own label says it all -->
       <div class="face rear" aria-hidden="true">
-        <div class="sticker">
-          <p class="sticker-title">{titleName}</p>
-          <p class="sticker-line">{publisher}</p>
-          {#if regionLabel}<p class="sticker-line region" title={regionLabel}>{regionBadge}</p>{/if}
-          <dl>
-            {#if dockedFps}<div><dt>Docked</dt><dd>{dockedFps} FPS</dd></div>{/if}
-            {#if handheldFps}<div><dt>Handheld</dt><dd>{handheldFps} FPS</dd></div>{/if}
-          </dl>
+        <div class="etched">
+          <p class="etched-title">{titleName}</p>
+          <p class="etched-line">{publisher}</p>
+          {#if regionLabel}<p class="etched-line" title={regionLabel}>{regionBadge}</p>{/if}
+          {#if dockedFps}<p class="etched-line"><b>Docked</b> {dockedFps} FPS</p>{/if}
+          {#if handheldFps}<p class="etched-line"><b>Handheld</b> {handheldFps} FPS</p>{/if}
         </div>
-        <div class="contacts"></div>
+        <div class="slot">
+          <i class="arrow"></i>
+          {#each [0, 1, 2, 3, 4] as n (n)}
+            <span class="finger" class:tall={n % 2 === 1}></span>
+          {/each}
+        </div>
       </div>
 
       <div class="edge left" aria-hidden="true"></div>
@@ -208,8 +220,9 @@
   .cell {
     --w: 100cqw;
     --d: 16.2cqw;
-    --plastic: #2a2f3a;
-    --plastic-light: #3a4150;
+    --shell: #19191c;
+    --shell-light: #2a2a2f;
+    --shell-dark: #0b0b0d;
     display: block;
     width: 100%;
     max-width: 11rem;
@@ -276,12 +289,13 @@
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     overflow: hidden;
-    border-radius: 2.4cqw;
-    /* The keyed corner of the real card */
-    clip-path: polygon(0 0, 84% 0, 100% 9%, 100% 100%, 0 100%);
+    border-radius: 3cqw;
+    /* The keyed corner is top-left on the real card */
+    clip-path: polygon(0 9%, 16% 0, 100% 0, 100% 100%, 0 100%);
     background:
-      linear-gradient(160deg, var(--plastic-light), var(--plastic) 55%, #1d2129);
-    box-shadow: inset 0 0 0 0.6cqw rgba(255, 255, 255, 0.06);
+      radial-gradient(120% 70% at 20% 0%, rgba(255, 255, 255, 0.10), transparent 60%),
+      linear-gradient(160deg, var(--shell-light), var(--shell) 55%, var(--shell-dark));
+    box-shadow: inset 0 0 0 0.7cqw rgba(255, 255, 255, 0.07), inset 0 -2cqw 3cqw rgba(0, 0, 0, 0.35);
   }
 
   .front { transform: translateZ(calc(var(--d) / 2)); }
@@ -289,7 +303,7 @@
 
   .edge {
     position: absolute;
-    background: linear-gradient(90deg, #14171d, #2a2f3a);
+    background: linear-gradient(90deg, #0c0c0e, #26262a);
     backface-visibility: hidden;
   }
 
@@ -310,20 +324,61 @@
   .edge.top { top: 0; transform: translateY(-50%) rotateX(90deg); }
   .edge.bottom { bottom: 0; transform: translateY(50%) rotateX(-90deg); }
 
-  /* --- front --- */
+  /* --- front: label 84 wide, 108 tall (band 17, art 66, strip 25) --- */
   .label {
     position: absolute;
     top: 8cqw;
     left: 8cqw;
     width: 84cqw;
-    height: 84cqw;
-    border-radius: 2cqw;
+    height: 108cqw;
+    display: flex;
+    flex-direction: column;
+    border-radius: 1.6cqw;
     overflow: hidden;
-    background: #11141a;
-    box-shadow: 0 0 0 0.6cqw rgba(0, 0, 0, 0.5);
+    background: #f4f4f2;
+    box-shadow: 0 0 0 1cqw #050506, 0 0 0 1.6cqw rgba(255, 255, 255, 0.06);
   }
 
-  .label img {
+  .band {
+    flex: none;
+    height: 17cqw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5cqw;
+    background: linear-gradient(180deg, #f0192b, #d80f20);
+    color: #fff;
+  }
+
+  .band.empty { background: linear-gradient(180deg, #6d6d74, #55555c); }
+
+  .band span {
+    display: inline-flex;
+    align-items: center;
+    gap: 2cqw;
+    font-size: 9.5cqw;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.25);
+  }
+
+  .band .no-data {
+    font-size: 6.4cqw;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+
+  .art {
+    flex: none;
+    height: 66cqw;
+    background: #ececea;
+    overflow: hidden;
+  }
+
+  .art img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -335,20 +390,26 @@
     height: 100%;
     display: grid;
     place-items: center;
-    font-size: 24cqw;
-    color: rgba(255, 255, 255, 0.35);
+    font-size: 22cqw;
+    color: rgba(0, 0, 0, 0.25);
+  }
+
+  .info {
+    flex: 1;
+    min-height: 0;
+    padding: 2.2cqw 3.5cqw 1.6cqw;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #f4f4f2;
+    color: #15161a;
   }
 
   .title {
-    position: absolute;
-    top: 96cqw;
-    left: 8cqw;
-    width: 84cqw;
     margin: 0;
-    font-size: 6.6cqw;
-    font-weight: 700;
-    line-height: 1.2;
-    color: #f2f4f8;
+    font-size: 6.4cqw;
+    font-weight: 800;
+    line-height: 1.15;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -356,43 +417,37 @@
     overflow: hidden;
   }
 
-  .stats {
+  .code {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 3.7cqw;
+    letter-spacing: 0.02em;
+    color: #4b4d57;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* The down-pointing mark under the label */
+  .mark {
     position: absolute;
-    top: 118cqw;
-    left: 8cqw;
-    display: flex;
-    gap: 2.5cqw;
+    left: 50%;
+    bottom: 16cqw;
+    width: 11cqw;
+    height: 7cqw;
+    translate: -50% 0;
+    background: rgba(255, 255, 255, 0.16);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 
-  .stats span {
-    display: inline-flex;
-    align-items: center;
-    gap: 1.6cqw;
-    padding: 1.4cqw 3cqw;
-    font-size: 6cqw;
-    font-weight: 700;
-    line-height: 1;
-    color: #fff;
-    background: color-mix(in srgb, var(--primary-color) 55%, #0b0d12);
-    border-radius: 1.6cqw;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .stats .no-data {
-    font-weight: 600;
-    font-size: 5.2cqw;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.6);
-  }
-
-  /* The ridged grip along the bottom of the real card */
+  /* The ridges along the bottom edge */
   .grip {
     position: absolute;
-    left: 8cqw;
-    right: 8cqw;
-    bottom: 5cqw;
-    height: 5cqw;
-    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 0.8cqw, transparent 0.8cqw 2.4cqw);
+    left: 14cqw;
+    right: 14cqw;
+    bottom: 4.5cqw;
+    height: 6cqw;
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.13) 0 1.6cqw, transparent 1.6cqw 4.4cqw);
     border-radius: 1cqw;
   }
 
@@ -403,80 +458,92 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 200ms ease;
-    background: radial-gradient(circle at var(--gx) var(--gy), rgba(255, 255, 255, 0.28), transparent 55%);
+    background: radial-gradient(circle at var(--gx) var(--gy), rgba(255, 255, 255, 0.32), transparent 55%);
     mix-blend-mode: soft-light;
   }
 
-  /* --- back --- */
-  .sticker {
+  /* --- back: the details etched in light grey, and the contacts --- */
+  .etched {
     position: absolute;
-    top: 8cqw;
-    left: 8cqw;
-    width: 84cqw;
-    padding: 5cqw;
-    box-sizing: border-box;
-    border-radius: 2cqw;
-    background: #e9ebf0;
-    color: #1a1d24;
+    top: 9cqw;
+    left: 12cqw;
+    right: 10cqw;
+    color: rgba(255, 255, 255, 0.62);
+    text-shadow: 0 -0.2cqw 0 rgba(0, 0, 0, 0.6), 0 0.2cqw 0 rgba(255, 255, 255, 0.05);
   }
 
-  .sticker p { margin: 0; }
+  .etched p { margin: 0; }
 
-  .sticker-title {
+  .etched-title {
     font-size: 7cqw;
     font-weight: 800;
     line-height: 1.2;
+    color: rgba(255, 255, 255, 0.82);
     display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
-  .sticker-line {
-    margin-top: 1.6cqw;
-    font-size: 5.4cqw;
-    color: #4a5060;
+  .etched-line {
+    margin-top: 1.4cqw;
+    font-size: 5cqw;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .sticker-line.region {
-    font-size: 4.6cqw;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
+  .etched-line b { font-weight: 700; color: rgba(255, 255, 255, 0.8); margin-right: 1cqw; }
 
-  .sticker dl {
-    margin: 4cqw 0 0;
-    padding-top: 3cqw;
-    border-top: 0.5cqw solid #c4c8d2;
-    display: grid;
-    gap: 1.5cqw;
-  }
-
-  .sticker dl div {
+  /* Five fingers: gold traces, each ending in a green tab at the top, alternating
+     in height as on the real card */
+  .slot {
+    position: absolute;
+    left: 13cqw;
+    right: 13cqw;
+    bottom: 8cqw;
+    height: 62cqw;
     display: flex;
     justify-content: space-between;
-    font-size: 5.4cqw;
+    align-items: flex-end;
+    padding: 0 2cqw;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 2cqw;
+    box-shadow: inset 0 0 0 0.6cqw rgba(255, 255, 255, 0.05);
   }
 
-  .sticker dt { color: #4a5060; }
-  .sticker dd { margin: 0; font-weight: 800; font-variant-numeric: tabular-nums; }
-
-  /* The gold contacts */
-  .contacts {
-    position: absolute;
-    left: 14cqw;
-    right: 14cqw;
-    bottom: 6cqw;
-    height: 17cqw;
+  .finger {
+    position: relative;
+    width: 10cqw;
+    height: 88%;
+    border-radius: 1cqw 1cqw 0 0;
     background:
-      repeating-linear-gradient(90deg, #d4af37 0 4.2cqw, #3b3320 4.2cqw 5.6cqw);
-    border-radius: 1cqw;
-    box-shadow: inset 0 0 0 0.8cqw rgba(0, 0, 0, 0.35);
+      linear-gradient(90deg, transparent 38%, #b8893a 38% 62%, transparent 62%),
+      #1b1b1e;
+  }
+
+  .finger.tall { height: 96%; }
+
+  .finger::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 24%;
+    border-radius: 1cqw 1cqw 0 0;
+    background: linear-gradient(180deg, #5fd16b, #2f9a43);
+  }
+
+  .arrow {
+    position: absolute;
+    top: -6cqw;
+    left: 2cqw;
+    width: 4.5cqw;
+    height: 3.2cqw;
+    background: rgba(255, 255, 255, 0.3);
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 
   @media (prefers-reduced-motion: reduce) {
