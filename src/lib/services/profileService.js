@@ -3,7 +3,7 @@ import * as contributionRepo from '$lib/repositories/contributionRepository'
 import * as prefRepo from '$lib/repositories/preferencesRepository'
 import { countContributions } from '$lib/contributions'
 
-const BADGES = [
+export const BADGES = [
 	{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
 	{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:shark' },
 	{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
@@ -141,5 +141,24 @@ export async function getUserContributions (db, username, page) {
 			totalPages,
 			totalItems
 		}
+	}
+}
+
+/**
+ * Where a contribution count stands against the badges
+ * @param {number} total
+ * @returns {{ total: number, current: any|null, next: any|null, remaining: number, fraction: number }}
+ */
+export function badgeProgress (total) {
+	const ascending = [...BADGES].reverse()
+	const current = BADGES.find(b => total >= b.threshold) || null
+	const next = ascending.find(b => total < b.threshold) || null
+	const from = current?.threshold ?? 0
+	return {
+		total,
+		current,
+		next,
+		remaining: next ? next.threshold - total : 0,
+		fraction: next ? (total - from) / (next.threshold - from) : 1
 	}
 }

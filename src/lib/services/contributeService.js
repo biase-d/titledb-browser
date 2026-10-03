@@ -5,6 +5,8 @@
 
 import * as contributionRepo from '$lib/repositories/contributionRepository'
 import { getStats } from '$lib/repositories/statsRepository'
+import { badgeProgress } from '$lib/services/profileService'
+import { countContributions } from '$lib/contributions'
 
 /**
  * Get impact stats for the contribute page hero
@@ -14,10 +16,24 @@ import { getStats } from '$lib/repositories/statsRepository'
 export async function getImpactStats (db) {
 	const stats = await getStats(db, new URLSearchParams())
 	return {
-		totalContributors: stats.kpis.total_contributors,
-		totalUpdates: stats.kpis.total_performance + stats.kpis.total_graphics,
-		totalRequests: stats.kpis.total_requests
+		totalContributors: stats.kpis.contributors,
+		totalUpdates: stats.kpis.contributions,
+		totalRequests: stats.kpis.requests,
+		coverage: stats.kpis.coverage,
+		groups: stats.kpis.groups,
+		groupsWithData: stats.kpis.groupsWithData
 	}
+}
+
+/**
+ * How a signed-in contributor stands: their count and the next badge
+ * @param {import('$lib/database/types').DatabaseAdapter} db
+ * @param {string} login
+ */
+export async function getMyProgress (db, login) {
+	const data = await contributionRepo.getUserContributionStats(db, login)
+	const total = countContributions([...data.perfContribs, ...data.graphicsContribs, ...data.videoContribs])
+	return badgeProgress(total)
 }
 
 /**

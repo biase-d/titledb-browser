@@ -34,14 +34,15 @@
    * handleRef: the card's handle on the stage, for something that needs to turn it
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
    * ghost: a see-through, unlabelled stand-in that invites someone to add data
+   * href: where the card leads, when not the title page
    * css: draw it in CSS even where WebGL is available, for somewhere the canvas cannot reach (a modal)
    * pose: ride in a given pose ('hero' for a three-quarter view) without being a hero
    * shown: false to keep it from being drawn (a slide that is not the one showing)
    * clipTo: an element it must stay inside (a carousel that scrolls its slides)
    * layout: 'snap' for a card inside something that scrolls on its own
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -289,7 +290,7 @@
     // Synchronously: a preventDefault after an await is too late
     e.preventDefault()
     inserting = true
-    const href = `/title/${id}`
+    const href = linkTo ?? `/title/${id}`
     // Start fetching the page now, so it is ready by the time the card is in
     preloadData(href).catch(() => {})
     try {
@@ -356,7 +357,7 @@
 <svelte:element
   this={hero ? 'div' : 'a'}
   bind:this={cell}
-  href={hero ? undefined : `/title/${id}`}
+  href={hero ? undefined : (linkTo ?? `/title/${id}`)}
   class="cell"
   class:hero
   class:ghost

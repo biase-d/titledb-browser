@@ -30,8 +30,14 @@ export const load = async ({ parent, url, cookies, locals }) => {
 		preferredRegion
 	})
 
+	const progress = await contributeService.getMyProgress(
+		locals.db,
+		session.user.login || session.user.name
+	)
+
 	return {
 		session,
+		progress,
 		artwork: [],
 		games: result.games,
 		sortBy: result.sortBy,
