@@ -39,6 +39,14 @@ export const load = async ({ params, parent }) => {
 	return {
 		id: titleId,
 		name: names[0],
+		// For the cartridge preview
+		preview: {
+			names,
+			iconUrl: game.iconUrl ?? null,
+			bannerUrl: game.bannerUrl ?? null,
+			regions: game.regions ?? [],
+			publisher: game.publisher ?? null
+		},
 		groupId,
 		allTitlesInGroup,
 		existingPerformance: performanceHistory,

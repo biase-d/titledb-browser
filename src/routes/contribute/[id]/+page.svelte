@@ -1,4 +1,5 @@
 <script>
+	import CartridgeItem from '../../CartridgeItem.svelte'
 	import { onMount, untrack } from 'svelte'
 	import { enhance } from '$app/forms'
 	import { browser } from '$app/environment'
@@ -23,6 +24,7 @@
 	const {
 		id,
 		name,
+		preview,
 		groupId,
 		allTitlesInGroup,
 		existingPerformance,
@@ -32,6 +34,50 @@
 	} = $derived(data)
 
 	let performanceProfiles = $state([])
+
+	/**
+	 * The frame rates the preview cartridge shows: from the newest version that has
+	 * any filled in, else the first. Read through a short delay, so typing a number
+	 * repaints the cartridge once the typing pauses and not on every key
+	 */
+	const previewNumbers = $derived.by(() => {
+		const withData = performanceProfiles.filter(
+			(p) => Number(p.profiles?.docked?.target_fps) > 0 || Number(p.profiles?.handheld?.target_fps) > 0,
+		)
+		// Highest version first, comparing each dotted part as a number
+		const newest = [...(withData.length ? withData : performanceProfiles)].sort((a, b) => {
+			const pa = String(a.gameVersion).split('.').map((n) => parseInt(n, 10) || 0)
+			const pb = String(b.gameVersion).split('.').map((n) => parseInt(n, 10) || 0)
+			for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+				if ((pb[i] || 0) !== (pa[i] || 0)) return (pb[i] || 0) - (pa[i] || 0)
+			}
+			return 0
+		})[0]
+		const fps = (/** @type {any} */ v) => (Number(v) > 0 ? Number(v) : null)
+		return {
+			docked: fps(newest?.profiles?.docked?.target_fps),
+			handheld: fps(newest?.profiles?.handheld?.target_fps),
+		}
+	})
+	let shownNumbers = $state({ docked: null, handheld: null })
+	$effect(() => {
+		const next = previewNumbers
+		const timer = setTimeout(() => { shownNumbers = next }, 250)
+		return () => clearTimeout(timer)
+	})
+
+	const previewData = $derived({
+		id,
+		names: preview?.names ?? [name],
+		iconUrl: preview?.iconUrl ?? null,
+		bannerUrl: preview?.bannerUrl ?? null,
+		regions: preview?.regions ?? [],
+		publisher: preview?.publisher ?? null,
+		performance: {
+			docked: { target_fps: shownNumbers.docked },
+			handheld: { target_fps: shownNumbers.handheld },
+		},
+	})
 	let graphicsData = $state(/** @type {any} */ ({}))
 	let youtubeLinks = $state([])
 	let updatedGroup = $state([])
@@ -468,6 +514,7 @@
 			</div>
 		</div>
 	{:else}
+		<div class="with-preview">
 		<form
 			bind:this={formElement}
 			method="POST"
@@ -617,6 +664,22 @@
 				</button>
 			</div>
 		</form>
+
+		<!-- What the data will look like on its cartridge, as it is typed -->
+		<aside class="preview" aria-label="Cartridge preview">
+			<div class="preview-cart">
+				<CartridgeItem titleData={previewData} hero />
+			</div>
+			<p class="preview-note">
+				{#if shownNumbers.docked || shownNumbers.handheld}
+					This is how the frame rates will look on the cartridge.
+				{:else}
+					Fill in a target frame rate and it appears here, on the
+					cartridge, as you type.
+				{/if}
+			</p>
+		</aside>
+		</div>
 	{/if}
 </main>
 
@@ -817,9 +880,65 @@
 <style>
 	/* --- Main Layout & Common --- */
 	.page-container {
-		max-width: 900px;
+		max-width: 1120px;
 		margin: 0 auto;
 		padding: 1.5rem 1.5rem 8rem;
+	}
+
+	/* Everything except the form and its preview keeps the width it always had */
+	.page-container > :not(.with-preview) {
+		max-width: 852px;
+	}
+
+	.with-preview {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	/* On a narrow screen the preview comes first, above the tabs */
+	.preview {
+		order: -1;
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1rem 1.25rem;
+		background: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-lg);
+	}
+
+	.preview-cart {
+		flex: none;
+		width: 7.5rem;
+		--cart-max: 100%;
+	}
+
+	.preview-note {
+		margin: 0;
+		font-size: 0.9rem;
+		line-height: 1.5;
+		color: var(--text-secondary);
+	}
+
+	@media (min-width: 1100px) {
+		.with-preview {
+			display: grid;
+			grid-template-columns: minmax(0, 852px) 1fr;
+			align-items: start;
+			gap: 2rem;
+		}
+
+		.preview {
+			order: 0;
+			position: sticky;
+			top: 5.5rem;
+			flex-direction: column;
+			text-align: center;
+			padding: 1.5rem 1rem;
+		}
+
+		.preview-cart { width: min(100%, 11rem); }
 	}
 
 	/* --- Beta Banner --- */
