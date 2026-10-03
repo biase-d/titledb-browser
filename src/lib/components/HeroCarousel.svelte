@@ -312,6 +312,10 @@
         display: flex;
         flex: 1; /* Changed from height: 100% to fix mobile collapsing */
         overflow-x: auto;
+        /* Only sideways: with overflow-x set, the other axis would otherwise scroll too,
+           and the cartridge standing below the panel makes the content taller than it */
+        overflow-y: hidden;
+        overscroll-behavior-y: auto;
         scroll-snap-type: x mandatory;
         scrollbar-width: none;
         scroll-behavior: smooth;
