@@ -4,7 +4,8 @@
   import Icon from '@iconify/svelte'
   import { createImageSet, proxyImage } from '$lib/image'
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
-  import { preferences } from '$lib/stores/preferences'
+  import { get } from 'svelte/store'
+  import { preferences, isReducedMotion } from '$lib/stores/preferences'
   import { getLocalizedName } from '$lib/i18n'
   import { isBot } from '$lib/utils/bot'
 
@@ -108,10 +109,16 @@
     lastKey = key
   })
 
+  /** Settings can change while the page is open: style and motion follow them */
+  $effect(() => {
+    const options = { style: $preferences.cartridgeStyle, reduced: isReducedMotion($preferences) }
+    stageRef?.setOptions(options)
+  })
+
   /** The CSS card's own entrance: turned away, then round to the front */
   function startCss () {
     if (!cell) return () => {}
-    if (typeof IntersectionObserver === 'undefined') {
+    if (typeof IntersectionObserver === 'undefined' || isReducedMotion(get(preferences))) {
       settled = true
       return () => {}
     }
@@ -137,7 +144,9 @@
   }
 
   onMount(() => {
-    if (!cell || isBot() || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // A crawler gets the plain CSS card. Someone who asked for less motion still
+    // gets the 3D card, face-up and still
+    if (!cell || isBot()) {
       settled = true
       return
     }
@@ -153,6 +162,8 @@
 
         if (stage) {
           stageRef = stage
+          const prefs = get(preferences)
+          stage.setOptions({ style: prefs.cartridgeStyle, reduced: isReducedMotion(prefs) })
           const h = stage.register(cell, cartridgeData)
           await h.loaded
           if (cancelled) { h.dispose(); return }
@@ -195,7 +206,7 @@
   /** Hover tilt: fine pointers only. A finger gets a still card, so scrolling never moves it */
   /** @param {PointerEvent} e */
   function tilt (e) {
-    if (e.pointerType !== 'mouse' || !cell) return
+    if (e.pointerType !== 'mouse' || !cell || isReducedMotion(get(preferences))) return
     const r = cell.getBoundingClientRect()
     const x = (e.clientX - r.left) / r.width - 0.5
     const y = (e.clientY - r.top) / r.height - 0.5
@@ -223,7 +234,7 @@
    */
   async function open (e) {
     if (!gl || !handle || inserting || e.defaultPrevented || e.button !== 0 ||
-      e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || isReducedMotion(get(preferences))) return
     const stage = stageRef
     if (!stage) return
 

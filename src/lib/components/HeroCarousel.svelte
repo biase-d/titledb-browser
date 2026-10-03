@@ -1,11 +1,12 @@
 <script>
+    import { get } from 'svelte/store'
     import { browser } from '$app/environment'
     import { onMount, onDestroy } from 'svelte'
     import { fade } from 'svelte/transition'
     import Icon from '@iconify/svelte'
     import { createImageSet } from '$lib/image'
     import { getLocalizedName } from '$lib/i18n'
-    import { preferences } from '$lib/stores/preferences'
+    import { preferences, isReducedMotion } from '$lib/stores/preferences'
     import { extractTheme } from '$lib/utils/theme' // Your new theme engine
 
     let { recentUpdates = [], preferredRegion = 'US' } = $props()
@@ -98,15 +99,20 @@
 
     onMount(() => {
         // Followed live, not read once: someone can turn it on while the page
-        // is open, and the slideshow should stop when they do
+        // is open, and the slideshow should stop when they do. It is the device's
+        // setting unless the visitor chose otherwise in Settings
         const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
-        prefersReducedMotion = motion.matches
-        const onMotionChange = () => (prefersReducedMotion = motion.matches)
-        motion.addEventListener('change', onMotionChange)
+        const update = () => (prefersReducedMotion = isReducedMotion(get(preferences)))
+        update()
+        motion.addEventListener('change', update)
+        const unsubscribe = preferences.subscribe(update)
 
         if (recentUpdates.length > 0) startCarousel()
 
-        return () => motion.removeEventListener('change', onMotionChange)
+        return () => {
+            motion.removeEventListener('change', update)
+            unsubscribe()
+        }
     })
 
     onDestroy(() => {

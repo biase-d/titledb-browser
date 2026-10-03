@@ -10,11 +10,22 @@
     import OnboardingModal from './OnboardingModal.svelte'
     import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte'
     import { themeStore } from '$lib/stores/theme.svelte'
-    import { preferences } from '$lib/stores/preferences'
+    import { preferences, isReducedMotion } from '$lib/stores/preferences'
     import { fade } from 'svelte/transition'
     import { createImageSet } from '$lib/image'
 
     let { data, children } = $props()
+
+    // One class on the root that the stylesheet keys off, so the preference
+    // (or the device's setting) reaches every animation and transition at once
+    $effect(() => {
+        const root = document.documentElement
+        const reduce = () => root.classList.toggle('reduce-motion', isReducedMotion($preferences))
+        reduce()
+        const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+        query.addEventListener('change', reduce)
+        return () => query.removeEventListener('change', reduce)
+    })
 
     $effect(() => {
         const root = document.documentElement

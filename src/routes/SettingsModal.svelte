@@ -231,12 +231,99 @@
                     </div>
                 </section>
 
+                <div class="drawer-divider"></div>
+
+                <section>
+                    <div class="section-title-row">
+                        <Icon icon="mdi:animation-play-outline" class="section-icon" />
+                        <h3>Motion</h3>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Animation</span>
+                            <span class="setting-desc"
+                                >Reduced stops the slideshow, the cartridge
+                                effects and most transitions. Follow my device
+                                uses your system's setting.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Animation">
+                            {#each [['system', 'Follow my device'], ['reduced', 'Reduced'], ['full', 'Full']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.motion === value}
+                                    class:selected={$preferences.motion === value}
+                                    onclick={() => preferences.setMotion(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Cartridge view</span>
+                            <span class="setting-desc"
+                                >How the cartridges sit. Sway and Floating move
+                                continuously, so they use more battery, and are
+                                held still when animation is reduced.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Cartridge view">
+                            {#each [['flat', 'Flat'], ['angled', 'Angled'], ['sway', 'Sway'], ['float', 'Floating']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.cartridgeStyle === value}
+                                    class:selected={$preferences.cartridgeStyle === value}
+                                    onclick={() => preferences.setCartridgeStyle(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </div>
     </div>
 {/if}
 
 <style>
+
+    .setting-item.stacked {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .segmented {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .segmented button {
+        flex: 1;
+        padding: 0.5rem 0.5rem;
+        background: transparent;
+        border: 0;
+        border-radius: 9px;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .segmented button:hover { color: var(--text-primary); }
+
+    .segmented button.selected {
+        background: var(--surface-color);
+        color: var(--primary-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
     .modal-overlay {
         position: fixed;
         top: 0;

@@ -348,6 +348,18 @@ function drawBack (canvas, d) {
 	}
 }
 
+/** The soft dark ellipse a floating card casts */
+function shadowTexture () {
+	const canvas = Object.assign(document.createElement('canvas'), { width: 128, height: 128 })
+	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
+	const g = ctx.createRadialGradient(64, 64, 4, 64, 64, 62)
+	g.addColorStop(0, 'rgba(0,0,0,0.9)')
+	g.addColorStop(1, 'rgba(0,0,0,0)')
+	ctx.fillStyle = g
+	ctx.fillRect(0, 0, 128, 128)
+	return new CanvasTexture(canvas)
+}
+
 /** Three tones of light, hard-edged */
 function toonGradient () {
 	const data = new Uint8Array([70, 70, 70, 255, 150, 150, 150, 255, 255, 255, 255, 255])
@@ -404,6 +416,14 @@ export class CartridgeStage {
 		this.handles = new Map()
 		this.running = false
 		this.lastScroll = 0
+		this.lastFrame = 0
+		/** @type {{ style: 'flat' | 'angled' | 'sway' | 'float', reduced: boolean }} */
+		this.options = { style: 'flat', reduced: false }
+		// Touch devices spend their battery on the screen: when nothing is scrolling,
+		// the continuous styles are held to about thirty frames a second
+		this.coarse = window.matchMedia('(pointer: coarse)').matches
+		this.shadowTexture = shadowTexture()
+		this.shadowGeometry = new PlaneGeometry(1, 1)
 		this.lost = false
 		/** @type {Array<() => void>} */
 		this.lostListeners = []
@@ -425,7 +445,10 @@ export class CartridgeStage {
 			this.lost = true
 			this.lostListeners.forEach(fn => fn())
 		})
-		document.body.appendChild(this.renderer.domElement)
+		// Inside the page's own stacking layer, not on <body>: the header's z-index
+		// only counts within .app-shell, so a canvas outside it sat above the header
+		// and cards scrolled over it
+		;(document.querySelector('.app-shell') || document.body).appendChild(this.renderer.domElement)
 		this.resize()
 	}
 
@@ -474,6 +497,10 @@ export class CartridgeStage {
 		group.visible = false
 		this.scene.add(group)
 
+		const shadow = new Mesh(this.shadowGeometry, new MeshBasicMaterial({ map: this.shadowTexture, transparent: true, opacity: 0, depthWrite: false }))
+		shadow.visible = false
+		this.scene.add(shadow)
+
 		const handle = {
 			el, group, frontCanvas, backCanvas, frontTex, backTex, data,
 			near: true,
@@ -481,6 +508,10 @@ export class CartridgeStage {
 			revealAt: /** @type {number | null} */ (null),
 			flip: 1,
 			hover: 0, hoverTarget: 0,
+			poseRx: 0, poseRy: 0, bob: 0,
+			// Each card moves on its own beat
+			phase: [...String(data.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000, 7) / 160,
+			shadow,
 			tx: 0, ty: 0, rx: 0, ry: 0,
 			/** @type {Promise<void>} */
 			loaded: Promise.resolve(),
@@ -491,7 +522,12 @@ export class CartridgeStage {
 			/** @param {boolean} on */
 			setHover: (on) => { handle.hoverTarget = on ? 1 : 0; if (!on) { handle.tx = 0; handle.ty = 0 } this.wake() },
 			/** @param {number} [delay] ms */
-			reveal: (delay = 0) => { if (handle.revealAt === null) { handle.revealAt = performance.now() + delay; this.wake() } },
+			reveal: (delay = 0) => {
+				if (handle.revealAt === null) {
+					handle.revealAt = this.options.reduced ? performance.now() - FLIP_MS : performance.now() + delay
+					this.wake()
+				}
+			},
 			/** Slides this card down into an invisible slot, resolving once it is out of sight */
 			insert: () => this.beginInsert(handle),
 			dispose: () => this.unregister(el)
@@ -532,6 +568,8 @@ export class CartridgeStage {
 		if (!h) return
 		this.visibility.unobserve(el)
 		this.scene.remove(h.group)
+		this.scene.remove(h.shadow)
+		h.shadow.material.dispose()
 		h.frontTex.dispose()
 		h.backTex.dispose()
 		h.group.traverse((/** @type {any} */ o) => o.material && o.material !== this.shellMaterial && o.material.dispose())
@@ -609,8 +647,12 @@ export class CartridgeStage {
 		h.flip = 0
 		h.rx *= 0.8
 		h.ry *= 0.8
+		h.poseRx *= 0.8
+		h.poseRy *= 0.8
+		h.bob *= 0.8
+		h.shadow.visible = false
 		h.group.scale.setScalar(r.width)
-		h.group.rotation.set(h.rx, h.ry, 0)
+		h.group.rotation.set(h.rx + h.poseRx, h.ry + h.poseRy, 0)
 		h.group.position.set(r.left + r.width / 2, this.viewH - (r.top + ch / 2 + offset), -(D * r.width) / 2)
 
 		if (!st.hidden && r.top + offset >= bottom) {
@@ -621,6 +663,26 @@ export class CartridgeStage {
 		return !st.hidden
 	}
 
+	/**
+	 * Style and motion can change while the page is open (Settings)
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float', reduced?: boolean }} next
+	 */
+	setOptions (next) {
+		this.options = { ...this.options, ...next }
+		if (this.options.reduced) {
+			// No turn to wait for: every card is simply face-up
+			const now = performance.now()
+			for (const h of this.handles.values()) {
+				h.revealAt = now - FLIP_MS
+				h.flip = 0
+				h.tx = 0
+				h.ty = 0
+				h.hoverTarget = 0
+			}
+		}
+		this.wake()
+	}
+
 	wake () {
 		if (this.running || this.lost) return
 		this.running = true
@@ -629,7 +691,18 @@ export class CartridgeStage {
 
 	frame = () => {
 		const now = performance.now()
-		let animating = now - this.lastScroll < 140
+		const scrolling = now - this.lastScroll < 140
+		// Held to ~30fps on touch devices while nothing scrolls; scrolling needs every frame
+		if (this.coarse && !scrolling && now - this.lastFrame < 32) {
+			requestAnimationFrame(this.frame)
+			return
+		}
+		this.lastFrame = now
+		let animating = scrolling
+
+		const { style, reduced } = this.options
+		const t = now / 1000
+		const continuous = !reduced && (style === 'sway' || style === 'float')
 
 		// Read every position first, then write: no layout thrash
 		const rects = []
@@ -642,6 +715,7 @@ export class CartridgeStage {
 			const g = h.group
 			if (!r || !h.ready || r.width === 0 || r.bottom < -50 || r.top > this.viewH + 50) {
 				g.visible = false
+				h.shadow.visible = false
 				continue
 			}
 
@@ -658,12 +732,51 @@ export class CartridgeStage {
 			h.hover += (h.hoverTarget - h.hover) * 0.2
 			if (Math.abs(h.rx - h.ty * -0.31) > 0.002 || Math.abs(h.ry - h.tx * 0.38) > 0.002 || Math.abs(h.hover - h.hoverTarget) > 0.01) animating = true
 
+			// How the card sits when nothing is touching it: the chosen style
+			let tRx = 0
+			let tRy = 0
+			let tBob = 0
+			if (!reduced) {
+				const ph = h.phase
+				if (style === 'angled') {
+					// Like the reference render: turned to show the right edge, top a touch back
+					tRx = -0.12
+					tRy = -0.34
+				} else if (style === 'sway') {
+					tRx = -0.07 + 0.03 * Math.sin(t * 0.7 + ph)
+					tRy = 0.5 * Math.sin(t * 0.55 + ph)
+				} else if (style === 'float') {
+					tRx = -0.06 + 0.04 * Math.sin(t * 0.8 + ph)
+					tRy = -0.22 + 0.08 * Math.sin(t * 0.6 + ph * 1.3)
+					tBob = 0.045 + 0.03 * Math.sin(t * 1.1 + ph)
+				}
+			}
+			h.poseRx += (tRx - h.poseRx) * 0.12
+			h.poseRy += (tRy - h.poseRy) * 0.12
+			h.bob += (tBob - h.bob) * 0.12
+			if (Math.abs(h.poseRx - tRx) > 0.002 || Math.abs(h.poseRy - tRy) > 0.002 || Math.abs(h.bob - tBob) > 0.001) animating = true
+
 			const s = r.width * (1 + 0.04 * h.hover)
 			g.scale.setScalar(s)
-			g.rotation.set(h.rx, h.ry + h.flip * Math.PI, 0)
-			g.position.set(r.left + r.width / 2, this.viewH - (r.top + (r.width * H) / 2) + 6 * h.hover, -(D * s) / 2)
+			g.rotation.set(h.rx + h.poseRx, h.ry + h.poseRy + h.flip * Math.PI, 0)
+			g.position.set(
+				r.left + r.width / 2,
+				this.viewH - (r.top + (r.width * H) / 2) + 6 * h.hover + h.bob * r.width,
+				-(D * s) / 2
+			)
 			g.visible = true
+
+			// A floating card casts a shadow that thins as it rises
+			const sh = h.shadow
+			sh.visible = style === 'float' && !reduced
+			if (sh.visible) {
+				sh.scale.set(r.width * 0.9, r.width * 0.2, 1)
+				sh.position.set(r.left + r.width / 2, this.viewH - (r.top + r.width * H + r.width * 0.06), -2)
+				sh.material.opacity = Math.max(0.05, 0.34 - h.bob * 3.2)
+			}
 		}
+
+		if (continuous && this.handles.size > 0) animating = true
 
 		if (this.inserting) {
 			if (this.updateInsert(now)) animating = true
@@ -685,6 +798,8 @@ export class CartridgeStage {
 		window.removeEventListener('resize', this.onResize)
 		this.visibility.disconnect()
 		for (const el of [...this.handles.keys()]) this.unregister(el)
+		this.shadowTexture.dispose()
+		this.shadowGeometry.dispose()
 		this.geometry.dispose()
 		this.facePlane.dispose()
 		this.shellMaterial.dispose()
