@@ -1,4 +1,5 @@
 <script>
+	import CountUp from '$lib/components/CountUp.svelte'
 	import Icon from '@iconify/svelte'
 	import { page } from '$app/state'
 	import { goto } from '$app/navigation'
@@ -242,7 +243,7 @@
 						<Icon icon="mdi:chart-line" width="32" height="32" />
 					</div>
 					<div class="stat-data">
-						<span class="value">{totalContributions}</span>
+						<span class="value"><CountUp value={totalContributions} /></span>
 						<span class="label">Approved Contributions</span>
 					</div>
 				</div>

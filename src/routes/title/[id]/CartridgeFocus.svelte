@@ -81,7 +81,7 @@
 	function dragStart (e) {
 		if (!handle) return
 		dragFrom = { x: e.clientX, y: e.clientY }
-		slot?.setPointerCapture(e.pointerId)
+		try { slot?.setPointerCapture(e.pointerId) } catch { /* a pointer that has already gone */ }
 		handle.beginDrag()
 	}
 
@@ -96,7 +96,7 @@
 	function dragEnd (e) {
 		if (!dragFrom) return
 		dragFrom = null
-		slot?.releasePointerCapture(e.pointerId)
+		try { slot?.releasePointerCapture(e.pointerId) } catch { /* as above */ }
 		handle?.endDrag()
 	}
 </script>

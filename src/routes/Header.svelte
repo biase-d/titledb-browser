@@ -10,6 +10,9 @@
 
 	let { data } = $props()
 
+	/** Scrolled a little: the bar slims and gains a shadow */
+	let condensed = $state(false)
+
 	let isMobileMenuOpen = $state(false)
 
 	// Search State
@@ -100,9 +103,13 @@
 	}
 </script>
 
-<svelte:window onclick={handleDocumentClick} onkeydown={handleKeydown} />
+<svelte:window
+	onclick={handleDocumentClick}
+	onkeydown={handleKeydown}
+	onscroll={() => (condensed = window.scrollY > 24)}
+/>
 
-<header class="app-header">
+<header class="app-header" class:condensed>
 	<div class="header-inner">
 		<!-- Left: Logo -->
 		<div class="header-left">
@@ -345,6 +352,11 @@
 		-webkit-backdrop-filter: blur(20px);
 		backdrop-filter: blur(20px);
 		border-bottom: 1px solid var(--border-color);
+		transition: box-shadow 0.25s ease;
+	}
+
+	.app-header.condensed {
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 	}
 
 	.header-inner {
@@ -356,6 +368,11 @@
 		align-items: center;
 		padding: 0 1.5rem;
 		gap: 1.5rem;
+		transition: height 0.25s ease;
+	}
+
+	.condensed .header-inner {
+		height: 60px;
 	}
 
 	@media (max-width: 768px) {

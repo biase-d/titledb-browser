@@ -291,7 +291,7 @@
     pressed = { x: e.clientX, y: e.clientY, at: Date.now() }
     if (!gl || !handle || isReducedMotion(get(preferences))) return
     dragFrom = { x: e.clientX, y: e.clientY }
-    cell?.setPointerCapture(e.pointerId)
+    try { cell?.setPointerCapture(e.pointerId) } catch { /* a pointer that has already gone: the drag still works */ }
     handle.beginDrag()
   }
 
@@ -312,7 +312,7 @@
     pressed = null
     if (!dragFrom) return
     dragFrom = null
-    cell?.releasePointerCapture(e.pointerId)
+    try { cell?.releasePointerCapture(e.pointerId) } catch { /* as above */ }
     handle?.endDrag()
   }
 

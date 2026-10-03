@@ -21,7 +21,7 @@
 import {
 	WebGLRenderer, Scene, PerspectiveCamera, Group, Mesh, Shape, ExtrudeGeometry, PlaneGeometry,
 	MeshToonMaterial, MeshBasicMaterial, AmbientLight, DirectionalLight, CanvasTexture, DataTexture,
-	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter, Plane, Vector3
+	SRGBColorSpace, NearestFilter, RGBAFormat, LinearMipmapLinearFilter, LinearFilter, Plane, Vector3, AdditiveBlending
 } from 'three'
 
 // Opening a card: a small pull back, then it slides down into an invisible slot
@@ -421,6 +421,21 @@ function drawBack (canvas, d) {
 	}
 }
 
+/** A soft white spot, for the glare that follows the pointer across a card */
+function glareTexture () {
+	const canvas = Object.assign(document.createElement('canvas'), { width: 128, height: 128 })
+	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
+	const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
+	g.addColorStop(0, 'rgba(255,255,255,1)')
+	g.addColorStop(0.35, 'rgba(255,255,255,0.45)')
+	g.addColorStop(1, 'rgba(255,255,255,0)')
+	ctx.fillStyle = g
+	ctx.fillRect(0, 0, 128, 128)
+	const tex = new CanvasTexture(canvas)
+	tex.colorSpace = SRGBColorSpace
+	return tex
+}
+
 /** The soft dark ellipse a floating card casts */
 function shadowTexture () {
 	const canvas = Object.assign(document.createElement('canvas'), { width: 128, height: 128 })
@@ -500,6 +515,10 @@ export class CartridgeStage {
 		// the continuous styles are held to about thirty frames a second
 		this.coarse = window.matchMedia('(pointer: coarse)').matches
 		this.shadowTexture = shadowTexture()
+		this.glareTexture = glareTexture()
+		this.glareGeometry = new PlaneGeometry(0.95, 0.95)
+		/** The card the pointer is over, where it was drawn last frame, for the neighbours to lean from */
+		this.hovered = /** @type {{ handle: any, cx: number, cy: number, w: number } | null} */ (null)
 		this.shadowGeometry = new PlaneGeometry(1, 1)
 		this.lost = false
 		/** @type {Array<() => void>} */
@@ -572,6 +591,13 @@ export class CartridgeStage {
 		back.rotation.y = Math.PI
 		back.position.z = -D / 2 - 0.0015
 		group.add(front, back)
+		// A moving highlight on the front: additive, so it only ever lightens
+		const glare = new Mesh(this.glareGeometry, new MeshBasicMaterial({
+			map: this.glareTexture, transparent: true, opacity: 0, depthWrite: false, blending: AdditiveBlending
+		}))
+		glare.position.z = D / 2 + 0.003
+		glare.visible = false
+		group.add(glare)
 		if (opts.ghost) {
 			// A stand-in: see-through, so it reads as a place for a game and not a game
 			const veil = this.shellMaterial.clone()
@@ -596,6 +622,8 @@ export class CartridgeStage {
 			hover: 0, hoverTarget: 0,
 			poseRx: 0, poseRy: 0, bob: 0,
 			scrollRx: 0, scrollRy: 0,
+			// Leaning away from a hovered neighbour
+			leanX: 0, leanY: 0,
 			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
 			scrollAmp: opts.scrollAmp ?? 1,
 			/** A card can ask for its own pose, whatever the setting says */
@@ -620,6 +648,7 @@ export class CartridgeStage {
 			// Each card moves on its own beat
 			phase: [...String(data.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000, 7) / 160,
 			shadow,
+			glare,
 			tx: 0, ty: 0, rx: 0, ry: 0,
 			/** @type {Promise<void>} */
 			loaded: Promise.resolve(),
@@ -902,6 +931,8 @@ export class CartridgeStage {
 		for (const h of this.handles.values()) rects.push(h.near || h.dockT > 0 || h.dockTarget ? h.el.getBoundingClientRect() : null)
 
 		let i = 0
+		/** @type {{ handle: any, cx: number, cy: number, w: number } | null} */
+		let nextHovered = null
 		for (const h of this.handles.values()) {
 			/** @type {any} */
 			let r = rects[i++]
@@ -1013,6 +1044,28 @@ export class CartridgeStage {
 			h.sy += (h.sensorPitch - h.sy) * 0.14
 			if (Math.abs(h.sx - h.sensorYaw) > 0.002 || Math.abs(h.sy - h.sensorPitch) > 0.002) animating = true
 
+			// Leaning away from the card the pointer is on, in proportion to how close it is
+			const cxPx = r.left + r.width / 2
+			const cyPx = r.top + (r.width * H) / 2
+			let tLx = 0
+			let tLy = 0
+			const hov = this.hovered
+			if (!reduced && hov && hov.handle !== h && !away) {
+				const dx = cxPx - hov.cx
+				const dy = cyPx - hov.cy
+				const dist = Math.hypot(dx, dy) || 1
+				const reach = hov.w * 1.9
+				if (dist < reach) {
+					const f = 1 - dist / reach
+					tLy = (dx / dist) * f * 0.16
+					tLx = (dy / dist) * f * 0.12
+				}
+			}
+			h.leanX += (tLx - h.leanX) * 0.14
+			h.leanY += (tLy - h.leanY) * 0.14
+			if (Math.abs(h.leanX - tLx) > 0.002 || Math.abs(h.leanY - tLy) > 0.002) animating = true
+			if (h.hoverTarget === 1 && !away) nextHovered = { handle: h, cx: cxPx, cy: cyPx, w: r.width }
+
 			// Pose fades as it leaves for the dock: a docked card just turns
 			const stay = 1 - e
 			let cx = r.left + r.width / 2
@@ -1031,8 +1084,8 @@ export class CartridgeStage {
 			const s = width * (1 + 0.04 * h.hover)
 			g.scale.setScalar(s)
 			g.rotation.set(
-				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy,
-				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.flip * Math.PI + flightYaw,
+				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX,
+				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.leanY + h.flip * Math.PI + flightYaw,
 				0
 			)
 			g.position.set(
@@ -1050,7 +1103,18 @@ export class CartridgeStage {
 				sh.position.set(r.left + r.width / 2, this.viewH - (r.top + r.width * H + r.width * 0.06), -2)
 				sh.material.opacity = Math.max(0.05, 0.34 - h.bob * 3.2)
 			}
+
+			// A highlight that follows the pointer across the card
+			const spot = h.glare
+			spot.visible = !reduced && h.hover > 0.03 && !h.dragging && h.dockT === 0
+			if (spot.visible) {
+				spot.position.x = h.tx
+				spot.position.y = -h.ty * H
+				spot.material.opacity = 0.3 * h.hover
+			}
 		}
+
+		this.hovered = nextHovered
 
 		if (this.inserting) {
 			if (this.updateInsert(now)) animating = true
@@ -1073,6 +1137,8 @@ export class CartridgeStage {
 		this.visibility.disconnect()
 		for (const el of [...this.handles.keys()]) this.unregister(el)
 		this.shadowTexture.dispose()
+		this.glareTexture.dispose()
+		this.glareGeometry.dispose()
 		this.shadowGeometry.dispose()
 		this.geometry.dispose()
 		this.facePlane.dispose()

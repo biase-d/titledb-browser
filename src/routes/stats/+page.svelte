@@ -6,6 +6,7 @@
   import { getRegionLabel } from '$lib/regions'
   import BarList from './BarList.svelte'
   import ColumnChart from './ColumnChart.svelte'
+  import CountUp from '$lib/components/CountUp.svelte'
 
   /** @type {{ data: { stats: any } }} */
   let { data } = $props()
@@ -185,32 +186,32 @@
     <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" class="panel">
       <div class="kpi-grid">
         <div class="kpi glass-panel">
-          <span class="kpi-value">{kpis.titles.toLocaleString()}</span>
+          <span class="kpi-value"><CountUp value={kpis.titles} /></span>
           <span class="kpi-label">Titles</span>
           <span class="kpi-hint">{kpis.groups.toLocaleString()} games once regional versions are grouped</span>
         </div>
         <div class="kpi glass-panel">
-          <span class="kpi-value">{percent(kpis.coverage)}</span>
+          <span class="kpi-value"><CountUp value={Math.round(kpis.coverage * 100)} suffix="%" /></span>
           <span class="kpi-label">Games with data</span>
           <span class="kpi-hint">{coverageNote}</span>
         </div>
         <div class="kpi glass-panel">
-          <span class="kpi-value">{kpis.profiles.toLocaleString()}</span>
+          <span class="kpi-value"><CountUp value={kpis.profiles} /></span>
           <span class="kpi-label">Performance profiles</span>
           <span class="kpi-hint">{kpis.graphics.toLocaleString()} graphics settings · {kpis.videos.toLocaleString()} videos</span>
         </div>
         <div class="kpi glass-panel">
-          <span class="kpi-value">{kpis.contributors.toLocaleString()}</span>
+          <span class="kpi-value"><CountUp value={kpis.contributors} /></span>
           <span class="kpi-label">Contributors</span>
           <span class="kpi-hint">{kpis.contributions.toLocaleString()} contributions</span>
         </div>
         <div class="kpi glass-panel">
-          <span class="kpi-value">{kpis.publishers.toLocaleString()}</span>
+          <span class="kpi-value"><CountUp value={kpis.publishers} /></span>
           <span class="kpi-label">Publishers</span>
           <span class="kpi-hint">{formatSize(kpis.totalSize)} of games</span>
         </div>
         <div class="kpi glass-panel">
-          <span class="kpi-value">{(kpis.requests + kpis.favorites).toLocaleString()}</span>
+          <span class="kpi-value"><CountUp value={kpis.requests + kpis.favorites} /></span>
           <span class="kpi-label">Community signals</span>
           <span class="kpi-hint">{kpis.requests.toLocaleString()} requests · {kpis.favorites.toLocaleString()} favorites</span>
         </div>

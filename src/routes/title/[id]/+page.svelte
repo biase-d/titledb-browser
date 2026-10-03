@@ -175,6 +175,17 @@
 	)
 
 	let isFavorited = $state(false)
+	/** Set for a moment after something is favorited, for the pop */
+	let popped = $state(false)
+
+	function toggleFavorite () {
+		const adding = !isFavorited
+		favorites.toggle(id)
+		if (adding) {
+			popped = true
+			setTimeout(() => { popped = false }, 700)
+		}
+	}
 	$effect(() => {
 		if (id) {
 			favorites.subscribe((favs) => {
@@ -518,9 +529,11 @@
 							<button
 								class="pill"
 								class:active={isFavorited}
-								onclick={() => favorites.toggle(id)}
+								class:popped
+								onclick={toggleFavorite}
 								aria-pressed={isFavorited}
 							>
+								<span class="burst" aria-hidden="true">{#each [0, 1, 2, 3, 4, 5] as n (n)}<i style="--a: {n * 60}deg"></i>{/each}</span>
 								<Icon
 									icon={isFavorited
 										? 'mdi:star'
@@ -1239,6 +1252,47 @@
 	}
 
 	.pill:active { transform: scale(0.97); }
+
+	.pill { position: relative; }
+
+	/* A pop of the star, and six small points that fly out and fade */
+	.pill.popped :global(svg) {
+		animation: star-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	@keyframes star-pop {
+		0% { transform: scale(1) rotate(0); }
+		45% { transform: scale(1.55) rotate(-14deg); }
+		100% { transform: scale(1) rotate(0); }
+	}
+
+	.burst {
+		position: absolute;
+		left: 1.55rem;
+		top: 50%;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+	}
+
+	.burst i {
+		position: absolute;
+		width: 0.28rem;
+		height: 0.28rem;
+		margin: -0.14rem;
+		border-radius: 50%;
+		background: #fde68a;
+		opacity: 0;
+	}
+
+	.pill.popped .burst i {
+		animation: burst-out 0.6s ease-out;
+	}
+
+	@keyframes burst-out {
+		0% { opacity: 1; transform: rotate(var(--a)) translateY(0); }
+		100% { opacity: 0; transform: rotate(var(--a)) translateY(-1.5rem); }
+	}
 
 	.pill.active {
 		background: rgba(250, 204, 21, 0.18);

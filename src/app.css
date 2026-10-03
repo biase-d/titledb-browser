@@ -177,3 +177,18 @@ img.lqip {
 	transform: none;
 	transition: opacity 0.55s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* The main buttons give a little under a press */
+.cta-button,
+.contribute-button,
+.request-button,
+.hero-cta {
+	transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.cta-button:active,
+.contribute-button:active,
+.request-button:active,
+.hero-cta:active {
+	transform: scale(0.97);
+}
