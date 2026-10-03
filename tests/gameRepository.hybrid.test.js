@@ -140,6 +140,22 @@ describe('getGameDetails — hybrid pending + approved', () => {
 		expect(params).toEqual(expect.arrayContaining(['01000F900B6CC000', '010043600B6A6000']))
 	})
 
+	it('finds profiles filed under a member title\'s base ID after the titles were grouped', async () => {
+		// Both titles are in custom group "MERGED", but the profiles still sit
+		// under the base ID of the other title
+		const db = buildDbMock()
+		db.query.games.findFirst = vi.fn().mockResolvedValue({ ...mockGame, id: '010043600B6A6000', groupId: 'MERGED' })
+		db.query.games.findMany = vi.fn().mockResolvedValue([
+			{ id: '010043600B6A6000', groupId: 'MERGED', names: ['Test Game'], regions: ['US'] },
+			{ id: '01000F900B6CC000', groupId: 'MERGED', names: ['Test Game'], regions: ['JP'] }
+		])
+
+		await getGameDetails(db, '010043600B6A6000')
+
+		const { params } = new PgDialect().sqlToQuery(db.query.performanceProfiles.findMany.mock.calls[0][0].where)
+		expect(params).toEqual(expect.arrayContaining(['MERGED', '01000F900B6CC000', '010043600B6A6000']))
+	})
+
 	it('keeps one profile per version, preferring the title\'s own group', async () => {
 		const db = buildDbMock()
 		db.query.games.findMany = vi.fn().mockResolvedValue([

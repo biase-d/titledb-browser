@@ -41,7 +41,16 @@ export async function getGameDetails (db, titleId) {
 		where: or(eq(games.groupId, groupId), sql`${games.names}[1] = ${game.names[0]}`),
 		columns: { id: true, names: true, regions: true, groupId: true }
 	})
-	const groupIds = [...new Set([groupId, ...allTitlesInGroup.map(t => t.groupId).filter(Boolean)])]
+	// Profiles are filed under the folder they were contributed in, which is a
+	// title's own base ID (its first 13 characters + '000'). Putting titles
+	// into a custom group moves games.group_id but not those folders, so the
+	// data of a grouped title stays under its old base ID and a lookup by the
+	// new group ID finds nothing
+	const baseId = (/** @type {string} */ id) => id.substring(0, 13) + '000'
+	const groupIds = [...new Set([
+		groupId,
+		...allTitlesInGroup.flatMap(t => [t.groupId, baseId(t.id)]).filter(Boolean)
+	])]
 
 	const [groupInfo, siblingProfiles, siblingGraphics, siblingLinks, pendingSubmissions] = await Promise.all([
 		db.query.gameGroups.findFirst({ where: eq(gameGroups.id, groupId) }),
