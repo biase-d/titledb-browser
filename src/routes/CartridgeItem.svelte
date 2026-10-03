@@ -28,9 +28,11 @@
   /**
    * hero: one large cartridge that is not a link (the details page): it can be
    * dragged round, rides in its own pose, and responds more to scrolling
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean }}
+   * dockTo/docked: where a hero flies to (a bubble on a phone) and whether it is there
+   * glActive: whether the card is being drawn in 3D, for the page to know
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean }}
    */
-  let { titleData, index = 0, hero = false } = $props()
+  let { titleData, index = 0, hero = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false) } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -113,6 +115,14 @@
     const key = JSON.stringify(cartridgeData)
     if (gl && handle && key !== lastKey) handle.update(cartridgeData)
     lastKey = key
+  })
+
+  $effect(() => { glActive = gl })
+
+  // A hero flies to its dock when told to, and back
+  $effect(() => {
+    // `gl` is read so this runs again once the card is in 3D
+    if (hero && gl && handle) handle.setDock(dockTo ?? null, isDocked)
   })
 
   /** Settings can change while the page is open: style and motion follow them */

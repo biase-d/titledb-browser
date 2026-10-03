@@ -19,6 +19,7 @@
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte'
 	import RegionPopover from './RegionPopover.svelte'
 	import BackToTop from './BackToTop.svelte'
+	import { reveal } from '$lib/actions/reveal'
 	import CartridgeItem from '../../CartridgeItem.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
 	import { toggleDataRequest } from '$lib/remote/game-requests.remote.js'
@@ -353,6 +354,11 @@
 	/** The hero's own wrapper, which the phone bubble watches */
 	/** @type {HTMLElement | undefined} */
 	let heroElement = $state()
+	/** The phone bubble: whether the hero has flown into it, where it is, and whether the hero is in 3D */
+	let docked = $state(false)
+	/** @type {HTMLElement | undefined} */
+	let dockElement = $state()
+	let heroGl = $state(false)
 
 	// The numbers on the cartridge: the newest real profile, else what the graphics settings target
 	const heroPerformance = $derived.by(() => {
@@ -443,7 +449,7 @@
 				<div class="header-content">
 					<div class="hero-cart" bind:this={heroElement}>
 						<div class="hero-glow" aria-hidden="true"></div>
-						<CartridgeItem titleData={heroData} hero />
+						<CartridgeItem titleData={heroData} hero {docked} dockTo={dockElement} bind:glActive={heroGl} />
 					</div>
 					<div class="title-info">
 						<h1
@@ -526,7 +532,7 @@
 								: 'Add Performance Data'}</span
 						>
 					</a>
-					<div class="info-card">
+					<div class="info-card" use:reveal>
 						<button
 							class="info-card-title collapsible"
 							onclick={() =>
@@ -644,7 +650,7 @@
 						</div>
 					</div>
 				{:else if hasRealProfile}
-					<section>
+					<section use:reveal>
 						<div class="section-header">
 							<h2 class="section-title">Performance Profile</h2>
 							<div class="header-controls">
@@ -705,7 +711,7 @@
 						{/if}
 					</section>
 				{:else}
-					<section>
+					<section use:reveal>
 						<div class="section-header">
 							<h2 class="section-title">Performance Targets</h2>
 						</div>
@@ -737,7 +743,7 @@
 				{/if}
 
 				{#if gameGraphicsHasData}
-						<section>
+						<section use:reveal>
 							<div class="section-header">
 								<h2 class="section-title">Graphics Settings</h2>
 							</div>
@@ -746,7 +752,7 @@
 					{/if}
 
 					{#if youtubeLinks.length > 0}
-						<section>
+						<section use:reveal>
 							<div class="section-header">
 								<h2 class="section-title">Gameplay Videos</h2>
 							</div>
@@ -757,7 +763,7 @@
 				<!-- Mobile-only secondary sidebar content -->
 				<div class="mobile-sidebar">
 					{#if otherTitlesInGroup.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
@@ -785,7 +791,7 @@
 					{/if}
 
 					{#if allContributors.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Contributors</h3>
 							<ul class="contributor-list">
 								{#each allContributors as c}
@@ -797,7 +803,7 @@
 				</div>
 
 				{#if game.screenshots && game.screenshots.length > 0}
-					<section>
+					<section use:reveal>
 						<h2 class="section-title">Screenshots</h2>
 						<div class="screenshots-grid">
 							{#each game.screenshots as screenshot}
@@ -827,7 +833,7 @@
 								: 'Add Performance Data'}</span
 						>
 					</a>
-					<div class="info-card">
+					<div class="info-card" use:reveal>
 						<button
 							class="info-card-title collapsible"
 							onclick={() =>
@@ -894,7 +900,7 @@
 					</div>
 
 					{#if otherTitlesInGroup.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
@@ -922,7 +928,7 @@
 					{/if}
 
 					{#if allContributors.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Contributors</h3>
 							<ul class="contributor-list">
 								{#each allContributors as c}
@@ -935,7 +941,14 @@
 			</aside>
 		</div>
 
-		<BackToTop target={heroElement} iconUrl={game.iconUrl || game.bannerUrl} {name} />
+		<BackToTop
+			target={heroElement}
+			iconUrl={game.iconUrl || game.bannerUrl}
+			{name}
+			fallback={!heroGl}
+			bind:docked
+			bind:dock={dockElement}
+		/>
 	</div>
 	{/key}
 {:else}

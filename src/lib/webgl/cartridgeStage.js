@@ -27,6 +27,9 @@ import {
 // Opening a card: a small pull back, then it slides down into an invisible slot
 const INSERT_PULL_MS = 140
 const INSERT_SLIDE_MS = 560
+// How long a card takes to fly to its dock, and back
+const DOCK_SECONDS = 0.9
+const easeInOutCubic = (/** @type {number} */ t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
 
 /** A card is 21 x 31 x 3.4 mm; everything is in card widths, so width is 1 */
 const H = 31 / 21
@@ -412,6 +415,7 @@ export class CartridgeStage {
 		this.running = false
 		this.lastScroll = 0
 		this.lastFrame = 0
+		this.lastFrameTime = 0
 		this.lastScrollY = window.scrollY
 		this.scrollVel = 0
 		/** @type {{ style: 'flat' | 'angled' | 'sway' | 'float', reduced: boolean }} */
@@ -514,6 +518,11 @@ export class CartridgeStage {
 			styleOverride: opts.style ?? null,
 			// Dragging to spin: yaw and pitch added to the pose, and a spring back to face-up
 			spinX: 0, spinY: 0, spinVel: 0, dragging: false,
+			// Docking: the card can leave its place for a small spot elsewhere (a bubble
+			// on a phone) and come back. dockT runs 0 (home) to 1 (docked)
+			dockEl: /** @type {Element | null} */ (null),
+			dockTarget: 0,
+			dockT: 0,
 			// Each card moves on its own beat
 			phase: [...String(data.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000, 7) / 160,
 			shadow,
@@ -530,6 +539,21 @@ export class CartridgeStage {
 			reveal: (delay = 0) => {
 				if (handle.revealAt === null) {
 					handle.revealAt = this.options.reduced ? performance.now() - FLIP_MS : performance.now() + delay
+					this.wake()
+				}
+			},
+			/**
+			 * Fly to a spot, or back. The spot is an element: the card goes to where it is
+			 * @param {Element | null} el
+			 * @param {boolean} on
+			 */
+			setDock: (el, on) => {
+				handle.dockEl = el
+				const next = el && on ? 1 : 0
+				if (next !== handle.dockTarget) {
+					handle.dockTarget = next
+					// Nothing to fly when motion is reduced: it is simply there
+					if (this.options.reduced) handle.dockT = next
 					this.wake()
 				}
 			},
@@ -695,6 +719,7 @@ export class CartridgeStage {
 				h.tx = 0
 				h.ty = 0
 				h.hoverTarget = 0
+				h.dockT = h.dockTarget
 			}
 		}
 		this.wake()
@@ -708,6 +733,8 @@ export class CartridgeStage {
 
 	frame = () => {
 		const now = performance.now()
+		const dtFrame = Math.min(0.06, (now - (this.lastFrameTime || now)) / 1000)
+		this.lastFrameTime = now
 		const scrolling = now - this.lastScroll < 140
 		// Held to ~30fps on touch devices while nothing scrolls; scrolling needs every frame
 		if (this.coarse && !scrolling && now - this.lastFrame < 32) {
@@ -727,14 +754,15 @@ export class CartridgeStage {
 
 		// Read every position first, then write: no layout thrash
 		const rects = []
-		for (const h of this.handles.values()) rects.push(h.near ? h.el.getBoundingClientRect() : null)
+		for (const h of this.handles.values()) rects.push(h.near || h.dockT > 0 || h.dockTarget ? h.el.getBoundingClientRect() : null)
 
 		let i = 0
 		for (const h of this.handles.values()) {
 			const r = rects[i++]
 			if (this.inserting && this.inserting.handle === h) continue
 			const g = h.group
-			if (!r || !h.ready || r.width === 0 || r.bottom < -50 || r.top > this.viewH + 50) {
+			const away = h.dockT > 0 || h.dockTarget
+			if (!r || !h.ready || (r.width === 0 && !away) || (!away && (r.bottom < -50 || r.top > this.viewH + 50))) {
 				g.visible = false
 				h.shadow.visible = false
 				continue
@@ -746,6 +774,15 @@ export class CartridgeStage {
 				if (now - h.revealAt < FLIP_MS) animating = true
 				else h.flip = 0
 			}
+
+			// Flying to the dock, or home again
+			if (h.dockT !== h.dockTarget) {
+				const step = dtFrame / DOCK_SECONDS
+				h.dockT = h.dockTarget ? Math.min(1, h.dockT + step) : Math.max(0, h.dockT - step)
+				animating = true
+			}
+			const e = easeInOutCubic(h.dockT)
+			const dock = e > 0 && h.dockEl ? h.dockEl.getBoundingClientRect() : null
 
 			// Ease toward the pointer
 			h.rx += (h.ty * -0.31 - h.rx) * 0.2
@@ -786,7 +823,11 @@ export class CartridgeStage {
 			if (!reduced && (style === 'sway' || style === 'float' || style === 'hero')) animating = true
 
 			// Dragged round: it keeps the push a moment, then settles face-up (the nearest full turn)
-			if (!h.dragging) {
+			if (!h.dragging && h.dockTarget && h.dockT >= 1 && !this.options.reduced) {
+				// In the bubble it turns slowly, all the time
+				h.spinY += dtFrame * 1.3
+				animating = true
+			} else if (!h.dragging) {
 				const home = Math.round(h.spinY / (Math.PI * 2)) * Math.PI * 2
 				h.spinY += (home - h.spinY) * 0.07 + h.spinVel
 				h.spinVel *= 0.9
@@ -808,19 +849,38 @@ export class CartridgeStage {
 			h.scrollRy += (tSy - h.scrollRy) * 0.1
 			if (Math.abs(h.scrollRx - tSx) > 0.002 || Math.abs(h.scrollRy - tSy) > 0.002) animating = true
 
-			const s = r.width * (1 + 0.04 * h.hover)
+			// Pose fades as it leaves for the dock: a docked card just turns
+			const stay = 1 - e
+			let cx = r.left + r.width / 2
+			let cy = r.top + (r.width * H) / 2
+			let width = r.width
+			let flightYaw = 0
+			if (dock && dock.width > 0) {
+				// An arc, not a straight line: out to the left and up a little at the middle
+				const arc = Math.sin(Math.PI * e)
+				cx = cx + (dock.left + dock.width / 2 - cx) * e - arc * Math.min(window.innerWidth * 0.16, 80)
+				cy = cy + (dock.top + (dock.width * H) / 2 - cy) * e - arc * this.viewH * 0.05
+				width = r.width + (dock.width - r.width) * e
+				flightYaw = e * Math.PI * 2
+			}
+
+			const s = width * (1 + 0.04 * h.hover)
 			g.scale.setScalar(s)
-			g.rotation.set(h.rx + h.poseRx + h.scrollRx + h.spinX, h.ry + h.poseRy + h.scrollRy + h.spinY + h.flip * Math.PI, 0)
+			g.rotation.set(
+				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX,
+				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.flip * Math.PI + flightYaw,
+				0
+			)
 			g.position.set(
-				r.left + r.width / 2,
-				this.viewH - (r.top + (r.width * H) / 2) + 6 * h.hover + h.bob * r.width,
+				cx,
+				this.viewH - cy + (6 * h.hover + h.bob * width) * stay,
 				-(D * s) / 2
 			)
 			g.visible = true
 
 			// A floating card casts a shadow that thins as it rises
 			const sh = h.shadow
-			sh.visible = (style === 'float' || style === 'hero') && !reduced
+			sh.visible = (style === 'float' || style === 'hero') && !reduced && e < 0.02
 			if (sh.visible) {
 				sh.scale.set(r.width * 0.9, r.width * 0.2, 1)
 				sh.position.set(r.left + r.width / 2, this.viewH - (r.top + r.width * H + r.width * 0.06), -2)
