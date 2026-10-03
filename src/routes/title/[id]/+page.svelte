@@ -457,7 +457,6 @@
 			<div class="header-content-wrapper">
 				<div class="header-content">
 					<div class="hero-cart" bind:this={heroElement}>
-						<div class="hero-glow" aria-hidden="true"></div>
 						<CartridgeItem
 							titleData={heroData}
 							hero
@@ -468,17 +467,9 @@
 							onactivate={() => (focused = true)}
 						/>
 					</div>
-					<div class="title-info">
-						<h1
-							lang={preferredRegion === 'JP'
-								? 'ja'
-								: preferredRegion === 'KR'
-									? 'ko'
-									: 'en'}
-						>
-							{name}
-						</h1>
-						<div class="subtitle-row">
+
+					<div class="hero-info">
+						<div class="eyebrow">
 							{#if game.publisher}
 								<a
 									href="/publisher/{encodeURIComponent(
@@ -493,6 +484,25 @@
 							{#if game.regions && game.regions.length > 0}
 								<RegionPopover regions={game.regions} />
 							{/if}
+						</div>
+
+						<h1
+							lang={preferredRegion === 'JP'
+								? 'ja'
+								: preferredRegion === 'KR'
+									? 'ko'
+									: 'en'}
+						>
+							{name}
+						</h1>
+
+						<div class="facts">
+							{#if game.formattedReleaseDate !== 'N/A'}
+								<span>{game.formattedReleaseDate}</span>
+							{/if}
+							{#if game.formattedSize !== 'N/A'}
+								<span>{game.formattedSize}</span>
+							{/if}
 							{#if gameHasPerformanceData}
 								<PlayabilityBadge
 									profile={performance.profiles}
@@ -500,38 +510,46 @@
 								/>
 							{/if}
 						</div>
-					</div>
-					<div class="header-actions">
-						{#if session?.user}
-							<form method="POST" action="?/setFeatured">
-								<button
-									class="action-button featured-btn"
-									type="submit"
-									title="Set as Profile Backdrop"
-								>
-									<Icon
-										icon="mdi:image-marker-outline"
-										width="24"
-										height="24"
-									/>
+
+						<div class="hero-actions">
+							<button
+								class="pill"
+								class:active={isFavorited}
+								onclick={() => favorites.toggle(id)}
+								aria-pressed={isFavorited}
+							>
+								<Icon
+									icon={isFavorited
+										? 'mdi:star'
+										: 'mdi:star-outline'}
+									width="20"
+									height="20"
+								/>
+								{isFavorited ? 'Favorited' : 'Favorite'}
+							</button>
+							{#if heroGl}
+								<button class="pill" onclick={() => (focused = true)}>
+									<Icon icon="mdi:rotate-3d-variant" width="20" height="20" />
+									Inspect<span class="long"> cartridge</span>
 								</button>
-							</form>
-						{/if}
-						<button
-							class="favorite-button"
-							onclick={() => favorites.toggle(id)}
-							title={isFavorited
-								? 'Remove from favorites'
-								: 'Add to favorites'}
-						>
-							<Icon
-								icon={isFavorited
-									? 'mdi:star'
-									: 'mdi:star-outline'}
-								width="24"
-								height="24"
-							/>
-						</button>
+							{/if}
+							{#if session?.user}
+								<form method="POST" action="?/setFeatured">
+									<button
+										class="pill icon-only"
+										type="submit"
+										title="Set as Profile Backdrop"
+										aria-label="Set as Profile Backdrop"
+									>
+										<Icon
+											icon="mdi:image-marker-outline"
+											width="20"
+											height="20"
+										/>
+									</button>
+								</form>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -1005,21 +1023,30 @@
 		padding: 0 1.5rem 2rem;
 	}
 
+	/* The header: a panel of the game's own colours, with the cartridge standing on
+	   its lower edge and reaching out of it. The room it needs below is the
+	   margin; the cartridge's depth is drawn by the page's WebGL canvas, so it
+	   can overlap the page without being clipped by the panel */
 	.banner-header {
 		position: relative;
-		
 		color: white;
-		margin: 1.5rem 0;
-		z-index: 10; 
+		margin: 1.5rem 0 1.5rem;
+		z-index: 10;
 	}
 
-	
+	@media (min-width: 640px) {
+		.banner-header {
+			margin-bottom: 4.25rem;
+		}
+	}
+
 	.banner-bg-wrapper {
 		position: absolute;
 		inset: 0;
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		z-index: -1;
+		background: color-mix(in srgb, var(--primary-color) 30%, #0c0d10);
 	}
 
 	.banner-image {
@@ -1029,165 +1056,192 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		transform: scale(1.1);
-		filter: blur(12px) brightness(0.6);
+		transform: scale(1.25);
+		filter: blur(26px) saturate(1.4) brightness(0.72);
 	}
+
+	/* Darker toward the bottom, and a pool of the theme's colour where the cartridge stands */
 	.banner-overlay {
 		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(
-			to top,
-			rgba(0, 0, 0, 0.7),
-			rgba(0, 0, 0, 0.1)
-		);
+		inset: 0;
+		background:
+			radial-gradient(
+				55% 95% at 17% 78%,
+				color-mix(in srgb, var(--accent-color, var(--primary-color)) 45%, transparent),
+				transparent 72%
+			),
+			linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.06) 62%);
 	}
 
 	.header-content-wrapper {
 		position: relative;
-		padding: 1.5rem;
+		padding: 1.5rem 1.25rem 1.75rem;
 	}
+
 	@media (min-width: 768px) {
 		.header-content-wrapper {
-			padding: 2rem;
+			padding: 2.25rem 2.5rem 2.25rem;
 		}
 	}
 
 	.header-content {
 		display: grid;
-		grid-template-areas: "icon title actions";
-		grid-template-columns: auto 1fr auto;
-		align-items: center;
-		align-items: center;
-		gap: 1rem 1.5rem;
-	}
-
-	.subtitle-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-		margin-top: 0.5rem;
-	}
-
-	@media (max-width: 639px) {
-		.header-content {
-			grid-template-areas:
-				"icon actions"
-				"title title";
-			grid-template-columns: 1fr auto;
-			align-items: flex-start;
-		}
-		.title-info {
-			margin-top: 1rem;
-		}
+		grid-template-columns: 1fr;
+		justify-items: center;
+		gap: 1.5rem;
 	}
 
 	@media (min-width: 640px) {
 		.header-content {
-			grid-template-areas: "icon title actions";
-			grid-template-columns: auto 1fr auto;
+			grid-template-columns: auto 1fr;
+			justify-items: stretch;
+			align-items: center;
+			gap: 2.5rem;
 		}
 	}
 
-	/* The cartridge: a hero in its own right, with a glow in the theme's colour behind it */
 	.hero-cart {
-		grid-area: icon;
 		position: relative;
-		width: clamp(120px, 38vw, 160px);
+		width: clamp(140px, 46vw, 190px);
 		--cart-max: 100%;
 	}
 
-	@media (min-width: 768px) {
+	@media (min-width: 640px) {
 		.hero-cart {
-			width: clamp(170px, 19vw, 220px);
+			width: clamp(170px, 20vw, 210px);
+			/* Reaches out of the bottom of the panel */
+			align-self: end;
+			margin-bottom: -3.25rem;
 		}
 	}
 
-	.hero-glow {
-		position: absolute;
-		inset: -18% -30%;
-		background: radial-gradient(
-			closest-side,
-			color-mix(in srgb, var(--accent-color, var(--primary-color)) 55%, transparent),
-			transparent 70%
-		);
-		filter: blur(14px);
-		opacity: 0.8;
-		pointer-events: none;
+	.hero-info {
+		min-width: 0;
+		width: 100%;
 	}
 
-	.title-info {
-		grid-area: title;
-	}
-	.title-info h1 {
-		margin: 0;
-		font-size: 2rem;
-		font-weight: 700;
-		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-		color: white;
-	}
-	@media (min-width: 768px) {
-		.title-info h1 {
-			font-size: 2.5rem;
-		}
+	.hero-info > * {
+		animation: hero-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
 
-	.subtitle-row {
+	.hero-info > :nth-child(2) { animation-delay: 0.06s; }
+	.hero-info > :nth-child(3) { animation-delay: 0.12s; }
+	.hero-info > :nth-child(4) { animation-delay: 0.18s; }
+
+	@keyframes hero-rise {
+		from { opacity: 0; transform: translateY(12px); }
+		to { opacity: 1; transform: none; }
+	}
+
+	.eyebrow {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		margin-top: 0.5rem;
 		flex-wrap: wrap;
+		gap: 0.5rem 0.9rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.publisher-link {
-		font-size: 1.1rem;
-		opacity: 0.8;
-		color: white;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.82);
 		text-decoration: none;
-		border-bottom: 1px dotted rgba(255, 255, 255, 0.5);
-		transition: opacity 0.2s;
+		transition: color 0.2s;
 	}
+
 	.publisher-link:hover {
-		opacity: 1;
-		border-bottom-style: solid;
+		color: #fff;
+		text-decoration: underline;
+		text-underline-offset: 0.25em;
 	}
 
-	.header-actions {
-		grid-area: actions;
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.favorite-button,
-	.action-button {
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
+	.hero-info h1 {
+		margin: 0;
+		font-size: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		line-height: 1.08;
+		text-wrap: balance;
+		text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 		color: white;
-		width: 44px;
-		height: 44px;
-		border-radius: 12px;
+	}
+
+	.facts {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		cursor: pointer;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		margin-top: 0.85rem;
+		font-size: 0.95rem;
+		color: rgba(255, 255, 255, 0.78);
+	}
+
+	/* A dot between the facts */
+	.facts > span + span::before {
+		content: '';
+		display: inline-block;
+		width: 0.25rem;
+		height: 0.25rem;
+		margin-right: 1rem;
+		vertical-align: middle;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.45);
+	}
+
+	.hero-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.6rem;
+		margin-top: 1.25rem;
+	}
+
+	.hero-actions form {
+		display: contents;
+	}
+
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		height: 2.5rem;
+		padding: 0 1.05rem;
+		font: inherit;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: #fff;
+		background: rgba(255, 255, 255, 0.12);
+		border: 1px solid rgba(255, 255, 255, 0.22);
+		border-radius: 999px;
+		-webkit-backdrop-filter: blur(8px);
 		backdrop-filter: blur(8px);
-		transition: all 0.2s;
+		cursor: pointer;
+		transition: background 0.2s, transform 0.2s, border-color 0.2s;
 	}
 
-	.favorite-button:hover,
-	.action-button:hover {
+	.pill:hover {
 		background: rgba(255, 255, 255, 0.2);
-		transform: translateY(-2px);
+		transform: translateY(-1px);
 	}
 
-	.featured-btn:hover {
-		color: var(--primary-color);
-		border-color: var(--primary-color);
+	.pill:active { transform: scale(0.97); }
+
+	.pill.active {
+		background: rgba(250, 204, 21, 0.18);
+		border-color: rgba(250, 204, 21, 0.55);
+		color: #fde68a;
+	}
+
+	@media (max-width: 440px) {
+		.pill .long { display: none; }
+	}
+
+	.pill.icon-only {
+		width: 2.5rem;
+		padding: 0;
+		justify-content: center;
 	}
 
 	.main-layout {
