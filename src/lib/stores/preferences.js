@@ -96,7 +96,11 @@ function createPreferencesStore () {
 		? (['flat', 'angled', 'sway', 'float'].includes(localStorage.getItem('cartridge_style') ?? '') ? /** @type {any} */ (localStorage.getItem('cartridge_style')) : 'flat')
 		: 'flat'
 
+	/** @type {'auto' | 'off'} */
+	const initialSeasonal = browser && localStorage.getItem('seasonal') === 'off' ? 'off' : 'auto'
+
 	const { subscribe, update } = writable({
+		seasonal: initialSeasonal,
 		motion: initialMotion,
 		cartridgeStyle: initialCartridgeStyle,
 		region: initialRegion,
@@ -175,6 +179,18 @@ function createPreferencesStore () {
 			update(state => {
 				localStorage.setItem('motion', motion)
 				return { ...state, motion }
+			})
+		},
+		/**
+		 * Seasonal effects: follow the calendar, or never
+		 * @param {'auto' | 'off'} seasonal
+		 */
+		setSeasonal: (seasonal) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('seasonal', seasonal)
+				return { ...state, seasonal }
 			})
 		},
 		/**

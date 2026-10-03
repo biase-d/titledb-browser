@@ -8,6 +8,7 @@
     import Header from './Header.svelte'
     import Footer from './Footer.svelte'
     import OnboardingModal from './OnboardingModal.svelte'
+    import SeasonOverlay from '$lib/components/SeasonOverlay.svelte'
     import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte'
     import { themeStore } from '$lib/stores/theme.svelte'
     import { preferences, isReducedMotion } from '$lib/stores/preferences'
@@ -94,6 +95,7 @@
     class="app-shell"
     class:has-theme={themeStore.isActive && $preferences.adaptiveTheme}
 >
+    <SeasonOverlay />
     <Header {data} />
 
     <main class="app-container">

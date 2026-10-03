@@ -6,6 +6,8 @@
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
   import { get } from 'svelte/store'
   import { preferences, isReducedMotion } from '$lib/stores/preferences'
+  import { page } from '$app/state'
+  import { activeSeason } from '$lib/seasons'
   import { getLocalizedName } from '$lib/i18n'
   import { isBot } from '$lib/utils/bot'
 
@@ -115,7 +117,8 @@
 
   /** Settings can change while the page is open: style and motion follow them */
   $effect(() => {
-    const options = { style: $preferences.cartridgeStyle, reduced: isReducedMotion($preferences) }
+    const season = activeSeason($preferences.seasonal, page.url.searchParams)
+    const options = { style: $preferences.cartridgeStyle, reduced: isReducedMotion($preferences), light: season?.light ?? 0xffffff }
     stageRef?.setOptions(options)
   })
 
@@ -167,7 +170,11 @@
         if (stage) {
           stageRef = stage
           const prefs = get(preferences)
-          stage.setOptions({ style: prefs.cartridgeStyle, reduced: isReducedMotion(prefs) })
+          stage.setOptions({
+            style: prefs.cartridgeStyle,
+            reduced: isReducedMotion(prefs),
+            light: activeSeason(prefs.seasonal, page.url.searchParams)?.light ?? 0xffffff
+          })
           const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4 } : {})
           await h.loaded
           if (cancelled) { h.dispose(); return }

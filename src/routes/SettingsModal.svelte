@@ -262,6 +262,27 @@
 
                     <div class="setting-item stacked">
                         <div class="setting-info">
+                            <span class="setting-label">Seasonal effects</span>
+                            <span class="setting-desc"
+                                >Falling leaves, snow and other touches in
+                                October, November and December. Never shown when
+                                animation is reduced.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Seasonal effects">
+                            {#each [['auto', 'Automatic'], ['off', 'Off']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.seasonal === value}
+                                    class:selected={$preferences.seasonal === value}
+                                    onclick={() => preferences.setSeasonal(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
                             <span class="setting-label">Cartridge view</span>
                             <span class="setting-desc"
                                 >How the cartridges sit. Sway and Floating move

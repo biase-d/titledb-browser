@@ -395,9 +395,9 @@ export class CartridgeStage {
 		this.scene = new Scene()
 		this.camera = new PerspectiveCamera(FOV, 1, 1, 5000)
 		this.scene.add(new AmbientLight(0xffffff, 0.95))
-		const sun = new DirectionalLight(0xffffff, 2.0)
-		sun.position.set(-1, 1.4, 2)
-		this.scene.add(sun)
+		this.sun = new DirectionalLight(0xffffff, 2.0)
+		this.sun.position.set(-1, 1.4, 2)
+		this.scene.add(this.sun)
 
 		this.gradient = toonGradient()
 		this.geometry = shellGeometry()
@@ -679,10 +679,13 @@ export class CartridgeStage {
 
 	/**
 	 * Style and motion can change while the page is open (Settings)
-	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float', reduced?: boolean }} next
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float', reduced?: boolean, light?: number }} next
 	 */
 	setOptions (next) {
-		this.options = { ...this.options, ...next }
+		const { light, ...rest } = next
+		this.options = { ...this.options, ...rest }
+		// A seasonal tint on the light that falls on the cartridges; white otherwise
+		if (light !== undefined) this.sun.color.setHex(light)
 		if (this.options.reduced) {
 			// No turn to wait for: every card is simply face-up
 			const now = performance.now()
