@@ -1,10 +1,14 @@
 <script>
 	import { fade } from 'svelte/transition'
 	import Icon from '@iconify/svelte'
+	import { SvelteSet } from 'svelte/reactivity'
+	import CartridgeItem from '../../CartridgeItem.svelte'
 
-	let { show = $bindable(), performanceHistory } = $props()
+	let { show = $bindable(), performanceHistory, game = null } = $props()
 
-	let selectedIndices = $state(new Set([0]))
+	// A SvelteSet, not $state(new Set()): a plain Set is not reactive, so adding a
+	// version changed nothing on screen and only one version could ever be compared
+	const selectedIndices = new SvelteSet([0])
 	const MAX_SELECTIONS = 4
 
 	function toggleSelection (index) {
@@ -50,7 +54,7 @@
 
 	function formatFramerate (modeData) {
 		if (!modeData?.target_fps) return modeData?.fps_behavior || 'N/A'
-		return `${modeData.fps_behavior} ${modeData.target_fps} FPS`
+		return [modeData.fps_behavior, `${modeData.target_fps} FPS`].filter(Boolean).join(' ')
 	}
 
 	function hasDifference (metric, mode) {
@@ -110,6 +114,24 @@
 						{/each}
 					</div>
 				</div>
+
+				<!-- The chosen versions as cartridges, leaning in toward each other. CSS cards:
+				     this sits above the page's canvas, which cannot draw over it -->
+				{#if game}
+					<div class="fan" aria-hidden="true">
+						{#each comparisonData as profile, n (profile.id ?? `${profile.gameVersion}${profile.suffix ?? ''}`)}
+							<div class="fan-item" style="--lean: {(n - (comparisonData.length - 1) / 2) * -14}deg">
+								<CartridgeItem
+									css
+									hero
+									index={n}
+									titleData={{ ...game, performance: profile.profiles ?? {} }}
+								/>
+								<span class="fan-label">v{profile.gameVersion}{profile.suffix ? ` (${profile.suffix})` : ''}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 
 				<div class="comparison-table-wrapper">
 					<table class="comparison-table">
@@ -205,6 +227,37 @@
 {/if}
 
 <style>
+	.fan {
+		display: flex;
+		justify-content: center;
+		perspective: 900px;
+		margin: 0 0 1.5rem;
+		padding-top: 0.5rem;
+	}
+
+	.fan-item {
+		width: 6.25rem;
+		margin: 0 -0.4rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		transform: rotateY(var(--lean));
+		transform-style: preserve-3d;
+		transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+		--cart-max: 100%;
+	}
+
+	.fan-item:hover { transform: rotateY(0deg) translateY(-6px); }
+
+	.fan-label {
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		color: var(--text-secondary);
+		font-variant-numeric: tabular-nums;
+	}
+
 	.modal-overlay {
 		position: fixed;
 		top: 0;

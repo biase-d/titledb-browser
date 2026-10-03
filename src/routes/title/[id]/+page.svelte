@@ -21,6 +21,7 @@
 	import BackToTop from './BackToTop.svelte'
 	import CartridgeFocus from './CartridgeFocus.svelte'
 	import { reveal } from '$lib/actions/reveal'
+	import { parallax } from '$lib/actions/parallax'
 	import CartridgeItem from '../../CartridgeItem.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
 	import { toggleDataRequest } from '$lib/remote/game-requests.remote.js'
@@ -460,6 +461,7 @@
 						srcset={bannerImages.srcset}
 						alt=""
 						class="banner-image"
+						use:parallax={0.14}
 						role="presentation"
 						loading="lazy"
 						sizes="(max-width: 1200px) 100vw, 1200px"
@@ -757,10 +759,15 @@
 						</div>
 
 						{#if currentProfileHasData}
-							<PerformanceDetail
-								performance={performance?.profiles}
-								gameId={id}
-							/>
+							<!-- Keyed on the version, so choosing another settles in rather than snapping -->
+							{#key selectedVersionIndex}
+								<div class="version-swap">
+									<PerformanceDetail
+										performance={performance?.profiles}
+										gameId={id}
+									/>
+								</div>
+							{/key}
 						{:else}
 							<div class="notice-card">
 								<p>
@@ -1036,6 +1043,7 @@
 
 {#if performanceHistory.length > 1}
 	<PerformanceComparisonModal
+		game={heroData}
 		bind:show={showComparisonModal}
 		{performanceHistory}
 	/>
@@ -1081,7 +1089,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		transform: scale(1.25);
+		scale: 1.3;
 		filter: blur(26px) saturate(1.4) brightness(0.72);
 	}
 
@@ -1302,6 +1310,15 @@
 
 	@media (max-width: 440px) {
 		.pill .long { display: none; }
+	}
+
+	.version-swap {
+		animation: version-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	@keyframes version-in {
+		from { opacity: 0; transform: translateY(8px); }
+		to { opacity: 1; transform: none; }
 	}
 
 	.pill.icon-only {

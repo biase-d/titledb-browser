@@ -33,9 +33,10 @@
    * handleRef: the card's handle on the stage, for something that needs to turn it
    * onactivate: a tap or Enter on a hero (as opposed to a drag)
    * ghost: a see-through, unlabelled stand-in that invites someone to add data
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
+   * css: draw it in CSS even where WebGL is available, for somewhere the canvas cannot reach (a modal)
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, css?: boolean, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, css = false, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -173,6 +174,8 @@
       settled = true
       return
     }
+    // Asked for the CSS card: that is the whole job
+    if (css) return startCss()
 
     let cancelled = false
     let cleanup = () => {}
