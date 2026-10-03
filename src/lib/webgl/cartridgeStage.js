@@ -95,33 +95,6 @@ function roundRect (ctx, x, y, w, h, r) {
 	ctx.roundRect(x, y, w, h, r)
 }
 
-/** The television glyph, drawn so the texture needs no icon font */
-function drawTv (/** @type {CanvasRenderingContext2D} */ ctx, x, y, s) {
-	ctx.save()
-	ctx.strokeStyle = '#fff'
-	ctx.lineWidth = s * 0.13
-	ctx.lineJoin = 'round'
-	roundRect(ctx, x + s * 0.1, y + s * 0.1, s * 1.2, s * 0.8, s * 0.12)
-	ctx.stroke()
-	ctx.beginPath()
-	ctx.moveTo(x + s * 0.4, y + s * 1.12)
-	ctx.lineTo(x + s * 1.0, y + s * 1.12)
-	ctx.stroke()
-	ctx.restore()
-}
-
-/** The handheld console glyph */
-function drawHandheld (/** @type {CanvasRenderingContext2D} */ ctx, x, y, s) {
-	ctx.save()
-	ctx.fillStyle = '#fff'
-	roundRect(ctx, x, y + s * 0.1, s * 1.4, s * 0.9, s * 0.2)
-	ctx.fill()
-	ctx.fillStyle = 'rgba(0,0,0,0.38)'
-	roundRect(ctx, x + s * 0.28, y + s * 0.22, s * 0.84, s * 0.66, s * 0.08)
-	ctx.fill()
-	ctx.restore()
-}
-
 /**
  * The front face: a label with a red band carrying the numbers, the art, and a
  * strip with the title and a code, then the mark and ridges. Everything else is
@@ -163,32 +136,54 @@ function drawFront (canvas, d, art) {
 	ctx.fillStyle = band
 	ctx.fillRect(lx, ly, lw, bandH)
 
+	// Band contents: each mode is a small label over a large number. No icons, a
+	// hairline between the two, and a single mode sits in the middle
 	ctx.fillStyle = '#fff'
-	ctx.textBaseline = 'middle'
-	const cy = ly + bandH / 2
 	if (hasData) {
-		ctx.font = `800 ${14 * u}px ${sans}`
-		const items = [
-			d.dockedFps && { draw: drawTv, text: d.dockedFps },
-			d.handheldFps && { draw: drawHandheld, text: d.handheldFps }
+		const modes = [
+			d.dockedFps && { label: 'DOCKED', fps: d.dockedFps },
+			d.handheldFps && { label: 'HANDHELD', fps: d.handheldFps }
 		].filter(Boolean)
-		const iconW = 11 * u
-		const gap = 3 * u
-		const widths = items.map(i => iconW + gap + ctx.measureText(i.text).width)
-		const between = 8 * u
-		let x = lx + (lw - (widths.reduce((a, b) => a + b, 0) + between * (items.length - 1))) / 2
-		items.forEach((item, i) => {
-			item.draw(ctx, x, cy - 6 * u, 8.4 * u)
+		const colW = lw / modes.length
+		modes.forEach((mode, i) => {
+			const cx = lx + colW * i + colW / 2
+
+			ctx.textAlign = 'center'
+			ctx.textBaseline = 'alphabetic'
+			ctx.fillStyle = 'rgba(255,255,255,0.78)'
+			ctx.font = `700 ${4.2 * u}px ${sans}`
+			if ('letterSpacing' in ctx) ctx.letterSpacing = `${0.5 * u}px`
+			ctx.fillText(mode.label, cx, ly + 9.2 * u)
+			if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
+
+			// The number, with a smaller FPS after it, centred as one
+			ctx.font = `800 ${13 * u}px ${sans}`
+			const numW = ctx.measureText(mode.fps).width
+			ctx.font = `700 ${4.6 * u}px ${sans}`
+			const unitW = ctx.measureText('FPS').width + 1.4 * u
+			const startX = cx - (numW + unitW) / 2
+			ctx.textAlign = 'left'
 			ctx.fillStyle = '#fff'
-			ctx.fillText(item.text, x + iconW + gap, cy + 0.6 * u)
-			x += widths[i] + between
+			ctx.font = `800 ${13 * u}px ${sans}`
+			ctx.fillText(mode.fps, startX, ly + 23.2 * u)
+			ctx.fillStyle = 'rgba(255,255,255,0.85)'
+			ctx.font = `700 ${4.6 * u}px ${sans}`
+			ctx.fillText('FPS', startX + numW + 1.4 * u, ly + 23.2 * u)
 		})
+		if (modes.length === 2) {
+			ctx.fillStyle = 'rgba(255,255,255,0.28)'
+			ctx.fillRect(lx + lw / 2 - 0.2 * u, ly + 5 * u, 0.4 * u, bandH - 10 * u)
+		}
 	} else {
-		ctx.font = `700 ${8.6 * u}px ${sans}`
 		ctx.textAlign = 'center'
-		ctx.fillText('NO DATA YET', lx + lw / 2, cy)
-		ctx.textAlign = 'left'
+		ctx.textBaseline = 'middle'
+		ctx.fillStyle = 'rgba(255,255,255,0.8)'
+		ctx.font = `700 ${5.6 * u}px ${sans}`
+		if ('letterSpacing' in ctx) ctx.letterSpacing = `${0.6 * u}px`
+		ctx.fillText('NO DATA YET', lx + lw / 2, ly + bandH / 2)
+		if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
 	}
+	ctx.textAlign = 'left'
 
 	// Art, cropped to cover, running down to the bottom of the label: the title
 	// and code sit on a blur of it rather than on a white strip
@@ -417,6 +412,8 @@ export class CartridgeStage {
 		this.running = false
 		this.lastScroll = 0
 		this.lastFrame = 0
+		this.lastScrollY = window.scrollY
+		this.scrollVel = 0
 		/** @type {{ style: 'flat' | 'angled' | 'sway' | 'float', reduced: boolean }} */
 		this.options = { style: 'flat', reduced: false }
 		// Touch devices spend their battery on the screen: when nothing is scrolling,
@@ -509,6 +506,9 @@ export class CartridgeStage {
 			flip: 1,
 			hover: 0, hoverTarget: 0,
 			poseRx: 0, poseRy: 0, bob: 0,
+			scrollRx: 0, scrollRy: 0,
+			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
+			scrollAmp: 1,
 			// Each card moves on its own beat
 			phase: [...String(data.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000, 7) / 160,
 			shadow,
@@ -704,6 +704,11 @@ export class CartridgeStage {
 		const t = now / 1000
 		const continuous = !reduced && (style === 'sway' || style === 'float')
 
+		// Scroll speed, smoothed: the cards lean into it a little
+		const sy = window.scrollY
+		this.scrollVel = this.scrollVel * 0.8 + (sy - this.lastScrollY) * 0.2
+		this.lastScrollY = sy
+
 		// Read every position first, then write: no layout thrash
 		const rects = []
 		for (const h of this.handles.values()) rects.push(h.near ? h.el.getBoundingClientRect() : null)
@@ -756,9 +761,23 @@ export class CartridgeStage {
 			h.bob += (tBob - h.bob) * 0.12
 			if (Math.abs(h.poseRx - tRx) > 0.002 || Math.abs(h.poseRy - tRy) > 0.002 || Math.abs(h.bob - tBob) > 0.001) animating = true
 
+			// Once it has turned, a quiet response to the page moving: a card near the
+			// top of the screen leans back a touch, one near the bottom forward, and
+			// scrolling quickly turns it slightly the way it is going
+			let tSx = 0
+			let tSy = 0
+			if (!reduced && h.flip === 0) {
+				const centre = (r.top + (r.width * H) / 2) / this.viewH - 0.5
+				tSx = centre * 0.1 * h.scrollAmp
+				tSy = Math.max(-0.08, Math.min(0.08, this.scrollVel * 0.004)) * h.scrollAmp
+			}
+			h.scrollRx += (tSx - h.scrollRx) * 0.1
+			h.scrollRy += (tSy - h.scrollRy) * 0.1
+			if (Math.abs(h.scrollRx - tSx) > 0.002 || Math.abs(h.scrollRy - tSy) > 0.002) animating = true
+
 			const s = r.width * (1 + 0.04 * h.hover)
 			g.scale.setScalar(s)
-			g.rotation.set(h.rx + h.poseRx, h.ry + h.poseRy + h.flip * Math.PI, 0)
+			g.rotation.set(h.rx + h.poseRx + h.scrollRx, h.ry + h.poseRy + h.scrollRy + h.flip * Math.PI, 0)
 			g.position.set(
 				r.left + r.width / 2,
 				this.viewH - (r.top + (r.width * H) / 2) + 6 * h.hover + h.bob * r.width,

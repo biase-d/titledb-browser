@@ -288,10 +288,11 @@
         <div class="label">
           <div class="band" class:empty={!dockedFps && !handheldFps}>
             {#if dockedFps}
-              <span title={`Docked: ${dockedFps} FPS`}><Icon icon="mdi:television" />{dockedFps}</span>
+              <span class="mode" title={`Docked: ${dockedFps} FPS`}><small>Docked</small><b>{dockedFps}<i>FPS</i></b></span>
             {/if}
+            {#if dockedFps && handheldFps}<span class="rule"></span>{/if}
             {#if handheldFps}
-              <span title={`Handheld: ${handheldFps} FPS`}><Icon icon="mdi:nintendo-switch" />{handheldFps}</span>
+              <span class="mode" title={`Handheld: ${handheldFps} FPS`}><small>Handheld</small><b>{handheldFps}<i>FPS</i></b></span>
             {/if}
             {#if !dockedFps && !handheldFps}
               <span class="no-data">No data yet</span>
@@ -480,31 +481,55 @@
     height: 28.4cqw;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8cqw;
+    justify-content: space-evenly;
     background: linear-gradient(180deg, #f0192b, #d80f20);
     color: #fff;
   }
 
   .band.empty { background: linear-gradient(180deg, #6d6d74, #55555c); }
 
-  .band span {
-    display: inline-flex;
+  .band .mode {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 3cqw;
-    font-size: 14cqw;
-    font-weight: 800;
+    gap: 1.4cqw;
     line-height: 1;
+  }
+
+  .band small {
+    font-size: 4.2cqw;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.78;
+  }
+
+  .band b {
+    font-size: 13cqw;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.25);
+  }
+
+  .band i {
+    margin-left: 1.4cqw;
+    font-size: 4.6cqw;
+    font-style: normal;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+
+  .band .rule {
+    width: 0.4cqw;
+    height: 18cqw;
+    background: rgba(255, 255, 255, 0.28);
   }
 
   .band .no-data {
-    font-size: 8.6cqw;
+    font-size: 5.6cqw;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    opacity: 0.9;
+    opacity: 0.8;
   }
 
   .art {
