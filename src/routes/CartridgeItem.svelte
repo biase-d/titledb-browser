@@ -23,8 +23,12 @@
    * browsers cap a page at about sixteen WebGL contexts
    */
 
-  /** @type {{ titleData: any, query?: string, index?: number }} */
-  let { titleData, index = 0 } = $props()
+  /**
+   * hero: one large cartridge that is not a link (the details page): it can be
+   * dragged round, rides in its own pose, and responds more to scrolling
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean }}
+   */
+  let { titleData, index = 0, hero = false } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -164,7 +168,7 @@
           stageRef = stage
           const prefs = get(preferences)
           stage.setOptions({ style: prefs.cartridgeStyle, reduced: isReducedMotion(prefs) })
-          const h = stage.register(cell, cartridgeData)
+          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4 } : {})
           await h.loaded
           if (cancelled) { h.dispose(); return }
           handle = h
@@ -206,7 +210,7 @@
   /** Hover tilt: fine pointers only. A finger gets a still card, so scrolling never moves it */
   /** @param {PointerEvent} e */
   function tilt (e) {
-    if (e.pointerType !== 'mouse' || !cell || isReducedMotion(get(preferences))) return
+    if (dragFrom || e.pointerType !== 'mouse' || !cell || isReducedMotion(get(preferences))) return
     const r = cell.getBoundingClientRect()
     const x = (e.clientX - r.left) / r.width - 0.5
     const y = (e.clientY - r.top) / r.height - 0.5
@@ -233,7 +237,7 @@
    * @param {MouseEvent} e
    */
   async function open (e) {
-    if (!gl || !handle || inserting || e.defaultPrevented || e.button !== 0 ||
+    if (hero || !gl || !handle || inserting || e.defaultPrevented || e.button !== 0 ||
       e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || isReducedMotion(get(preferences))) return
     const stage = stageRef
     if (!stage) return
@@ -254,6 +258,32 @@
     }
   }
 
+  /** Dragging a hero round. Horizontal drags spin it; a vertical one is left to scroll the page */
+  let dragFrom = /** @type {{ x: number, y: number } | null} */ (null)
+
+  /** @param {PointerEvent} e */
+  function dragStart (e) {
+    if (!hero || !gl || !handle || isReducedMotion(get(preferences))) return
+    dragFrom = { x: e.clientX, y: e.clientY }
+    cell?.setPointerCapture(e.pointerId)
+    handle.beginDrag()
+  }
+
+  /** @param {PointerEvent} e */
+  function dragMove (e) {
+    if (!dragFrom || !handle) return
+    handle.dragBy(e.clientX - dragFrom.x, e.clientY - dragFrom.y)
+    dragFrom = { x: e.clientX, y: e.clientY }
+  }
+
+  /** @param {PointerEvent} e */
+  function dragEnd (e) {
+    if (!dragFrom) return
+    dragFrom = null
+    cell?.releasePointerCapture(e.pointerId)
+    handle?.endDrag()
+  }
+
   function untilt () {
     if (gl && handle) handle.setHover(false)
     cart?.style.removeProperty('--ry')
@@ -261,15 +291,21 @@
   }
 </script>
 
-<a
+<svelte:element
+  this={hero ? 'div' : 'a'}
   bind:this={cell}
-  href={`/title/${id}`}
+  href={hero ? undefined : `/title/${id}`}
   class="cell"
-  data-sveltekit-preload-data="tap"
-  aria-label={ariaLabel}
+  class:hero
+  data-sveltekit-preload-data={hero ? undefined : 'tap'}
+  role={hero ? 'img' : undefined}
+  aria-label={hero ? `${titleName} cartridge` : ariaLabel}
   style:--i={index % 8}
-  onpointermove={tilt}
+  onpointermove={(e) => { dragMove(e); tilt(e) }}
   onpointerleave={untilt}
+  onpointerdown={dragStart}
+  onpointerup={dragEnd}
+  onpointercancel={dragEnd}
   onclick={open}
 >
   <div class="scene">
@@ -350,7 +386,7 @@
     </div>
     {/if}
   </div>
-</a>
+</svelte:element>
 
 <style>
   /* One cartridge is 21 x 31 x 3.4 mm. In cqw (1cqw = 1% of the card's width):
@@ -363,13 +399,22 @@
     --shell-dark: #0b0b0d;
     display: block;
     width: 100%;
-    max-width: 11rem;
+    max-width: var(--cart-max, 11rem);
     margin-inline: auto;
     container-type: inline-size;
     text-decoration: none;
     color: inherit;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* A hero is dragged sideways to spin; up and down still scrolls the page */
+  .cell.hero {
+    touch-action: pan-y;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .cell.hero:active { cursor: grabbing; }
 
   .cell:focus-visible {
     outline: 2px solid var(--primary-color);

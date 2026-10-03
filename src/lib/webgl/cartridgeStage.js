@@ -471,8 +471,9 @@ export class CartridgeStage {
 	 * Draws a cartridge over an element and keeps it there
 	 * @param {HTMLElement} el
 	 * @param {CartridgeData} data
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number }} [opts]
 	 */
-	register (el, data) {
+	register (el, data, opts = {}) {
 		const group = new Group()
 		const shell = new Mesh(this.geometry, this.shellMaterial)
 		group.add(shell)
@@ -508,7 +509,11 @@ export class CartridgeStage {
 			poseRx: 0, poseRy: 0, bob: 0,
 			scrollRx: 0, scrollRy: 0,
 			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
-			scrollAmp: 1,
+			scrollAmp: opts.scrollAmp ?? 1,
+			/** A card can ask for its own pose, whatever the setting says */
+			styleOverride: opts.style ?? null,
+			// Dragging to spin: yaw and pitch added to the pose, and a spring back to face-up
+			spinX: 0, spinY: 0, spinVel: 0, dragging: false,
 			// Each card moves on its own beat
 			phase: [...String(data.id)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000, 7) / 160,
 			shadow,
@@ -528,6 +533,15 @@ export class CartridgeStage {
 					this.wake()
 				}
 			},
+			beginDrag: () => { handle.dragging = true; handle.spinVel = 0; this.wake() },
+			/** @param {number} dx @param {number} dy pixels */
+			dragBy: (dx, dy) => {
+				handle.spinY += dx * 0.012
+				handle.spinX = Math.max(-0.6, Math.min(0.6, handle.spinX + dy * 0.008))
+				handle.spinVel = dx * 0.0016
+				this.wake()
+			},
+			endDrag: () => { handle.dragging = false; this.wake() },
 			/** Slides this card down into an invisible slot, resolving once it is out of sight */
 			insert: () => this.beginInsert(handle),
 			dispose: () => this.unregister(el)
@@ -700,9 +714,8 @@ export class CartridgeStage {
 		this.lastFrame = now
 		let animating = scrolling
 
-		const { style, reduced } = this.options
+		const { style: globalStyle, reduced } = this.options
 		const t = now / 1000
-		const continuous = !reduced && (style === 'sway' || style === 'float')
 
 		// Scroll speed, smoothed: the cards lean into it a little
 		const sy = window.scrollY
@@ -738,12 +751,18 @@ export class CartridgeStage {
 			if (Math.abs(h.rx - h.ty * -0.31) > 0.002 || Math.abs(h.ry - h.tx * 0.38) > 0.002 || Math.abs(h.hover - h.hoverTarget) > 0.01) animating = true
 
 			// How the card sits when nothing is touching it: the chosen style
+			const style = h.styleOverride ?? globalStyle
 			let tRx = 0
 			let tRy = 0
 			let tBob = 0
 			if (!reduced) {
 				const ph = h.phase
-				if (style === 'angled') {
+				if (style === 'hero') {
+					// A hero card: a three-quarter view that drifts very slightly, and rides a little above its shadow
+					tRx = -0.07 + 0.02 * Math.sin(t * 0.7 + ph)
+					tRy = -0.27 + 0.05 * Math.sin(t * 0.5 + ph)
+					tBob = 0.024 + 0.014 * Math.sin(t * 0.9 + ph)
+				} else if (style === 'angled') {
 					// Like the reference render: turned to show the right edge, top a touch back
 					tRx = -0.12
 					tRy = -0.34
@@ -760,6 +779,17 @@ export class CartridgeStage {
 			h.poseRy += (tRy - h.poseRy) * 0.12
 			h.bob += (tBob - h.bob) * 0.12
 			if (Math.abs(h.poseRx - tRx) > 0.002 || Math.abs(h.poseRy - tRy) > 0.002 || Math.abs(h.bob - tBob) > 0.001) animating = true
+			// The continuous styles keep the loop going; nothing else does
+			if (!reduced && (style === 'sway' || style === 'float' || style === 'hero')) animating = true
+
+			// Dragged round: it keeps the push a moment, then settles face-up (the nearest full turn)
+			if (!h.dragging) {
+				const home = Math.round(h.spinY / (Math.PI * 2)) * Math.PI * 2
+				h.spinY += (home - h.spinY) * 0.07 + h.spinVel
+				h.spinVel *= 0.9
+				h.spinX += (0 - h.spinX) * 0.08
+			}
+			if (h.dragging || Math.abs(h.spinVel) > 0.0005 || Math.abs(h.spinX) > 0.002 || Math.abs(h.spinY - Math.round(h.spinY / (Math.PI * 2)) * Math.PI * 2) > 0.002) animating = true
 
 			// Once it has turned, a quiet response to the page moving: a card near the
 			// top of the screen leans back a touch, one near the bottom forward, and
@@ -777,7 +807,7 @@ export class CartridgeStage {
 
 			const s = r.width * (1 + 0.04 * h.hover)
 			g.scale.setScalar(s)
-			g.rotation.set(h.rx + h.poseRx + h.scrollRx, h.ry + h.poseRy + h.scrollRy + h.flip * Math.PI, 0)
+			g.rotation.set(h.rx + h.poseRx + h.scrollRx + h.spinX, h.ry + h.poseRy + h.scrollRy + h.spinY + h.flip * Math.PI, 0)
 			g.position.set(
 				r.left + r.width / 2,
 				this.viewH - (r.top + (r.width * H) / 2) + 6 * h.hover + h.bob * r.width,
@@ -787,15 +817,13 @@ export class CartridgeStage {
 
 			// A floating card casts a shadow that thins as it rises
 			const sh = h.shadow
-			sh.visible = style === 'float' && !reduced
+			sh.visible = (style === 'float' || style === 'hero') && !reduced
 			if (sh.visible) {
 				sh.scale.set(r.width * 0.9, r.width * 0.2, 1)
 				sh.position.set(r.left + r.width / 2, this.viewH - (r.top + r.width * H + r.width * 0.06), -2)
 				sh.material.opacity = Math.max(0.05, 0.34 - h.bob * 3.2)
 			}
 		}
-
-		if (continuous && this.handles.size > 0) animating = true
 
 		if (this.inserting) {
 			if (this.updateInsert(now)) animating = true

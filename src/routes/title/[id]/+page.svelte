@@ -18,6 +18,8 @@
 	import PerformanceDetail from './PerformanceDetail.svelte'
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte'
 	import RegionPopover from './RegionPopover.svelte'
+	import BackToTop from './BackToTop.svelte'
+	import CartridgeItem from '../../CartridgeItem.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
 	import { toggleDataRequest } from '$lib/remote/game-requests.remote.js'
 	import { serializeJsonLd } from '$lib/jsonLd'
@@ -281,13 +283,6 @@
 			bannerWidth: 800,
 		}),
 	)
-	let iconImages = $derived(
-		createImageSet(game.iconUrl || game.bannerUrl, {
-			highRes: $preferences.highResImages,
-			thumbnailWidth: 200,
-		}),
-	)
-
 	let isUnreleased = $derived(game.isUnreleased)
 
 	let hasRequested = $state(data.hasRequested)
@@ -353,6 +348,28 @@
 		}
 
 		return data
+	})
+
+	/** The hero's own wrapper, which the phone bubble watches */
+	/** @type {HTMLElement | undefined} */
+	let heroElement = $state()
+
+	// The numbers on the cartridge: the newest real profile, else what the graphics settings target
+	const heroPerformance = $derived.by(() => {
+		const real = performanceHistory.find(
+			(p) => hasPerformanceData(p.profiles?.docked) || hasPerformanceData(p.profiles?.handheld),
+		)
+		const source = real?.profiles ?? graphicsTargets ?? {}
+		return { docked: source.docked ?? {}, handheld: source.handheld ?? {} }
+	})
+	const heroData = $derived({
+		id: game.id,
+		iconUrl: game.iconUrl,
+		bannerUrl: game.bannerUrl,
+		names: game.names,
+		regions: game.regions,
+		publisher: game.publisher,
+		performance: heroPerformance,
 	})
 
 	// From the server, built from the real group so it is the same on every page of the game
@@ -424,20 +441,10 @@
 
 			<div class="header-content-wrapper">
 				<div class="header-content">
-					{#if iconImages}
-						<img
-							src={iconImages.src}
-							srcset={iconImages.srcset}
-							alt="{name} icon"
-							class="game-icon"
-							class:fallback-icon={!game.iconUrl &&
-								game.bannerUrl}
-							loading="lazy"
-							sizes="120px"
-						/>
-					{:else}
-						<div class="game-icon-placeholder"></div>
-					{/if}
+					<div class="hero-cart" bind:this={heroElement}>
+						<div class="hero-glow" aria-hidden="true"></div>
+						<CartridgeItem titleData={heroData} hero />
+					</div>
 					<div class="title-info">
 						<h1
 							lang={preferredRegion === 'JP'
@@ -927,6 +934,8 @@
 				</div>
 			</aside>
 		</div>
+
+		<BackToTop target={heroElement} iconUrl={game.iconUrl || game.bannerUrl} {name} />
 	</div>
 	{/key}
 {:else}
@@ -979,6 +988,19 @@
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		z-index: -1;
+	}
+
+	/* The panel's own edge: a hairline and a lit top, like the bezel of a console screen */
+	.banner-bg-wrapper::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+		box-shadow:
+			inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+			inset 0 1px 0 rgba(255, 255, 255, 0.2),
+			inset 0 -30px 60px color-mix(in srgb, var(--primary-color) 14%, transparent);
 	}
 
 	.banner-image {
@@ -1051,28 +1073,31 @@
 		}
 	}
 
-	.game-icon,
-	.game-icon-placeholder {
+	/* The cartridge: a hero in its own right, with a glow in the theme's colour behind it */
+	.hero-cart {
 		grid-area: icon;
-		width: 100px;
-		height: 100px;
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-lg);
-		object-fit: cover;
+		position: relative;
+		width: clamp(120px, 38vw, 160px);
+		--cart-max: 100%;
 	}
 
-	.game-icon.fallback-icon {
-		object-position: center;
-	}
 	@media (min-width: 768px) {
-		.game-icon,
-		.game-icon-placeholder {
-			width: 120px;
-			height: 120px;
+		.hero-cart {
+			width: clamp(170px, 19vw, 220px);
 		}
 	}
-	.game-icon-placeholder {
-		background-color: var(--surface-dark);
+
+	.hero-glow {
+		position: absolute;
+		inset: -18% -30%;
+		background: radial-gradient(
+			closest-side,
+			color-mix(in srgb, var(--accent-color, var(--primary-color)) 55%, transparent),
+			transparent 70%
+		);
+		filter: blur(14px);
+		opacity: 0.8;
+		pointer-events: none;
 	}
 
 	.title-info {
@@ -1205,9 +1230,23 @@
 		gap: 1rem;
 	}
 	.section-title {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
 		font-size: 1.5rem;
 		font-weight: 700;
 		margin: 0;
+	}
+
+	/* A status light before each section, in the theme's colour */
+	.section-title::before {
+		content: '';
+		flex: none;
+		width: 0.55rem;
+		height: 0.55rem;
+		border-radius: 50%;
+		background: var(--primary-color);
+		box-shadow: 0 0 0.6rem color-mix(in srgb, var(--primary-color) 70%, transparent);
 	}
 
 	.header-controls {
@@ -1258,10 +1297,12 @@
 	}
 
 	.info-card {
-		background-color: var(--surface-color);
-		border: 1px solid var(--border-color);
+		background:
+			linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 6%, var(--surface-color)), var(--surface-color) 60%);
+		border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-color));
 		border-radius: var(--radius-lg);
 		padding: 1.5rem;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 	}
 	.info-card-title {
 		font-size: 1.125rem;

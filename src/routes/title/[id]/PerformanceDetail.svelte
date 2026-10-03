@@ -144,16 +144,20 @@
 
 <style>
 	.perf-card {
-		background-color: var(--surface-color);
+		background:
+			linear-gradient(180deg, color-mix(in srgb, var(--primary-color) 6%, var(--surface-color)), var(--surface-color) 60%);
 		border-radius: var(--radius-lg);
 		padding: 2rem;
-		border: 1px solid var(--border-color);
+		border: 1px solid color-mix(in srgb, var(--primary-color) 22%, var(--border-color));
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
 	}
 
 	.perf-mode-title {
 		font-size: 1.25rem;
 		font-weight: 600;
 		margin: 0 0 1.5rem 0;
+		padding-left: 0.75rem;
+		border-left: 3px solid var(--primary-color);
 	}
 
 	.perf-grid {
@@ -172,15 +176,20 @@
 		margin: 0;
 	}
 
+	/* Read like the spec on a card: a small spaced label, a firm number */
 	.label {
-		font-size: 0.875rem;
+		font-size: 0.72rem;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		color: var(--text-secondary);
-		margin-bottom: 0.25rem;
+		margin-bottom: 0.3rem;
 	}
 
 	.value {
-		font-weight: 600;
-		font-size: 1.1rem;
+		font-weight: 700;
+		font-size: 1.15rem;
+		font-variant-numeric: tabular-nums;
 		color: var(--text-primary);
 	}
 
