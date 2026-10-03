@@ -110,7 +110,8 @@
     dockedFps: dockedFps || null,
     handheldFps: handheldFps || null,
     artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, 512) || null),
-    ghost
+    ghost,
+    ghostCopy: titleData.ghostCopy
   })
 
   // Names and numbers can change under a card that stays (a region switch)
@@ -337,6 +338,7 @@
   href={hero ? undefined : `/title/${id}`}
   class="cell"
   class:hero
+  class:ghost
   data-sveltekit-preload-data={hero ? undefined : 'tap'}
   role={hero ? (onactivate ? 'button' : 'img') : undefined}
   tabindex={hero && onactivate ? 0 : undefined}
@@ -457,6 +459,9 @@
   }
 
   .cell.hero:active { cursor: grabbing; }
+
+  /* A stand-in is see-through in the CSS card too */
+  .cell.ghost .face { opacity: 0.55; }
 
   .cell:focus-visible {
     outline: 2px solid var(--primary-color);

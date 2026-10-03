@@ -9,6 +9,7 @@
     import Footer from './Footer.svelte'
     import OnboardingModal from './OnboardingModal.svelte'
     import SeasonOverlay from '$lib/components/SeasonOverlay.svelte'
+    import NavLoader from '$lib/components/NavLoader.svelte'
     import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte'
     import { themeStore } from '$lib/stores/theme.svelte'
     import { preferences, isReducedMotion } from '$lib/stores/preferences'
@@ -110,6 +111,7 @@
     {/if}
 </div>
 
+<NavLoader />
 <OnboardingModal />
 
 <style>

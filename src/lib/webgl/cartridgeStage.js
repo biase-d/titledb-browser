@@ -52,6 +52,7 @@ const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
  * @property {string | null} handheldFps
  * @property {string | null} artUrl
  * @property {boolean} [ghost] an unlabelled stand-in with an invitation on it, not a real game
+ * @property {{ band?: string, line?: string, glyph?: 'plus' | 'question' }} [ghostCopy] what a stand-in says
  */
 
 /** @param {string} src @returns {Promise<HTMLImageElement | null>} */
@@ -106,7 +107,7 @@ function roundRect (ctx, x, y, w, h, r) {
  * @param {HTMLCanvasElement} canvas @param {CartridgeData} d @param {HTMLImageElement | null} art
  */
 function drawFront (canvas, d, art) {
-	if (d.ghost) return drawGhostFront(canvas)
+	if (d.ghost) return drawGhostFront(canvas, d.ghostCopy)
 	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
 	const u = canvas.width / 100
 	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
@@ -277,11 +278,12 @@ function drawFront (canvas, d, art) {
 }
 
 /**
- * The front of a stand-in: the same label, but blank, with a plus and an
- * invitation where the game would be. Drawn to be drawn translucent
+ * The front of a stand-in: the same label, but blank, with a plus (or a
+ * question mark) and a line where the game would be. Drawn to be drawn translucent
  * @param {HTMLCanvasElement} canvas
+ * @param {{ band?: string, line?: string, glyph?: 'plus' | 'question' }} [copy]
  */
-function drawGhostFront (canvas) {
+function drawGhostFront (canvas, copy = {}) {
 	const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext('2d'))
 	const u = canvas.width / 100
 	const sans = '\'Inter Variable\', Inter, system-ui, sans-serif'
@@ -313,7 +315,7 @@ function drawGhostFront (canvas) {
 	ctx.textBaseline = 'middle'
 	ctx.font = `700 ${5.8 * u}px ${sans}`
 	if ('letterSpacing' in ctx) ctx.letterSpacing = `${0.6 * u}px`
-	ctx.fillText('YOUR DATA HERE', lx + lw / 2, ly + 14.2 * u)
+	ctx.fillText(copy.band ?? 'YOUR DATA HERE', lx + lw / 2, ly + 14.2 * u)
 	if ('letterSpacing' in ctx) ctx.letterSpacing = '0px'
 
 	// A dashed ring with a plus in it
@@ -326,18 +328,28 @@ function drawGhostFront (canvas) {
 	ctx.arc(cx, cy, 15 * u, 0, 6.283)
 	ctx.stroke()
 	ctx.setLineDash([])
-	ctx.lineWidth = 1.6 * u
-	ctx.lineCap = 'round'
-	ctx.beginPath()
-	ctx.moveTo(cx - 6.5 * u, cy)
-	ctx.lineTo(cx + 6.5 * u, cy)
-	ctx.moveTo(cx, cy - 6.5 * u)
-	ctx.lineTo(cx, cy + 6.5 * u)
-	ctx.stroke()
+	if (copy.glyph === 'question') {
+		ctx.fillStyle = 'rgba(255,255,255,0.55)'
+		ctx.font = `800 ${20 * u}px ${sans}`
+		ctx.textAlign = 'center'
+		ctx.textBaseline = 'middle'
+		ctx.fillText('?', cx, cy + 1 * u)
+	} else {
+		ctx.lineWidth = 1.6 * u
+		ctx.lineCap = 'round'
+		ctx.beginPath()
+		ctx.moveTo(cx - 6.5 * u, cy)
+		ctx.lineTo(cx + 6.5 * u, cy)
+		ctx.moveTo(cx, cy - 6.5 * u)
+		ctx.lineTo(cx, cy + 6.5 * u)
+		ctx.stroke()
+	}
 
 	ctx.fillStyle = 'rgba(255,255,255,0.7)'
 	ctx.font = `800 ${6.4 * u}px ${sans}`
-	ctx.fillText('Be the first', cx, ly + lh - 10 * u)
+	ctx.textAlign = 'center'
+	ctx.textBaseline = 'middle'
+	ctx.fillText(copy.line ?? 'Be the first', cx, ly + lh - 10 * u)
 	ctx.restore()
 
 	ctx.fillStyle = 'rgba(255,255,255,0.16)'

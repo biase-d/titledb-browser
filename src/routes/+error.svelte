@@ -2,6 +2,7 @@
 	import { page } from '$app/state'
 	import { browser } from '$app/environment'
 	import { getSystemStatus } from '$lib/remote/status.remote.js'
+	import CartridgeItem from './CartridgeItem.svelte'
 
 	// Browser-only: an error page should never depend on a server round trip
 	// that might be failing for the same reason we are here
@@ -11,6 +12,18 @@
 	// 'Internal Error' before it reaches the browser. That is a label for us,
 	// not an explanation for the reader. Messages we raised deliberately -
 	// 'Game not found' and the like - are worth showing as they are
+	// A blank cartridge for the page that is not there, or that broke
+	let stand = $derived({
+		id: String(page.status),
+		names: [''],
+		regions: [],
+		publisher: null,
+		performance: {},
+		ghostCopy: page.status === 404
+			? { band: 'NOT FOUND', line: 'Try another game', glyph: 'question' }
+			: { band: 'OOPS', line: 'Try again soon', glyph: 'question' }
+	})
+
 	let message = $derived.by(() => {
 		if (page.status === 404) {
 			return 'We could not find that page. It may have moved or never existed.'
@@ -27,6 +40,9 @@
 
 <div class="error-container">
 	<div class="error-card">
+		<div class="stand" aria-hidden="true">
+			<CartridgeItem titleData={stand} hero ghost />
+		</div>
 		<h1>{page.status}</h1>
 		<p class="message">{message}</p>
 
@@ -99,6 +115,12 @@
 		padding: 3rem;
 		border-radius: var(--radius-lg);
 		border: 1px solid var(--border-color);
+	}
+
+	.stand {
+		width: 7.5rem;
+		margin: -0.5rem auto 0.75rem;
+		--cart-max: 100%;
 	}
 
 	h1 {
