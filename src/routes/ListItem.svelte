@@ -6,6 +6,7 @@
   import { createImageSet, proxyImage } from '$lib/image'
   import { preferences } from '$lib/stores/preferences'
   import { getLocalizedName } from '$lib/i18n'
+  import Switch2Pill from '$lib/components/Switch2Pill.svelte'
   import TextHighlight from '$lib/components/TextHighlight.svelte'
   import { extractTheme } from '$lib/utils/theme'
 
@@ -118,6 +119,7 @@
     </span>
     <div class="meta-row">
       {#if showRegionBadge}
+        <Switch2Pill {id} />
         <span class="region-badge" title="Available in: {regionLabel}">
           <Icon icon="mdi:earth" width="12" height="12" />
           <span class="badge-text">{regionBadge}</span>

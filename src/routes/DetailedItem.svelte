@@ -6,6 +6,7 @@
     import { createImageSet, proxyImage } from '$lib/image'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
+    import Switch2Pill from '$lib/components/Switch2Pill.svelte'
     import TextHighlight from '$lib/components/TextHighlight.svelte'
     import { extractTheme } from '$lib/utils/theme'
 
@@ -102,6 +103,7 @@
                     <TextHighlight text={titleName} {query} />
                 </h3>
                 {#if $preferences.showTitleIds}
+                <Switch2Pill {id} />
                 <span class="title-id-badge">{id}</span>
                 {/if}
             </div>

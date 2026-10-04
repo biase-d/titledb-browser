@@ -30,3 +30,8 @@ export function platformClause (platform, column) {
 }
 
 export const PLATFORM_LABEL = { switch: 'Switch', switch2: 'Switch 2' }
+
+/** The platform a search covers: one console, or both when it is 'all' @param {unknown} value @returns {Platform | 'all'} */
+export function asSearchPlatform (value) {
+	return value === 'all' ? 'all' : asPlatform(value)
+}

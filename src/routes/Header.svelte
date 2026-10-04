@@ -203,6 +203,9 @@
 											<span class="item-id"
 												>{result.id}</span
 											>
+											{#if result.platform === 'switch2'}
+												<span class="item-s2">Switch 2</span>
+											{/if}
 										</div>
 										<Icon
 											icon="mdi:chevron-right"
@@ -593,6 +596,17 @@
 		color: var(--text-secondary);
 		font-size: 0.7rem;
 		font-family: monospace;
+	}
+	.item-s2 {
+		margin-left: 0.4rem;
+		padding: 0.05rem 0.35rem;
+		border-radius: 999px;
+		background: #dc2626;
+		color: #fff;
+		font-size: 0.6rem;
+		font-weight: 800;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 	}
 	.dropdown-item :global(.item-arrow) {
 		color: var(--text-secondary);

@@ -5,6 +5,7 @@
     import { createImageSet, proxyImage } from '$lib/image'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
+    import Switch2Pill from '$lib/components/Switch2Pill.svelte'
     import { extractTheme } from '$lib/utils/theme'
 
     let { titleData } = $props()
@@ -86,6 +87,7 @@
         <div class="overlay">
             <div class="card-content">
                 <h3 class="card-title">{titleName}</h3>
+                <Switch2Pill {id} />
                 <div class="card-meta">
                     {#if $preferences.showTitleIds}
                     <span class="game-id">{id}</span>

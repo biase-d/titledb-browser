@@ -2,7 +2,7 @@ import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
 import { desc, eq, sql, or, and, countDistinct, isNotNull, exists, inArray } from 'drizzle-orm'
 import { calculatePlayabilityScore } from '$lib/playability'
 import { mapGraphicsToPerformance } from '$lib/graphicsPerformance'
-import { asPlatform } from '$lib/platform'
+import { asPlatform, asSearchPlatform } from '$lib/platform'
 
 export { mapGraphicsToPerformance }
 
@@ -19,7 +19,7 @@ function isPerformanceValid (perf) {
 
 export async function searchGames (db, searchParams) {
     // Each console has its own listing: Switch 2 titles are not mixed into the main one
-    const platform = asPlatform(searchParams.get('platform'))
+    const platform = asSearchPlatform(searchParams.get('platform'))
     const page = parseInt(searchParams.get('page') || '1', 10)
     const q = searchParams.get('q') || ''
     const publisher = searchParams.get('publisher')
@@ -42,7 +42,7 @@ export async function searchGames (db, searchParams) {
     )
 
     const whereClauses = []
-    whereClauses.push(platform === 'switch2' ? sql`${games.id} LIKE '04%'` : sql`${games.id} NOT LIKE '04%'`)
+    if (platform !== 'all') whereClauses.push(platform === 'switch2' ? sql`${games.id} LIKE '04%'` : sql`${games.id} NOT LIKE '04%'`)
     if (q) {
         if (/^[0-9A-F]{16}$/i.test(q)) {
             whereClauses.push(eq(games.id, q.toUpperCase()))

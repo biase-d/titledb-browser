@@ -20,7 +20,9 @@ export async function loadGamesPage ({ url, cookies, locals, session }, platform
 	const searchParams = new URLSearchParams(url.searchParams)
 	searchParams.set('region', preferredRegion)
 	// Set here, never taken from the address: each page is one console's
-	searchParams.set('platform', platform)
+	// The Switch listing, when searched by name, covers both consoles and marks the Switch 2 ones,
+	// so a title is found wherever it lives. The Switch 2 listing stays its own
+	searchParams.set('platform', platform === 'switch' && searchParams.get('q') ? 'all' : platform)
 
 	// We only want random games on the landing page (no search/filters)
 	const isLandingPage = !searchParams.get('q') && !searchParams.get('key_card') && !searchParams.get('docked_fps') && !searchParams.get('handheld_fps') && !searchParams.get('res_type')

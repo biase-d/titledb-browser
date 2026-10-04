@@ -5,6 +5,7 @@
     import { proxyImage } from '$lib/image'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
+    import Switch2Pill from '$lib/components/Switch2Pill.svelte'
     import TextHighlight from '$lib/components/TextHighlight.svelte'
     import { extractTheme } from '$lib/utils/theme'
 
@@ -75,6 +76,7 @@
         <TextHighlight text={titleName} {query} />
     </span>
     {#if showRegionBadge}
+        <Switch2Pill {id} />
         <span class="compact-region" title={regionLabel}>{regionBadge}</span>
     {/if}
     {#if $preferences.showTitleIds}

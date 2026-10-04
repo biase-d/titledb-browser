@@ -6,6 +6,7 @@
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
   import { preferences } from '$lib/stores/preferences'
   import { getLocalizedName } from '$lib/i18n'
+  import Switch2Pill from '$lib/components/Switch2Pill.svelte'
   import TextHighlight from '$lib/components/TextHighlight.svelte'
   import { extractTheme } from '$lib/utils/theme'
 
@@ -158,6 +159,7 @@
         <span class="card-id">{id}</span>
         {/if}
       </div>
+      <Switch2Pill {id} />
       {#if showRegionBadge}
         <span class="region-badge" title={regionLabel}>{regionBadge}</span>
       {/if}

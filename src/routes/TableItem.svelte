@@ -4,6 +4,7 @@
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
     import { proxyImage } from '$lib/image'
+    import Switch2Pill from '$lib/components/Switch2Pill.svelte'
     import TextHighlight from '$lib/components/TextHighlight.svelte'
 
     let { titleData, query = '' } = $props()
@@ -42,6 +43,7 @@
         <code>{id}</code>
     </div>
     <div class="col col-region">
+        <Switch2Pill {id} />
         <span class="region-pill" title={regionLabel}>{regionBadge || 'N/A'}</span>
     </div>
     <div class="col col-fps">
