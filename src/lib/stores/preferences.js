@@ -97,9 +97,10 @@ function createPreferencesStore () {
 		: 'flat'
 
 	/** @type {'auto' | 'off'} */
-	// How a game opens from the cartridge view: the cartridge flies to its page (the
-	// default), or slides into a slot first
-	const initialOpenStyle = browser && localStorage.getItem('open_style') === 'slot' ? 'slot' : 'flight'
+	// How a game opens from the cartridge view: the card slides into a slot (the
+	// default), the cartridge flies to its place on the page, or both
+	const storedOpen = browser ? localStorage.getItem('open_style') : null
+	const initialOpenStyle = storedOpen === 'fly' || storedOpen === 'both' ? storedOpen : 'slot'
 
 	const initialSeasonal = browser && localStorage.getItem('seasonal') === 'off' ? 'off' : 'auto'
 
@@ -224,7 +225,7 @@ function createPreferencesStore () {
 		},
 		/**
 		 * How opening a game looks from the cartridge view
-		 * @param {'flight' | 'slot'} openStyle
+		 * @param {'slot' | 'fly' | 'both'} openStyle
 		 */
 		setOpenStyle: (openStyle) => {
 			if (!browser) return

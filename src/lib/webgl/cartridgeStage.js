@@ -47,18 +47,6 @@ const H = 31 / 21
 // A real card is 3.4 mm; drawn at 80% of that, which reads better at this size
 const D = (3.4 * 0.8) / 21
 /**
- * When a card is opened, a blast goes out from where it seats in its slot and
- * sends every other card spinning off the screen. It is only there to cover the
- * page loading: the page opens the moment the card is in, and the blast carries
- * on behind it for as long as the old page is still showing. How fast the blast
- * travels (card widths a second), how fast cards leave, how long it can last, and
- * how long cards take to come back if the page did not open
- */
-const BLAST_SPEED = 20
-const BLAST_LAUNCH_PX = 1500
-const BLAST_MAX_MS = 8000
-const BLAST_RETURN_MS = 600
-/**
  * When a game opens from the grid, the cartridge on its page arrives as if the
  * page had been struck: dropped a little, it bounces and rocks until it settles.
  * This is when the last card was put into its slot, kept at module level because
@@ -66,24 +54,19 @@ const BLAST_RETURN_MS = 600
  */
 let lastInsertAt = 0
 /**
- * A card that was opened by flight leaves where it was, so the cartridge on the
- * game page can start there and fly to its own place (see CartridgeStage.launch)
+ * A card that was opened leaves where it was, so the cartridge on the game page
+ * can start there and fly to its own place (see CartridgeStage.launch)
  * @type {{ at: number, rect: { left: number, top: number, width: number } } | null}
  */
 let pendingTravel = null
 const FLIGHT_MS = 780
 const TRAVEL_WINDOW_MS = 8000
 /**
- * Going back: after cards were flung away, the next grid to appear has them
- * flying back in from where they were thrown. Where the blast came from, whether
- * a return is owed, and how long a batch of cards arriving together counts as one
- * @type {{ cx: number, cy: number, w: number } | null}
+ * Going back: if this page was reached by a cartridge flying in, leaving it the
+ * same way (back) has that cartridge fly home, to its card in the grid
+ * @type {{ at: number, id: string, rect: { left: number, top: number, width: number } } | null}
  */
-let lastBlast = null
-let returnPending = false
-let returnWindowEnd = 0
-const RETURN_S = 0.85
-const RETURN_FROM_T = 0.85
+let pendingReturn = null
 const ARRIVAL_WINDOW_MS = 6000
 const FACE_PX = 512
 const FACE_PX_H = Math.round(FACE_PX * H)
@@ -535,8 +518,6 @@ export class CartridgeStage {
 
 		/** @type {any} */
 		this.inserting = null
-		/** The blast from a card going into its slot: where, when it began, and when it was let go of @type {{ cx: number, cy: number, w: number, start: number, released: number | null, victims: Set<any> } | null} */
-		this.ripple = null
 
 		/** @type {Map<Element, any>} */
 		this.handles = new Map()
@@ -701,12 +682,14 @@ export class CartridgeStage {
 			/** Arrives with a bounce when the page was opened from a card (see lastInsertAt) */
 			arrive: !!opts.arrive, kickAt: /** @type {number | null} */ (null),
 			isHero: opts.style === 'hero',
+			/** After landing from a flight: when, for the overshoot that settles while it floats @type {number | null} */
+			settleAt: null,
+			/** It arrived by flight, so going back should fly it home */
+			cameByTravel: false,
 			/** Flying from where the card that opened this page was, to its own place @type {{ from: { left: number, top: number, width: number }, start: number } | null} */
 			travel: null,
 			/** Opened by flight: it lifts and waits for the page */
 			launched: false, launchedAt: 0,
-			/** Flying back into a grid that was blown away: when it starts, in ms */
-			returnAt: /** @type {number | null} */ (null),
 			// Pushed away and dipped back by the card the pointer is on
 			pushX: 0, pushY: 0, pushS: 0,
 			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
@@ -752,19 +735,20 @@ export class CartridgeStage {
 						if (pendingTravel && nowT - pendingTravel.at < TRAVEL_WINDOW_MS) {
 							// The card that was opened leaves from where it was and flies here
 							handle.travel = { from: pendingTravel.rect, start: nowT }
+							handle.cameByTravel = true
 							handle.revealAt = nowT - FLIP_MS
 							pendingTravel = null
 						} else if (nowT - lastInsertAt < ARRIVAL_WINDOW_MS) {
 							handle.kickAt = handle.revealAt + 140
 						}
 					}
-					// Going back to a grid that was blown away: the cards fly back in
-					if (!handle.isHero && handle.layoutMode === 'glide' && !this.options.reduced) {
-						if (returnPending) { returnPending = false; returnWindowEnd = nowT + 1800 }
-						if (nowT < returnWindowEnd && lastBlast) {
-							handle.revealAt = nowT - FLIP_MS
-							handle.returnAt = nowT + delay
-						}
+					// Coming home: the cartridge the page was reached by is on its way back, so
+					// this card (the one that was opened) is where it lands
+					if (!handle.isHero && handle.layoutMode === 'glide' && pendingReturn && !this.options.reduced &&
+						nowT - pendingReturn.at < TRAVEL_WINDOW_MS && String(handle.data.id) === pendingReturn.id) {
+						handle.travel = { from: pendingReturn.rect, start: nowT }
+						handle.revealAt = nowT - FLIP_MS
+						pendingReturn = null
 					}
 					this.wake()
 				}
@@ -835,8 +819,14 @@ export class CartridgeStage {
 			},
 			endDrag: () => { handle.dragging = false; this.wake() },
 			/** Slides this card down into an invisible slot, resolving once it is out of sight */
-			insert: () => this.beginInsert(handle),
-			/** Opens by flight: the others are blown away and this one waits to fly to the next page */
+			insert: (travel = false) => this.beginInsert(handle, travel),
+			/** Called as the page is left by going back: if this cartridge flew in, it will fly home */
+			noteReturn: () => {
+				if (!handle.cameByTravel || this.options.reduced) return
+				const hr = handle.el.getBoundingClientRect()
+				if (hr.width > 0) pendingReturn = { at: performance.now(), id: String(handle.data.id), rect: { left: hr.left, top: hr.top, width: hr.width } }
+			},
+			/** Opens by flight: the page is opening and this one waits to fly to it */
 			launch: () => this.launch(handle),
 			dispose: () => this.unregister(el)
 		}
@@ -887,56 +877,24 @@ export class CartridgeStage {
 	}
 
 	/**
-	 * Opens a game by flight. Every other card near the screen is blown away from
-	 * this one, and this one lifts and waits; the page is already opening, and the
-	 * cartridge on it starts from where this one is. Call releaseLaunch afterwards
+	 * Opens a game by flight. The card lifts and waits, the page is already
+	 * opening, and the cartridge on it starts from where this card is. Call
+	 * releaseLaunch afterwards
 	 * @param {any} handle
 	 */
 	launch (handle) {
 		const nowT = performance.now()
 		const er = handle.el.getBoundingClientRect()
-		lastInsertAt = nowT
 		pendingTravel = { at: nowT, rect: { left: er.left, top: er.top, width: er.width } }
-		if (!this.options.reduced) {
-			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: nowT + 40, released: null, victims: new Set([...this.handles.values()].filter(h => h !== handle && h.near)) }
-			lastBlast = { cx: this.ripple.cx, cy: this.ripple.cy, w: this.ripple.w }
-			returnPending = true
-		}
 		handle.launched = true
 		handle.launchedAt = nowT
 		this.wake()
 	}
 
-	/** The page has opened (or did not): let go of the cards, which come back if they are still here */
+	/** The page has opened (or did not): the card is let go of */
 	releaseLaunch () {
 		for (const h of this.handles.values()) h.launched = false
-		if (this.ripple && this.ripple.released === null) this.ripple.released = performance.now()
 		this.wake()
-	}
-
-	/**
-	 * Where a card is flung to, a time t after the blast reached it
-	 * @param {number} cxPx @param {number} cyPx where the card is
-	 * @param {{ cx: number, cy: number, w: number }} src where the blast came from
-	 * @param {number} t seconds
-	 */
-	fling (cxPx, cyPx, src, t) {
-		const d = Math.hypot(cxPx - src.cx, cyPx - src.cy) || 1
-		let ux = (cxPx - src.cx) / d
-		let uy = (cyPx - src.cy) / d - 0.75
-		const ul = Math.hypot(ux, uy) || 1
-		ux /= ul
-		uy /= ul
-		const seed = (/** @type {number} */ n) => { const v = Math.sin(cxPx * 12.9898 + cyPx * 78.233 + n * 37.719) * 43758.5453; return v - Math.floor(v) }
-		const speed = BLAST_LAUNCH_PX * (0.6 + 0.8 / (1 + d / (src.w * 2)))
-		const travel = speed * t * (1 + 1.6 * t)
-		return {
-			x: ux * travel,
-			y: uy * travel,
-			rx: (seed(1) - 0.5) * 24 * t,
-			ry: (seed(2) - 0.5) * 24 * t,
-			rz: (seed(3) - 0.5) * 20 * t
-		}
 	}
 
 	/**
@@ -946,7 +904,7 @@ export class CartridgeStage {
 	 * endInsert afterwards (it also puts the card back if the page did not open)
 	 * @param {any} handle
 	 */
-	beginInsert (handle) {
+	beginInsert (handle, travel = false) {
 		if (this.inserting) return Promise.resolve()
 		// This card gets its own shell material, so the clip does not touch the others
 		const clip = new Plane(new Vector3(0, 1, 0), 0)
@@ -958,12 +916,10 @@ export class CartridgeStage {
 		this.renderer.localClippingEnabled = true
 
 		lastInsertAt = performance.now()
-		// The shockwave, from this card's centre, set off as it seats (not as it is pulled out)
-		if (!this.options.reduced) {
+		// Wanting the cartridge on the next page to fly in from where this card is
+		if (travel && !this.options.reduced) {
 			const er = handle.el.getBoundingClientRect()
-			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.3, released: null, victims: new Set([...this.handles.values()].filter(h => h !== handle && h.near)) }
-			lastBlast = { cx: this.ripple.cx, cy: this.ripple.cy, w: this.ripple.w }
-			returnPending = true
+			pendingTravel = { at: performance.now(), rect: { left: er.left, top: er.top, width: er.width } }
 		}
 
 		this.inserting = {
@@ -982,8 +938,6 @@ export class CartridgeStage {
 	endInsert () {
 		const st = this.inserting
 		if (!st) return
-		// If the page did not open, the cards come back
-		if (this.ripple && this.ripple.released === null) this.ripple.released = performance.now()
 		// Back to whatever clip the card had before it was opened (usually none)
 		const planes = st.handle.clipPlanes && st.handle.clipEl ? st.handle.clipPlanes : null
 		st.clippedShell.clippingPlanes = planes
@@ -1399,46 +1353,24 @@ export class CartridgeStage {
 			h.pushS += (tPs - h.pushS) * 0.16
 			if (Math.abs(h.leanX - tLx) > 0.002 || Math.abs(h.leanY - tLy) > 0.002 || Math.abs(h.pushX - tPx) > 0.1 || Math.abs(h.pushS - tPs) > 0.002) animating = true
 
-			// The blast from a card going into its slot. It reaches each card when the
-			// front does, and sends it off the screen: away from the slot, with a bias
-			// upward, speeding up as it goes, and spinning about all three axes (each
-			// its own way, the same every time). Nearer cards leave faster. If the page
-			// never opens the cards are let go and come back
+			// What moves a card from where it sits: the arrival bounce below
 			let ripX = 0
 			let ripY = 0
 			let ripRx = 0
 			let ripRy = 0
 			let ripRz = 0
-			// Only the cards that were there when it went off: a card on the page that opens next is not caught in it
-			if (this.ripple && !away && this.ripple.victims.has(h)) {
-				const rp = this.ripple
-				const d = Math.hypot(cxPx - rp.cx, cyPx - rp.cy) || 1
-				const t = (now - rp.start) / 1000 - d / (rp.w * BLAST_SPEED)
-				if (t > 0) {
-					const back = rp.released === null ? 1 : 1 - easeOutCubic(Math.min(1, (now - rp.released) / BLAST_RETURN_MS))
-					const f = this.fling(cxPx, cyPx, rp, t)
-					ripX = f.x * back
-					ripY = f.y * back
-					ripRx = f.rx * back
-					ripRy = f.ry * back
-					ripRz = f.rz * back
-				}
-			}
 
-			// Coming back after a blast: the same flight, run backwards, slowing as it
-			// lands. Until its turn it waits out of sight where it was thrown
-			if (h.returnAt !== null && !away && lastBlast) {
-				const T = (now - h.returnAt) / 1000
-				if (T < RETURN_S) {
-					const t = RETURN_FROM_T * (T <= 0 ? 1 : 1 - easeOutCubic(T / RETURN_S))
-					const f = this.fling(cxPx, cyPx, lastBlast, t)
-					ripX = f.x
-					ripY = f.y
-					ripRx = f.rx
-					ripRy = f.ry
-					ripRz = f.rz
+			// After a flight: the turn carries slightly past where it should stop, then
+			// corrects itself while it floats, a gentle bob settling with it
+			if (h.settleAt !== null && !away) {
+				const u = (now - h.settleAt) / 1000
+				if (u < 2.4) {
+					const decay = Math.exp(-3.4 * u)
+					ripRy += 0.4 * decay * Math.sin(11 * u)
+					ripRx += 0.05 * decay * Math.sin(8 * u + 1)
+					ripY -= Math.sin(5 * u) * decay * r.width * 0.04
 					animating = true
-				} else h.returnAt = null
+				} else h.settleAt = null
 			}
 
 			// The arrival bounce: dropped, it lands and bounces, rocking as it does,
@@ -1483,11 +1415,10 @@ export class CartridgeStage {
 				// An arc, up and over, and one full turn on the way
 				cy = fromCy + (cy - fromCy) * k - Math.sin(Math.PI * k) * this.viewH * 0.09
 				width = tv.from.width + (width - tv.from.width) * k
-				flightYaw += k * Math.PI * 2
-				if (p >= 1) {
-					h.travel = null
-					h.kickAt = now
-				}
+				// Still turning a little as it arrives, so it carries past (see the settle below)
+				flightYaw += (0.55 * p + 0.45 * (1 - Math.pow(1 - p, 3))) * Math.PI * 2
+				// Graceful: no bounce, but the turn overshoots a little and eases back
+				if (p >= 1) { h.travel = null; h.settleAt = now }
 				animating = true
 			}
 
@@ -1553,12 +1484,7 @@ export class CartridgeStage {
 		}
 
 		this.hovered = nextHovered
-		if (this.ripple) {
-			const rp = this.ripple
-			const over = rp.released !== null ? now - rp.released > BLAST_RETURN_MS : now - rp.start > BLAST_MAX_MS
-			if (over) this.ripple = null
-			else animating = true
-		}
+
 
 		// Piles of cartridges
 		const cosT = Math.cos(STACK_TILT)

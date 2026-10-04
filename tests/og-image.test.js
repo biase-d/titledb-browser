@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('$app/environment', () => ({ browser: true }))
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), preloadData: vi.fn(), beforeNavigate: vi.fn() }))
 
 vi.mock('$lib/stores/theme.svelte', () => ({
     themeStore: {

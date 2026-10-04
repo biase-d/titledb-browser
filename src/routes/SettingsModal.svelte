@@ -346,14 +346,15 @@
                         <div class="setting-info">
                             <span class="setting-label">Opening a game</span>
                             <span class="setting-desc"
-                                >In the cartridge view, a game can open with its
-                                cartridge flying to the page while the other
-                                cartridges are blown away, or the cartridge can
-                                slide into a slot first.</span
+                                >In the cartridge view: slide the cartridge into a
+                                slot before the page opens; open the page at once
+                                and have its cartridge fly in from where the card
+                                was; or both. Going back after a flight flies the
+                                cartridge home.</span
                             >
                         </div>
                         <div class="segmented" role="radiogroup" aria-label="Opening a game">
-                            {#each [['flight', 'Fly to the page'], ['slot', 'Slide into a slot']] as [value, label] (value)}
+                            {#each [['slot', 'Slot'], ['fly', 'Fly'], ['both', 'Both']] as [value, label] (value)}
                                 <button
                                     role="radio"
                                     aria-checked={$preferences.openStyle === value}

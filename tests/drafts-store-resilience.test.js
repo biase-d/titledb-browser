@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // available - private windows, blocked site data, a failed version upgrade - and
 // a rejection there used to escape as an unhandled rejection on every page view
 vi.mock('$app/environment', () => ({ browser: true }));
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), preloadData: vi.fn(), beforeNavigate: vi.fn() }));
 
 describe('drafts store with IndexedDB unavailable', () => {
     beforeEach(() => {

@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte'
-  import { goto, preloadData } from '$app/navigation'
+  import { goto, preloadData, beforeNavigate } from '$app/navigation'
   import Icon from '@iconify/svelte'
   import { createImageSet, proxyImage } from '$lib/image'
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
@@ -44,6 +44,13 @@
    * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', grow?: number, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
    */
   let { titleData, index = 0, hero = false, ghost = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, grow = 0, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
+
+  // Going back from the page this cartridge flew into: it flies home to its card
+  if (hero) {
+    beforeNavigate(({ type }) => {
+      if (type === 'popstate') handle?.noteReturn()
+    })
+  }
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -277,12 +284,13 @@
   let inserting = false
 
   /**
-   * Opening a game from the cartridge view. By flight (the default): the page
-   * starts opening at once, the other cards are blown away, and this cartridge
-   * waits to fly to its place on the page. Or, if chosen in Settings, it slides
-   * into a slot and then the page opens. Only for a plain click on the WebGL
-   * card. A modified click (new tab, new window), a second click mid-animation,
-   * reduced motion, and the CSS card are all the ordinary link
+   * Opening a game from the cartridge view, as chosen in Settings: the card
+   * slides into a slot and then the page opens ('slot'); the page opens at once
+   * and the cartridge on it flies in from where this card was ('fly'); or the
+   * card slides into the slot and then the cartridge on the page flies in from
+   * there ('both'). Only for a plain click on the WebGL card. A modified click
+   * (new tab, new window), a second click mid-animation, reduced motion, and the
+   * CSS card are all the ordinary link
    * @param {MouseEvent} e
    */
   async function open (e) {
@@ -295,26 +303,22 @@
     e.preventDefault()
     inserting = true
     const href = linkTo ?? `/title/${id}`
+    // Start fetching the page now, so it is ready by the time it is wanted
     preloadData(href).catch(() => {})
-
-    if (get(preferences).openStyle !== 'slot') {
-      // The page does not wait for the animation
-      handle.launch()
-      try {
-        await goto(href)
-      } finally {
-        stage.releaseLaunch()
-        inserting = false
-        setTimeout(() => stageModule?.releaseStage(), 700)
-      }
-      return
-    }
+    const style = get(preferences).openStyle
 
     try {
-      await handle.insert()
-      await goto(href)
+      if (style === 'fly') {
+        // The page does not wait for any animation
+        handle.launch()
+        await goto(href)
+      } else {
+        await handle.insert(style === 'both')
+        await goto(href)
+      }
     } finally {
-      stage.endInsert()
+      if (style === 'fly') stage.releaseLaunch()
+      else stage.endInsert()
       inserting = false
       setTimeout(() => stageModule?.releaseStage(), 700)
     }
