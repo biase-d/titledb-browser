@@ -170,7 +170,9 @@ export async function getUserContributionStats (db, username) {
  * @param {string} options.preferredRegion
  * @returns {Promise<{games: Array, sortBy: string, pagination: Object}>}
  */
-export async function getMissingDataGroups (db, { page, sortBy, preferredRegion }) {
+export async function getMissingDataGroups (db, { page, sortBy, preferredRegion, platform = 'all' }) {
+    // 'all', or one console's titles (a Switch 2 group's ID starts 04; see $lib/platform)
+    const onPlatform = platform === 'switch2' ? sql`${gameGroups.id} LIKE '04%'` : platform === 'switch' ? sql`${gameGroups.id} NOT LIKE '04%'` : undefined
     const subqueryPerformance = db
         .select({ groupId: performanceProfiles.groupId })
         .from(performanceProfiles)
@@ -185,7 +187,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
     const countQuery = db
         .select({ count: count() })
         .from(gameGroups)
-        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics)))
+        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics), onPlatform))
 
     // Get total count for pagination
     const totalCountResult = await countQuery
@@ -196,7 +198,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
         .select({ id: gameGroups.id })
         .from(gameGroups)
         .leftJoin(games, eq(games.groupId, gameGroups.id))
-        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics)))
+        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics), onPlatform))
         .groupBy(gameGroups.id)
         .orderBy(sql`MAX(${games.lastUpdated}) DESC NULLS LAST`)
 

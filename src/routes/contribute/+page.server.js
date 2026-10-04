@@ -23,11 +23,14 @@ export const load = async ({ parent, url, cookies, locals }) => {
 	const page = parseInt(url.searchParams.get('page') || '1', 10)
 	const sortBy = url.searchParams.get('sort') || 'default'
 	const preferredRegion = cookies.get('preferred_region') || 'US'
+	const requested = url.searchParams.get('platform')
+	const platform = requested === 'switch' || requested === 'switch2' ? requested : 'all'
 
 	const result = await contributeService.getMissingDataGames(locals.db, {
 		page,
 		sortBy,
-		preferredRegion
+		preferredRegion,
+		platform
 	})
 
 	const progress = await contributeService.getMyProgress(
@@ -41,6 +44,7 @@ export const load = async ({ parent, url, cookies, locals }) => {
 		artwork: [],
 		games: result.games,
 		sortBy: result.sortBy,
+		platform,
 		pagination: result.pagination,
 		impactStats
 	}

@@ -267,7 +267,8 @@
 				<h1>Switch 2 game performance</h1>
 				<p>
 					Frame rates, resolutions and graphics settings for Switch 2
-					games, collected by the community. The cartridges are red.
+					games, collected by the community. The cartridges are red...
+					very innovative.
 				</p>
 				<div class="s2-actions">
 					<a href={keyCardOnly ? '/switch-2' : '/switch-2?key_card=1'} class="key-chip" class:on={keyCardOnly}>

@@ -50,6 +50,6 @@ export async function getMyProgress (db, login) {
  * @param {string} options.preferredRegion
  * @returns {Promise<{games: Array, pagination: Object}>}
  */
-export async function getMissingDataGames (db, { page, sortBy, preferredRegion }) {
-	return contributionRepo.getMissingDataGroups(db, { page, sortBy, preferredRegion })
+export async function getMissingDataGames (db, { page, sortBy, preferredRegion, platform }) {
+	return contributionRepo.getMissingDataGroups(db, { page, sortBy, preferredRegion, platform })
 }

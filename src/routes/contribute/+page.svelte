@@ -18,6 +18,16 @@
 	let pagination = $derived(data.pagination)
 	let session = $derived(data.session)
 	let sortBy = $derived(data.sortBy)
+	let platform = $derived(data.platform ?? 'all')
+
+	/** The same list, for one console or both: the address carries it, and starts again from page 1 @param {'all' | 'switch' | 'switch2'} next */
+	function showPlatform (next) {
+		const url = new URL(page.url)
+		if (next === 'all') url.searchParams.delete('platform')
+		else url.searchParams.set('platform', next)
+		url.searchParams.set('page', '1')
+		goto(url.toString(), { noScroll: true })
+	}
 	let impactStats = $derived(data.impactStats || {})
 
 	let pageHeader
@@ -174,6 +184,20 @@
 					<h2>Help wanted</h2>
 					<p>Games with no performance or graphics data yet</p>
 				</div>
+				<div class="controls">
+				<div class="sort-group" role="group" aria-label="Console">
+					{#each [['all', 'All'], ['switch', 'Switch'], ['switch2', 'Switch 2']] as [value, label] (value)}
+						<button
+							class="sort-pill"
+							class:active={platform === value}
+							class:s2={value === 'switch2'}
+							aria-pressed={platform === value}
+							onclick={() => showPlatform(/** @type {any} */ (value))}
+						>
+							<span>{label}</span>
+						</button>
+					{/each}
+				</div>
 				<div class="sort-group" role="group" aria-label="Order">
 					<button
 						class="sort-pill"
@@ -201,6 +225,7 @@
 						<Icon icon="mdi:fire" />
 						<span>Most requested</span>
 					</button>
+				</div>
 				</div>
 			</div>
 
@@ -238,8 +263,13 @@
 			{:else}
 				<div class="all-clear" in:fade>
 					<div class="clear-icon"><Icon icon="mdi:check-decagram" /></div>
-					<h3>Every game has data</h3>
-					<p>Check back when new releases arrive.</p>
+					{#if platform === 'switch2'}
+						<h3>No Switch 2 games are waiting for data</h3>
+						<p>Either they all have data, or none have been added yet. Check back as more arrive.</p>
+					{:else}
+						<h3>Every game has data</h3>
+						<p>Check back when new releases arrive.</p>
+					{/if}
 				</div>
 			{/if}
 		{/if}
@@ -330,7 +360,9 @@
 	.view-header { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: end; margin-bottom: 0.5rem; }
 	.view-title h2 { font-size: 1.5rem; font-weight: 800; }
 	.view-title p { color: var(--text-secondary); font-size: 0.9rem; }
+	.controls { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 	.sort-group { display: flex; gap: 0.5rem; }
+	.sort-pill.s2.active { border-color: #e60012; color: #e60012; }
 	.sort-pill { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; border-radius: 99px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-secondary); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
 	.sort-pill.active { color: var(--text-primary); border-color: var(--primary-color); }
 
