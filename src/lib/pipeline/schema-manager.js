@@ -176,14 +176,7 @@ export async function ensureSchemas (sqlClient) {
     console.log('[SchemaManager] Schemas and control tables ready.')
 }
 
-/**
- * Icons found on Nintendo's store for titles titledb has none for. Kept in public
- * so a rebuild of a layer does not lose them; the active_games view lays them over
- * the layer's own icon_url
- * @param {import('postgres').Sql} sqlClient
- */
-async function createIconLookups (sqlClient) {
-    await sqlClient.unsafe(`
+const ICON_LOOKUPS_DDL = `
 		CREATE TABLE IF NOT EXISTS public.icon_lookups (
 			"game_id" TEXT PRIMARY KEY,
 			"icon_url" TEXT,
@@ -191,20 +184,32 @@ async function createIconLookups (sqlClient) {
 			"retry_after" TIMESTAMPTZ,
 			"checked_at" TIMESTAMPTZ NOT NULL DEFAULT now()
 		)
-	`)
+	`
+
+/**
+ * Icons found on Nintendo's store for titles titledb has none for. Kept in public
+ * so a rebuild of a layer does not lose them; the active_games view lays them over
+ * the layer's own icon_url
+ * @param {import('postgres').Sql} sqlClient
+ */
+async function createIconLookups (sqlClient) {
+    await sqlClient.unsafe(ICON_LOOKUPS_DDL)
 }
 
 /**
- * What the running site needs for looked-up icons: the table, and active_games
- * laid over the active layer. A deploy does not run the bootstrap (the sync does),
- * so the site makes sure of both itself the first time it looks an icon up. Both
- * statements are idempotent
- * @param {import('postgres').Sql} sqlClient
+ * What the running site needs for looked-up icons: the table, and active_games laid
+ * over the active layer. A deploy does not run the bootstrap (the sync does), so the
+ * site makes sure of both itself the first time it looks an icon up. Both statements
+ * are idempotent
+ *
+ * Takes a function that runs one statement, so it works with the site's drizzle
+ * connection as well as with the pipeline's raw client
+ * @param {(statement: string) => Promise<any>} run
  */
-export async function ensureIconStore (sqlClient) {
-    await createIconLookups(sqlClient)
-    const active = await getActiveSchema(sqlClient)
-    await sqlClient.unsafe(viewSql('active_games', 'games', active))
+export async function ensureIconStore (run) {
+    await run(ICON_LOOKUPS_DDL)
+    const rows = await run('SELECT active_schema FROM public.schema_state WHERE id = 1')
+    await run(viewSql('active_games', 'games', rows?.[0]?.active_schema || SCHEMA_A))
 }
 
 /**

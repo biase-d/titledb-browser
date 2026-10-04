@@ -31,12 +31,13 @@ const TRANSIENT_RETRY_MINUTES = 60
 const SQUARE_KEY = 'productImage({"shape":"square"})'
 
 /**
- * The square image of the page's own product. The page data holds the products it
- * recommends too, so the one wanted is picked by being the first nsuid on the page
+ * The page's own product: its square image, name and console. The page data holds the
+ * products it recommends too, so the one wanted is picked by being the first nsuid on
+ * the page
  * @param {string} html
- * @returns {string | null}
+ * @returns {{ nsuid: string, name: string | null, consoles: string[], icon: string | null } | null}
  */
-export function extractSquareIcon (html) {
+export function extractStoreProduct (html) {
 	const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
 	if (!match) return null
 
@@ -51,28 +52,56 @@ export function extractSquareIcon (html) {
 		return null
 	}
 
-	/** @type {string | null} */
-	let found = null
+	/** @type {any} */
+	let product = null
 	/** @param {any} node */
 	const walk = (node) => {
-		if (found || !node || typeof node !== 'object') return
+		if (product || !node || typeof node !== 'object') return
 		if (node.nsuid === mainNsuid && typeof node[SQUARE_KEY]?.url === 'string') {
-			found = node[SQUARE_KEY].url
+			product = node
 			return
 		}
 		for (const value of Object.values(node)) walk(value)
 	}
 	walk(data)
+	if (!product) return null
 
-	// Only ever one of Nintendo's own image hosts, whatever the page says
-	if (found && /^https:\/\/assets\.nintendo\.com\//.test(found)) return found
-	return null
+	const url = product[SQUARE_KEY].url
+	return {
+		nsuid: mainNsuid,
+		name: typeof product.name === 'string' ? product.name : null,
+		consoles: [product.platform?.code, ...(product.platforms ?? []).map((/** @type {any} */ p) => p?.code)].filter(Boolean),
+		// Only ever one of Nintendo's own image hosts, whatever the page says
+		icon: /^https:\/\/assets\.nintendo\.com\//.test(url) ? url : null
+	}
 }
+
+/** The square image of the page's own product @param {string} html */
+export function extractSquareIcon (html) {
+	return extractStoreProduct(html)?.icon ?? null
+}
+
+/** The console a title is for, as the store names it @param {string} titleId */
+function storeConsole (titleId) {
+	return /^04/i.test(titleId) ? 'NINTENDO_SWITCH_2' : 'NINTENDO_SWITCH'
+}
+
+/**
+ * What one store says about a title
+ * @typedef {Object} StoreAnswer
+ * @property {string | null} icon
+ * @property {boolean} transient
+ * @property {string} [region]
+ * @property {string} [page]
+ * @property {string | null} [name]
+ * @property {string} [nsuid]
+ * @property {string} [rejected] why a found icon was not used
+ */
 
 /**
  * @param {string} titleId
  * @param {string} region
- * @returns {Promise<{ icon: string | null, transient: boolean }>}
+ * @returns {Promise<StoreAnswer>}
  */
 async function lookupIn (titleId, region) {
 	try {
@@ -82,12 +111,20 @@ async function lookupIn (titleId, region) {
 		})
 		// Another region's store, or the waiting room, is not an answer about this title
 		if (!response.ok || new URL(response.url).hostname !== 'www.nintendo.com') {
-			return { icon: null, transient: response.status !== 404 }
+			return { icon: null, transient: response.status !== 404, region }
 		}
-		return { icon: extractSquareIcon(await response.text()), transient: false }
+		const product = extractStoreProduct(await response.text())
+		const answer = { region, page: response.url, name: product?.name, nsuid: product?.nsuid }
+		if (!product?.icon) return { ...answer, icon: null, transient: false }
+
+		// A page for the other console is another product's icon
+		if (!product.consoles.includes(storeConsole(titleId))) {
+			return { ...answer, icon: null, transient: false, rejected: `the page is for ${product.consoles.join(', ') || 'an unknown console'}` }
+		}
+		return { ...answer, icon: product.icon, transient: false }
 	} catch (e) {
 		logger.warn('Icon lookup failed', { titleId, error: e instanceof Error ? e.message : String(e) })
-		return { icon: null, transient: true }
+		return { icon: null, transient: true, region }
 	}
 }
 
@@ -95,15 +132,18 @@ async function lookupIn (titleId, region) {
  * The first store with an icon for the title. A store that is merely busy ends the
  * search as transient: the title is asked about again soon rather than written off
  * @param {string} titleId
- * @returns {Promise<{ icon: string | null, transient: boolean }>}
+ * @returns {Promise<StoreAnswer>}
  */
-async function lookup (titleId) {
+export async function findStoreIcon (titleId) {
+	/** @type {StoreAnswer} */
+	let last = { icon: null, transient: false }
 	for (const region of REGIONS) {
 		const result = await lookupIn(titleId, region)
 		if (result.icon || result.transient) return result
+		last = result
 		await sleep(SPACING_MS)
 	}
-	return { icon: null, transient: false }
+	return last
 }
 
 /** @type {Promise<void> | null} */
@@ -111,7 +151,7 @@ let storeReady = null
 
 /** Once per process, and tried again after a failure @param {any} db */
 function ensureStore (db) {
-	storeReady ??= ensureIconStore(db.$client).catch((e) => {
+	storeReady ??= ensureIconStore(statement => db.execute(sql.raw(statement))).catch((e) => {
 		storeReady = null
 		throw e
 	})
@@ -151,7 +191,7 @@ export function ensureIcon (db, game, options = {}) {
 			if (row?.icon_url && row.icon_url !== replacing) return
 			if (row?.retry_after && new Date(row.retry_after) > new Date()) return
 
-			const { icon, transient } = await lookup(game.id)
+			const { icon, transient } = await findStoreIcon(game.id)
 			const attempts = (row?.attempts ?? 0) + (transient ? 0 : 1)
 			const retryAfter = icon
 				? null

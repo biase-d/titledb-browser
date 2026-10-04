@@ -30,3 +30,31 @@ describe('extractSquareIcon', () => {
 		expect(extractSquareIcon(page({ p: { nsuid: '1' } }))).toBeNull()
 	})
 })
+
+import { extractStoreProduct } from '$lib/server/iconBackfill'
+import { ensureIconStore } from '$lib/pipeline/schema-manager.js'
+
+describe('extractStoreProduct', () => {
+	it('carries the name and the consoles so a wrong-console page can be refused', () => {
+		const html = page({
+			p: {
+				nsuid: '7', name: 'PRAGMATA', platform: { code: 'NINTENDO_SWITCH_2' }, platforms: [{ code: 'NINTENDO_SWITCH_2' }],
+				[KEY]: { url: 'https://assets.nintendo.com/image/upload/x' }
+			}
+		})
+		expect(extractStoreProduct(html)).toMatchObject({ nsuid: '7', name: 'PRAGMATA', consoles: ['NINTENDO_SWITCH_2', 'NINTENDO_SWITCH_2'] })
+	})
+})
+
+describe('ensureIconStore', () => {
+	it('only needs a function that runs one statement, as the site has through its pooled drizzle connection', async () => {
+		const statements = []
+		await ensureIconStore(async (statement) => {
+			statements.push(statement)
+			return statement.includes('schema_state') ? [{ active_schema: 'layer_b' }] : []
+		})
+		expect(statements).toHaveLength(3)
+		expect(statements[0]).toContain('icon_lookups')
+		expect(statements[2]).toContain('"layer_b"."games"')
+	})
+})
