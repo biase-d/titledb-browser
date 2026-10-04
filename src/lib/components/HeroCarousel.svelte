@@ -199,6 +199,11 @@
                         <div class="hero-overlay"></div>
                     </div>
 
+                    <!-- The season's scene: as big as it likes, but behind the title -->
+                    {#if isActive}
+                        <div class="season-back" aria-hidden="true"><SeasonProp /></div>
+                    {/if}
+
                     <div class="hero-content">
                         <div class="hero-eyebrow">
                             <span class="hero-badge">
@@ -251,7 +256,6 @@
                          has one drawn, and it never leaves the carousel while the slides
                          move. It is a link like the cards below, so opening it slides it in -->
                     <div class="hero-cart" aria-hidden={!isActive}>
-                        {#if isActive}<SeasonProp />{/if}
                         <CartridgeItem
                             titleData={game}
                             pose="hero"
@@ -307,14 +311,13 @@
         transition: --dynamic-primary 0.5s ease, --dynamic-overlay 0.5s ease;
     }
 
-    /* Invisible: only its box matters, as the area a cartridge may be drawn in. It
-       reaches below the carousel for the cartridge's feet */
+    /* Invisible: only its box matters, as the area a cartridge may be drawn in */
     .clip-zone {
         position: absolute;
         left: 0;
         right: 0;
         top: 0;
-        bottom: -4.5rem;
+        bottom: 0;
         pointer-events: none;
         visibility: hidden;
     }
@@ -401,19 +404,21 @@
         transition: opacity 0.5s ease 0.15s;
     }
 
-    .overhang .hero-cart {
-        bottom: -1.5rem;
-        /* The pumpkin stands on the panel's floor, not on the cartridge's base below it */
-        --prop-lift: 1.9rem;
-        --prop-width: 48%;
+    /* The scene stands on the panel's floor, to the left of the cartridge and running
+       back under the title (which is above it). Not on phones, where the title is
+       centred over the whole panel */
+    .season-back {
+        position: absolute;
+        z-index: 0;
+        right: clamp(9rem, 22%, 15rem);
+        bottom: 0.9rem;
+        width: 16rem;
+        --prop-right: 0;
+        --prop-width: 100%;
+        opacity: 0.92;
     }
 
     @media (min-width: 769px) {
-        /* Room below the panel for the cartridge's feet */
-        .overhang {
-            margin-bottom: 1.5rem;
-        }
-
         /* The progress bars stay at the bottom left under the text; the buttons go to
            the top right, so the bottom right is the cartridge's */
         .hero-controls {
@@ -693,8 +698,11 @@
         }
 
         /* Above the text, in the middle, rather than beside it, and inside the panel */
-        .hero-cart,
-        .overhang .hero-cart {
+        .season-back {
+            display: none;
+        }
+
+        .hero-cart {
             top: 1.5rem;
             bottom: auto;
             right: 50%;

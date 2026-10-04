@@ -1,5 +1,6 @@
 <script>
 	import SeasonProp from '$lib/components/SeasonProp.svelte'
+	import QuestionBlock from '$lib/components/QuestionBlock.svelte'
 	import { fade } from 'svelte/transition'
 	import { browser } from '$app/environment'
 	import { onMount } from 'svelte'
@@ -204,6 +205,8 @@
 	})
 
 	let name = $derived(getLocalizedName(game.names, preferredRegion))
+	// An easter egg for the plumbers' games
+	let isMario = $derived((game.names ?? []).some((/** @type {string} */ n) => /\b(mario|luigi|wario)\b/i.test(n)))
 	let altNames = $derived(
 		game.names ? game.names.filter((n) => n !== name) : [],
 	)
@@ -475,6 +478,7 @@
 				<div class="header-content">
 					<div class="season-corner"><SeasonProp /></div>
 					<div class="hero-cart" bind:this={heroElement}>
+						{#if isMario}<div class="egg-spot"><QuestionBlock /></div>{/if}
 						<CartridgeItem
 							titleData={heroData}
 							hero
@@ -1134,6 +1138,13 @@
 			align-items: center;
 			gap: 2.5rem;
 		}
+	}
+
+	/* The ? block beside the cartridge, where there is room for it */
+	.egg-spot { display: none; }
+
+	@media (min-width: 900px) {
+		.egg-spot { display: block; position: absolute; top: 0.5rem; right: -2.9rem; z-index: 3; }
 	}
 
 	/* A pumpkin in the panel's lower right, on wide screens where there is room */
