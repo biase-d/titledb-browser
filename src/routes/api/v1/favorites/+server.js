@@ -1,45 +1,36 @@
 import { json } from '@sveltejs/kit'
-import * as favoritesService from '$lib/services/favoritesService'
+import * as repo from '$lib/repositories/favoritesRepository'
+import { body, titleId, unauthorized, userIdOf } from '$lib/server/favoritesApi'
 
-/** @type {import('./$types').RequestHandler} */
+/** The signed-in person's favourites and lists. Empty when signed out @type {import('./$types').RequestHandler} */
 export async function GET ({ locals }) {
-	const session = await locals.auth()
-	if (!session?.user?.id) {
-		return json({ favorites: [] })
-	}
+	const userId = await userIdOf(locals)
+	if (!userId) return json({ favorites: [], lists: [], signedIn: false })
 
-	const favorites = await favoritesService.getFavorites(session.user.id)
-	return json({ favorites })
+	const [favorites, lists] = await Promise.all([repo.getUserFavorites(locals.db, userId), repo.getLists(locals.db, userId)])
+	return json({ favorites, lists, signedIn: true })
 }
 
 /** @type {import('./$types').RequestHandler} */
 export async function POST ({ request, locals }) {
-	const session = await locals.auth()
-	if (!session?.user?.id) {
-		return json({ error: 'Unauthorized' }, { status: 401 })
-	}
+	const userId = await userIdOf(locals)
+	if (!userId) return unauthorized()
 
-	const { gameId } = await request.json()
-	if (!gameId) {
-		return json({ error: 'Missing gameId' }, { status: 400 })
-	}
+	const id = titleId((await body(request)).gameId)
+	if (!id) return json({ error: 'Missing or invalid gameId' }, { status: 400 })
 
-	await favoritesService.addFavorite(session.user.id, gameId)
+	await repo.addFavorite(locals.db, userId, id)
 	return json({ success: true })
 }
 
 /** @type {import('./$types').RequestHandler} */
 export async function DELETE ({ request, locals }) {
-	const session = await locals.auth()
-	if (!session?.user?.id) {
-		return json({ error: 'Unauthorized' }, { status: 401 })
-	}
+	const userId = await userIdOf(locals)
+	if (!userId) return unauthorized()
 
-	const { gameId } = await request.json()
-	if (!gameId) {
-		return json({ error: 'Missing gameId' }, { status: 400 })
-	}
+	const id = titleId((await body(request)).gameId)
+	if (!id) return json({ error: 'Missing or invalid gameId' }, { status: 400 })
 
-	await favoritesService.removeFavorite(session.user.id, gameId)
+	await repo.removeFavorite(locals.db, userId, id)
 	return json({ success: true })
 }

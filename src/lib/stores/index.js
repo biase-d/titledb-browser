@@ -23,17 +23,32 @@ function createFavoritesStore () {
 
 	return {
 		subscribe,
-		toggle: (id) => {
-			update(currentFavorites => {
-				if (currentFavorites.has(id)) {
-					currentFavorites.delete(id)
-				} else {
-					currentFavorites.add(id)
-				}
-				updateCookie(currentFavorites)
-				goto(window.location.href, { invalidateAll: true })
-				return currentFavorites
+		/**
+		 * Stars or un-stars a game. For a signed-in person it is saved to their account
+		 * (the endpoint says 401 to anyone else, which is fine: their cookie is all there
+		 * is). The page is reloaded only after that is saved, or the reload would read
+		 * the account before the change reached it and undo it
+		 * @param {string} id
+		 */
+		toggle: async (id) => {
+			/** @type {boolean} */
+			let adding = false
+			update(current => {
+				const next = new Set(current)
+				adding = !next.has(id)
+				if (adding) next.add(id)
+				else next.delete(id)
+				updateCookie(next)
+				return next
 			})
+			try {
+				await fetch('/api/v1/favorites', {
+					method: adding ? 'POST' : 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ gameId: id })
+				})
+			} catch { /* offline: the cookie has it, and the account will catch up on the next change */ }
+			goto(window.location.href, { invalidateAll: true })
 		},
 		set
 	}

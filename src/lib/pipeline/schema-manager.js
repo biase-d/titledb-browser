@@ -129,6 +129,30 @@ export async function ensureSchemas (sqlClient) {
 	`)
 
     await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.favorite_lists (
+			"id" TEXT PRIMARY KEY,
+			"user_id" TEXT NOT NULL,
+			"name" TEXT NOT NULL,
+			"position" INTEGER NOT NULL DEFAULT 0,
+			"created_at" TIMESTAMPTZ DEFAULT now()
+		)
+	`)
+
+    await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.favorite_list_items (
+			"list_id" TEXT NOT NULL,
+			"game_id" TEXT NOT NULL,
+			"added_at" TIMESTAMPTZ DEFAULT now(),
+			CONSTRAINT "favorite_list_items_pk" PRIMARY KEY("list_id","game_id")
+		)
+	`)
+
+    await sqlClient.unsafe(`
+		CREATE INDEX IF NOT EXISTS favorite_lists_user_idx
+		ON public.favorite_lists ("user_id")
+	`)
+
+    await sqlClient.unsafe(`
 		CREATE INDEX IF NOT EXISTS submissions_pr_number_idx
 		ON public.submissions ("github_pr_number")
 		WHERE "github_pr_number" IS NOT NULL

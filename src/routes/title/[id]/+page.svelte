@@ -1,6 +1,7 @@
 <script>
 	import SeasonProp from '$lib/components/SeasonProp.svelte'
 	import NintendoEgg from '$lib/components/NintendoEgg.svelte'
+	import ListPicker from '$lib/components/ListPicker.svelte'
 	import { eggFor } from '$lib/franchise'
 	import { fade } from 'svelte/transition'
 	import { browser } from '$app/environment'
@@ -552,6 +553,9 @@
 								/>
 								{isFavorited ? 'Favorited' : 'Favorite'}
 							</button>
+							{#if data.session?.user}
+								<ListPicker gameId={id} gameName={name} onchange={() => { isFavorited = true }} />
+							{/if}
 							{#if heroGl}
 								<button class="pill" onclick={() => (focused = true)}>
 									<Icon icon="mdi:rotate-3d-variant" width="20" height="20" />

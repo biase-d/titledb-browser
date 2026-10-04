@@ -117,3 +117,24 @@ export const apiTokens = pgTable('api_tokens', {
 	lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
 	revokedAt: timestamp('revoked_at', { withTimezone: true })
 })
+
+/**
+ * A person's lists of favourites ("Playing now", "Co-op"…). They belong to the
+ * account, in public, and are never swapped with a layer
+ */
+export const favoriteLists = pgTable('favorite_lists', {
+	id: text('id').primaryKey(),
+	userId: text('user_id').notNull(),
+	name: text('name').notNull(),
+	position: integer('position').notNull().default(0),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+})
+
+export const favoriteListItems = pgTable('favorite_list_items', {
+	listId: text('list_id').notNull(),
+	gameId: text('game_id').notNull(),
+	addedAt: timestamp('added_at', { withTimezone: true }).defaultNow()
+}, (table) => ({
+	pk: primaryKey({ columns: [table.listId, table.gameId] })
+}))
+
