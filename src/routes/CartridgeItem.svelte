@@ -40,9 +40,10 @@
    * shown: false to keep it from being drawn (a slide that is not the one showing)
    * clipTo: an element it must stay inside (a carousel that scrolls its slides)
    * layout: 'snap' for a card inside something that scrolls on its own
-   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
+   * grow: how much larger it gets under the pointer (0.8 = nearly twice the size), standing on its feet
+   * @type {{ titleData: any, query?: string, index?: number, hero?: boolean, ghost?: boolean, href?: string, css?: boolean, pose?: string, shown?: boolean, clipTo?: HTMLElement | undefined, layout?: 'glide' | 'snap', grow?: number, dockTo?: HTMLElement | undefined, docked?: boolean, glActive?: boolean, handleRef?: any, onactivate?: () => void, onglactive?: (on: boolean) => void }}
    */
-  let { titleData, index = 0, hero = false, ghost = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
+  let { titleData, index = 0, hero = false, ghost = false, href: linkTo = undefined, css = false, pose = undefined, shown = true, clipTo = undefined, layout = undefined, grow = 0, dockTo = undefined, docked: isDocked = false, glActive = $bindable(false), handleRef = $bindable(null), onactivate = undefined, onglactive = undefined } = $props()
 
   let id = $derived(titleData.id)
   let iconUrl = $derived(titleData.iconUrl)
@@ -214,7 +215,7 @@
             reduced: isReducedMotion(prefs),
             light: lightFor(activeScenes(prefs.seasonal, page.url.searchParams))
           })
-          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost } : { style: pose, layout })
+          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost } : { style: pose, layout, hoverGrow: grow })
           await h.loaded
           if (cancelled) { h.dispose(); return }
           handle = h
@@ -258,8 +259,9 @@
   function tilt (e) {
     if (dragFrom || e.pointerType !== 'mouse' || !cell || isReducedMotion(get(preferences))) return
     const r = cell.getBoundingClientRect()
-    const x = (e.clientX - r.left) / r.width - 0.5
-    const y = (e.clientY - r.top) / r.height - 0.5
+    // Clamped: a card that grows has a pointer area bigger than itself
+    const x = Math.max(-0.5, Math.min(0.5, (e.clientX - r.left) / r.width - 0.5))
+    const y = Math.max(-0.5, Math.min(0.5, (e.clientY - r.top) / r.height - 0.5))
     if (gl && handle) {
       handle.setHover(true)
       handle.setTilt(x, y)
@@ -362,6 +364,7 @@
   class="cell"
   class:hero
   class:ghost
+  class:grows={grow > 0}
   data-sveltekit-preload-data={hero ? undefined : 'tap'}
   role={hero ? (onactivate ? 'button' : 'img') : undefined}
   tabindex={hero && onactivate ? 0 : undefined}
@@ -471,6 +474,19 @@
     text-decoration: none;
     color: inherit;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* A card that grows under the pointer: its pointer area reaches out as far as the
+     grown card does, or it would shrink again as soon as the pointer was on it */
+  @media (hover: hover) and (pointer: fine) {
+    .cell.grows {
+      position: relative;
+    }
+    .cell.grows::after {
+      content: '';
+      position: absolute;
+      inset: -90% -60% 0 -60%;
+    }
   }
 
   /* A hero is dragged sideways to spin; up and down still scrolls the page */

@@ -549,7 +549,10 @@ export class CartridgeStage {
 
 		this.onScroll = () => { this.lastScroll = performance.now(); this.wake() }
 		this.onResize = () => { this.resize(); this.snapUntil = performance.now() + 300; this.wake() }
-		window.addEventListener('scroll', this.onScroll, { passive: true })
+		// Captured: scroll events do not bubble, so a scroller inside the page (the hero
+		// carousel) was invisible to a plain window listener and the cards only found out
+		// about it a frame later, from the animation loop
+		window.addEventListener('scroll', this.onScroll, { passive: true, capture: true })
 		window.addEventListener('resize', this.onResize)
 		// The address bar sliding away changes the visible height without a window resize on some phones
 		window.visualViewport?.addEventListener('resize', this.onResize)
@@ -587,7 +590,7 @@ export class CartridgeStage {
 	 * Draws a cartridge over an element and keeps it there
 	 * @param {HTMLElement} el
 	 * @param {CartridgeData} data
-	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap', ghost?: boolean }} [opts]
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap', ghost?: boolean, hoverGrow?: number }} [opts]
 	 */
 	register (el, data, opts = {}) {
 		const group = new Group()
@@ -648,6 +651,8 @@ export class CartridgeStage {
 			clipEl: /** @type {Element | null} */ (null),
 			clipPlanes: /** @type {Plane[] | null} */ (null),
 			hover: 0, hoverTarget: 0,
+			/** How much larger it grows under the pointer (0.5 = half again), standing on its feet */
+			hoverGrow: opts.hoverGrow ?? 0,
 			poseRx: 0, poseRy: 0, bob: 0,
 			scrollRx: 0, scrollRy: 0,
 			// Leaning away from a hovered neighbour
@@ -1076,7 +1081,7 @@ export class CartridgeStage {
 		const now = performance.now()
 		const dtFrame = Math.min(0.06, (now - (this.lastFrameTime || now)) / 1000)
 		this.lastFrameTime = now
-		const scrolling = now - this.lastScroll < 140
+		const scrolling = now - this.lastScroll < 220
 		// Held to ~30fps on touch devices while nothing scrolls; scrolling needs every frame
 		if (this.coarse && !scrolling && now - this.lastFrame < 32) {
 			requestAnimationFrame(this.frame)
@@ -1281,7 +1286,7 @@ export class CartridgeStage {
 				h.clipPlanes[3].constant = this.viewH - c.top
 			}
 
-			const s = width * (1 + 0.04 * h.hover) * (1 - 0.06 * h.flip)
+			const s = width * (1 + (0.04 + h.hoverGrow) * h.hover) * (1 - 0.06 * h.flip)
 			g.scale.setScalar(s)
 			g.rotation.set(
 				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX + this.gy * stay,
@@ -1290,7 +1295,8 @@ export class CartridgeStage {
 			)
 			g.position.set(
 				cx,
-				this.viewH - cy + (6 * h.hover + h.bob * width) * stay - h.flip * width * 0.1,
+				// A card that grows on hover rises with it, so it stays standing where it is
+				this.viewH - cy + (6 * h.hover + h.bob * width + (h.hoverGrow * h.hover * width * H) / 2) * stay - h.flip * width * 0.1,
 				-(D * s) / 2
 			)
 			g.visible = fade > 0.01
@@ -1359,7 +1365,7 @@ export class CartridgeStage {
 	get size () { return this.handles.size + this.stacks.size }
 
 	dispose () {
-		window.removeEventListener('scroll', this.onScroll)
+		window.removeEventListener('scroll', this.onScroll, { capture: true })
 		window.removeEventListener('resize', this.onResize)
 		window.visualViewport?.removeEventListener('resize', this.onResize)
 		this.stopGridTilt?.()

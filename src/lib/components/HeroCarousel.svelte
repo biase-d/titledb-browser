@@ -29,6 +29,8 @@
     let anyGl = $derived(slideGl.some(Boolean))
     let heroIndex = $state(0)
     let isPaused = $state(false)
+    /** Slides whose banner did not load: no img at all, so no broken-picture icon */
+    let bannerFailed = $state(/** @type {Record<number, boolean>} */ ({}))
 
     /**
      * Stopped by the reader, as opposed to paused while a pointer rests on it
@@ -150,6 +152,24 @@
         in:fade
     >
         <span class="clip-zone" bind:this={clipZone} aria-hidden="true"></span>
+        <!-- The progress bars are the top border of the hero: one segment per slide,
+             the current one filling as it plays -->
+        <div class="indicators">
+            {#each recentUpdates as _, i}
+                <button
+                    class="indicator-bar"
+                    class:active={i === heroIndex}
+                    class:done={i < heroIndex}
+                    class:paused={isPaused || isStopped || prefersReducedMotion}
+                    onclick={() => setHero(i)}
+                    aria-label="Go to slide {i + 1}"
+                    aria-current={i === heroIndex}
+                >
+                    <span class="bar-track"><span class="progress-fill"></span></span>
+                </button>
+            {/each}
+        </div>
+
         <div class="carousel-track" bind:this={container} onscroll={handleScroll}>
             {#each recentUpdates as game, i}
                 {@const bannerSet = createImageSet(game.bannerUrl, {
@@ -162,8 +182,9 @@
 
                 <div class="carousel-slide" class:is-active={isActive}>
                     <div class="hero-bg">
-                        {#if bannerSet}
+                        {#if bannerSet && !bannerFailed[i]}
                             <img
+                                onerror={() => (bannerFailed[i] = true)}
                                 class:lqip={!!game.bannerLqip}
                                 style:--lqip={game.bannerLqip
                                     ? `url("${game.bannerLqip}")`
@@ -237,6 +258,7 @@
                             layout="snap"
                             shown={isActive}
                             clipTo={clipZone}
+                            grow={0.9}
                             onglactive={(on) => { slideGl[i] = on }}
                         />
                     </div>
@@ -249,20 +271,6 @@
                 {heroIndex + 1} / {recentUpdates.length}
             </span>
 
-            <div class="indicators">
-                {#each recentUpdates as _, i}
-                    <button
-                        class="indicator-bar"
-                        class:active={i === heroIndex}
-                        class:paused={isPaused || isStopped || prefersReducedMotion}
-                        onclick={() => setHero(i)}
-                        aria-label="Go to slide {i + 1}"
-                    >
-                        <div class="progress-fill"></div>
-                    </button>
-                {/each}
-            </div>
-            
             <div class="nav-buttons">
                 <button
                     class="control-btn"
@@ -291,7 +299,8 @@
         border-radius: 20px;
         overflow: hidden;
         color: white;
-        height: 440px; 
+        /* Grows with a long title instead of cutting it off at the top */
+        min-height: 440px;
         margin-bottom: 0;
         box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
         background-color: var(--surface-color);
@@ -331,7 +340,7 @@
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 3rem 3rem 5rem;
+        padding: 2.75rem 3rem 5rem;
     }
 
     .hero-bg {
@@ -383,25 +392,26 @@
     .hero-cart {
         position: absolute;
         z-index: 1;
-        right: clamp(2rem, 9%, 7.5rem);
-        bottom: 2.25rem;
-        width: clamp(8.5rem, 19vw, 14rem);
+        right: clamp(3rem, 9%, 7.5rem);
+        bottom: 1.75rem;
+        /* A real cartridge: 21.3 mm wide (it is 31 mm tall), at 1 CSS mm to the mm */
+        width: 21.3mm;
         --cart-max: 100%;
         opacity: 0;
         transition: opacity 0.5s ease 0.15s;
     }
 
     .overhang .hero-cart {
-        bottom: -3.4rem;
+        bottom: -1.5rem;
         /* The pumpkin stands on the panel's floor, not on the cartridge's base below it */
-        --prop-lift: 3.9rem;
+        --prop-lift: 1.9rem;
         --prop-width: 48%;
     }
 
     @media (min-width: 769px) {
         /* Room below the panel for the cartridge's feet */
         .overhang {
-            margin-bottom: 3.4rem;
+            margin-bottom: 1.5rem;
         }
 
         /* The progress bars stay at the bottom left under the text; the buttons go to
@@ -413,12 +423,6 @@
 
         .hero-controls > * {
             pointer-events: auto;
-        }
-
-        .indicators {
-            position: absolute;
-            left: 3rem;
-            bottom: 1.5rem;
         }
 
         .nav-buttons {
@@ -436,7 +440,8 @@
         position: relative;
         z-index: 1;
         width: 100%;
-        max-width: 600px; /* Tighter max-width for better typography reading lines */
+        /* The cartridge is small now, so the title gets the room it left */
+        max-width: min(46rem, calc(100% - 9rem));
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -482,7 +487,7 @@
     }
 
     .hero-carousel h2 {
-        font-size: clamp(2.25rem, 1.3rem + 3.6vw, 4rem);
+        font-size: clamp(2rem, 1.2rem + 3vw, 3.5rem);
         font-weight: 900;
         letter-spacing: -0.03em;
         text-wrap: balance;
@@ -491,6 +496,13 @@
         color: #ffffff;
         /* Replaced generic black shadow with a heavily themed deep shadow */
         text-shadow: 0 4px 24px color-mix(in srgb, var(--dynamic-primary) 60%, rgba(0, 0, 0, 0.9));
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        /* Room for descenders and the glyphs' tops, which a clamp would shave off */
+        padding-block: 0.08em;
     }
 
     .hero-performance {
@@ -590,9 +602,15 @@
         box-shadow: 0 4px 12px color-mix(in srgb, var(--dynamic-primary) 50%, transparent);
     }
 
+    /* The top border of the hero */
     .indicators {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 3;
         display: flex;
-        gap: 6px;
+        gap: 3px;
     }
 
     .slide-count {
@@ -604,17 +622,30 @@
         display: none;
     }
 
-    /* Animated Progress Bars instead of dots */
+    /* A tall target around a thin bar: four pixels is too little to click */
     .indicator-bar {
-        width: 30px;
-        height: 6px;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.2);
+        flex: 1;
+        height: 14px;
+        background: none;
         border: none;
         padding: 0;
         cursor: pointer;
-        overflow: hidden;
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .bar-track {
         position: relative;
+        display: block;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.22);
+        overflow: hidden;
+        transition: height 0.15s;
+    }
+
+    .indicator-bar:hover .bar-track {
+        height: 6px;
     }
 
     .progress-fill {
@@ -623,7 +654,11 @@
         left: 0;
         height: 100%;
         width: 0%;
-        background-color: var(--dynamic-primary);
+        background-color: #fff;
+    }
+
+    .indicator-bar.done .progress-fill {
+        width: 100%;
     }
 
     .indicator-bar.active .progress-fill {
@@ -654,17 +689,17 @@
         
         .carousel-slide {
             /* Tighter side padding, room for controls at the bottom and the cartridge above the text */
-            padding: 13.25rem 1.25rem 4.5rem;
+            padding: 10.25rem 1.25rem 4.5rem;
         }
 
         /* Above the text, in the middle, rather than beside it, and inside the panel */
         .hero-cart,
         .overhang .hero-cart {
-            top: 1.75rem;
+            top: 1.5rem;
             bottom: auto;
             right: 50%;
             translate: 50% 0;
-            width: 7.25rem;
+            width: 21.3mm;
         }
 
         .hero-eyebrow {
@@ -672,6 +707,7 @@
         }
 
         .hero-content {
+            max-width: 100%;
             align-items: center; /* Forces all flex children to the center */
             text-align: center;
         }
@@ -720,20 +756,17 @@
             display: none; /* Hide arrows, mobile users intuitively swipe */
         }
         
-        .indicators {
-            display: none;
-        }
-
         .slide-count {
             display: inline-block;
             margin-right: 0;
         }
         
-        .indicator-bar {
-            /* Flex shrinking ensures bars squish down instead of overflowing if there are lots of games */
-            flex: 1;
-            max-width: 30px; 
-            height: 4px; /* Thinner bars look more elegant on mobile */
+        .indicators {
+            gap: 2px;
+        }
+
+        .bar-track {
+            height: 3px;
         }
     }
 </style>
