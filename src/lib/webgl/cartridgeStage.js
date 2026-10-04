@@ -46,6 +46,14 @@ const easeInOutCubic = (/** @type {number} */ t) => (t < 0.5 ? 4 * t * t * t : 1
 const H = 31 / 21
 // A real card is 3.4 mm; drawn at 80% of that, which reads better at this size
 const D = (3.4 * 0.8) / 21
+/**
+ * When a card is opened, a shockwave goes out through the others from where it seats
+ * in its slot: how fast it travels (card widths a second), how long the page waits
+ * for it to be seen, and how long it rings
+ */
+const RIPPLE_SPEED = 5.5
+const RIPPLE_HOLD_MS = 420
+const RIPPLE_MS = 2600
 const FACE_PX = 512
 const FACE_PX_H = Math.round(FACE_PX * H)
 const FOV = 30
@@ -496,6 +504,8 @@ export class CartridgeStage {
 
 		/** @type {any} */
 		this.inserting = null
+		/** The shockwave from a card going into its slot: where, and when it began @type {{ cx: number, cy: number, w: number, start: number } | null} */
+		this.ripple = null
 
 		/** @type {Map<Element, any>} */
 		this.handles = new Map()
@@ -657,6 +667,8 @@ export class CartridgeStage {
 			scrollRx: 0, scrollRy: 0,
 			// Leaning away from a hovered neighbour
 			leanX: 0, leanY: 0,
+			// Pushed away and dipped back by the card the pointer is on
+			pushX: 0, pushY: 0, pushS: 0,
 			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
 			scrollAmp: opts.scrollAmp ?? 1,
 			/** A card can ask for its own pose, whatever the setting says */
@@ -831,6 +843,12 @@ export class CartridgeStage {
 		faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = [clip]; m.needsUpdate = true })
 		this.renderer.localClippingEnabled = true
 
+		// The shockwave, from this card's centre, set off as it seats (not as it is pulled out)
+		if (!this.options.reduced) {
+			const er = handle.el.getBoundingClientRect()
+			this.ripple = { cx: er.left + er.width / 2, cy: er.top + (er.width * H) / 2, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.55 }
+		}
+
 		this.inserting = {
 			handle, clippedShell, clip, faceMaterials,
 			start: performance.now(),
@@ -895,7 +913,9 @@ export class CartridgeStage {
 		if (!st.hidden && r.top + offset >= bottom) {
 			st.hidden = true
 			h.group.visible = false
-			st.resolve()
+			// A beat for the shockwave to be seen before the page opens
+			if (this.ripple) setTimeout(st.resolve, RIPPLE_HOLD_MS)
+			else st.resolve()
 		}
 		return !st.hidden
 	}
@@ -1234,21 +1254,52 @@ export class CartridgeStage {
 			const cyPx = r.top + (r.width * H) / 2
 			let tLx = 0
 			let tLy = 0
+			let tPx = 0
+			let tPy = 0
+			let tPs = 0
 			const hov = this.hovered
 			if (!reduced && hov && hov.handle !== h && !away) {
 				const dx = cxPx - hov.cx
 				const dy = cyPx - hov.cy
 				const dist = Math.hypot(dx, dy) || 1
-				const reach = hov.w * 1.9
+				const reach = hov.w * 2.4
 				if (dist < reach) {
 					const f = 1 - dist / reach
-					tLy = (dx / dist) * f * 0.16
-					tLx = (dy / dist) * f * 0.12
+					// Turned away from it, shoved off it, and dipped back, the nearest most
+					tLy = (dx / dist) * f * 0.3
+					tLx = (dy / dist) * f * 0.22
+					tPx = (dx / dist) * f * f * r.width * 0.34
+					tPy = (dy / dist) * f * f * r.width * 0.34
+					tPs = f * f * 0.16
 				}
 			}
 			h.leanX += (tLx - h.leanX) * 0.14
 			h.leanY += (tLy - h.leanY) * 0.14
-			if (Math.abs(h.leanX - tLx) > 0.002 || Math.abs(h.leanY - tLy) > 0.002) animating = true
+			h.pushX += (tPx - h.pushX) * 0.16
+			h.pushY += (tPy - h.pushY) * 0.16
+			h.pushS += (tPs - h.pushS) * 0.16
+			if (Math.abs(h.leanX - tLx) > 0.002 || Math.abs(h.leanY - tLy) > 0.002 || Math.abs(h.pushX - tPx) > 0.1 || Math.abs(h.pushS - tPs) > 0.002) animating = true
+
+			// The shockwave from a card going into its slot: it reaches each card when
+			// the wave does, and rings and dies away. Nearer cards are thrown further:
+			// up, sideways away, and over
+			let ripX = 0
+			let ripY = 0
+			let ripRx = 0
+			let ripRz = 0
+			if (this.ripple && !away) {
+				const u = (now - this.ripple.start) / 1000 - Math.hypot(cxPx - this.ripple.cx, cyPx - this.ripple.cy) / (this.ripple.w * RIPPLE_SPEED)
+				if (u > 0) {
+					const d = Math.hypot(cxPx - this.ripple.cx, cyPx - this.ripple.cy) || 1
+					const reachK = 1 / (1 + d / (this.ripple.w * 3))
+					const env = Math.exp(-u * 2.6) * reachK * 1.5
+					const side = (cxPx - this.ripple.cx) / d
+					ripY = -Math.abs(Math.sin(u * 8.5)) * env * r.width * 0.5
+					ripX = side * Math.sin(u * 11) * env * r.width * 0.2
+					ripRx = Math.sin(u * 10.5) * env * 0.5
+					ripRz = side * Math.sin(u * 9) * env * 0.55
+				}
+			}
 			if (h.hoverTarget === 1 && !away) nextHovered = { handle: h, cx: cxPx, cy: cyPx, w: r.width }
 
 			// Pose fades as it leaves for the dock: a docked card just turns
@@ -1286,12 +1337,14 @@ export class CartridgeStage {
 				h.clipPlanes[3].constant = this.viewH - c.top
 			}
 
-			const s = width * (1 + (0.04 + h.hoverGrow) * h.hover) * (1 - 0.06 * h.flip)
+			cx += h.pushX + ripX
+			cy += h.pushY + ripY
+			const s = width * (1 + (0.04 + h.hoverGrow) * h.hover) * (1 - 0.06 * h.flip) * (1 - h.pushS)
 			g.scale.setScalar(s)
 			g.rotation.set(
-				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX + this.gy * stay,
+				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX + this.gy * stay + ripRx,
 				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.leanY + this.gx * stay + h.flip * ENTRY_YAW + flightYaw,
-				0
+				ripRz
 			)
 			g.position.set(
 				cx,
@@ -1321,6 +1374,10 @@ export class CartridgeStage {
 		}
 
 		this.hovered = nextHovered
+		if (this.ripple) {
+			if (now - this.ripple.start < RIPPLE_MS) animating = true
+			else this.ripple = null
+		}
 
 		// Piles of cartridges
 		const cosT = Math.cos(STACK_TILT)
