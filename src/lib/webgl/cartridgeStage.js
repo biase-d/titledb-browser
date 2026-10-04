@@ -569,7 +569,17 @@ export class CartridgeStage {
 			this.wake()
 		}, { rootMargin: '200px' })
 
-		this.onScroll = () => { this.lastScroll = performance.now(); this.wake() }
+		this.onScroll = () => {
+			this.lastScroll = performance.now()
+			// A card stays 'hovered' while the page scrolls under a still pointer (no
+			// pointer event says it left), which left it raised and its neighbours
+			// pushed off their places. Let go of every hover on scroll; the browser
+			// sends a pointer move when scrolling stops, which hovers whatever is there
+			for (const h of this.handles.values()) {
+				if (h.hoverTarget) { h.hoverTarget = 0; h.tx = 0; h.ty = 0 }
+			}
+			this.wake()
+		}
 		this.onResize = () => { this.resize(); this.snapUntil = performance.now() + 300; this.wake() }
 		// Captured: scroll events do not bubble, so a scroller inside the page (the hero
 		// carousel) was invisible to a plain window listener and the cards only found out
