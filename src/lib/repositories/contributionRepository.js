@@ -198,7 +198,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
         .leftJoin(games, eq(games.groupId, gameGroups.id))
         .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics)))
         .groupBy(gameGroups.id)
-        .orderBy(desc(sql`MAX(${games.lastUpdated})`))
+        .orderBy(sql`MAX(${games.lastUpdated}) DESC NULLS LAST`)
 
     // Get paginated group IDs
     let groupIds = []
@@ -239,6 +239,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
 
         gamesList = await db
             .selectDistinctOn([games.groupId], {
+                groupId: games.groupId,
                 id: games.id,
                 names: games.names,
                 iconUrl: games.iconUrl,
