@@ -19,8 +19,8 @@ describe('guessPxPerMm', () => {
 		expect(iphone).toBeGreaterThan(5.5)
 	})
 
-	it('guesses a little larger than the spec for an unknown dense screen, and the spec for a plain one', () => {
-		expect(guessPxPerMm({ width: 1600, height: 900, dpr: 2 })).toBeGreaterThan(CSS_PX_PER_MM)
+	it('guesses larger than the spec for an unknown dense screen (4.6 raised by 1.3), and the spec for a plain one', () => {
+		expect(guessPxPerMm({ width: 1600, height: 900, dpr: 2 })).toBeCloseTo(4.6 * 1.3, 5)
 		expect(guessPxPerMm({ width: 1920, height: 1080, dpr: 1 })).toBeCloseTo(CSS_PX_PER_MM, 5)
 	})
 })

@@ -20,6 +20,9 @@ export const MAX_PX_PER_MM = 9
 export const CARTRIDGE_MM = { width: 21, height: 31, depth: 3 }
 export const CARD_MM = { width: 85.6, height: 53.98 }
 
+/** An unrecognised high-density screen: about 4.6, raised by 1.3 after comparing with a real cartridge */
+const UNKNOWN_DENSE_PX_PER_MM = 4.6 * 1.3
+
 /** @param {number} n */
 export const clampPxPerMm = (n) => Math.min(MAX_PX_PER_MM, Math.max(MIN_PX_PER_MM, n))
 
@@ -61,7 +64,9 @@ export function guessPxPerMm ({ width, height, dpr, ua = '', touch = false }) {
 	if (/ipad/i.test(ua)) return 132 / 25.4
 
 	// A high-density laptop or monitor we do not recognise: these sit around 110-125
-	// CSS pixels per inch. A standard-density screen is close to 96 already
-	if (dpr >= 2) return 4.6
+	// CSS pixels per inch, which would make it 4.6 px to the mm, but at that the
+	// cartridge looked too small on a real one, so it is raised by a third. A
+	// standard-density screen is close to 96 already
+	if (dpr >= 2) return clampPxPerMm(UNKNOWN_DENSE_PX_PER_MM)
 	return CSS_PX_PER_MM
 }
