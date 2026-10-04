@@ -47,10 +47,17 @@ const H = 31 / 21
 // A real card is 3.4 mm; drawn at 80% of that, which reads better at this size
 const D = (3.4 * 0.8) / 21
 /**
- * When a card is opened, a shockwave goes out through the others from where it seats
- * in its slot: how fast it travels (card widths a second), how long the page waits
- * for it to be seen, and how long it rings
+ * When a card is opened, a blast goes out from where it seats in its slot and
+ * sends every other card spinning off the screen. It is only there to cover the
+ * page loading: the page opens the moment the card is in, and the blast carries
+ * on behind it for as long as the old page is still showing. How fast the blast
+ * travels (card widths a second), how fast cards leave, how long it can last, and
+ * how long cards take to come back if the page did not open
  */
+const BLAST_SPEED = 20
+const BLAST_LAUNCH_PX = 1500
+const BLAST_MAX_MS = 8000
+const BLAST_RETURN_MS = 600
 /**
  * When a game opens from the grid, the cartridge on its page arrives as if the
  * page had been struck: dropped a little, it bounces and rocks until it settles.
@@ -59,9 +66,6 @@ const D = (3.4 * 0.8) / 21
  */
 let lastInsertAt = 0
 const ARRIVAL_WINDOW_MS = 6000
-const RIPPLE_SPEED = 5.5
-const RIPPLE_HOLD_MS = 420
-const RIPPLE_MS = 2600
 const FACE_PX = 512
 const FACE_PX_H = Math.round(FACE_PX * H)
 const FOV = 30
@@ -512,7 +516,7 @@ export class CartridgeStage {
 
 		/** @type {any} */
 		this.inserting = null
-		/** The shockwave from a card going into its slot: where, and when it began @type {{ cx: number, cy: number, w: number, start: number } | null} */
+		/** The blast from a card going into its slot: where, when it began, and when it was let go of @type {{ cx: number, cy: number, w: number, start: number, released: number | null, victims: Set<any> } | null} */
 		this.ripple = null
 
 		/** @type {Map<Element, any>} */
@@ -858,7 +862,7 @@ export class CartridgeStage {
 		// The shockwave, from this card's centre, set off as it seats (not as it is pulled out)
 		if (!this.options.reduced) {
 			const er = handle.el.getBoundingClientRect()
-			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.55 }
+			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.3, released: null, victims: new Set(this.handles.values()) }
 		}
 
 		this.inserting = {
@@ -877,6 +881,8 @@ export class CartridgeStage {
 	endInsert () {
 		const st = this.inserting
 		if (!st) return
+		// If the page did not open, the cards come back
+		if (this.ripple && this.ripple.released === null) this.ripple.released = performance.now()
 		// Back to whatever clip the card had before it was opened (usually none)
 		const planes = st.handle.clipPlanes && st.handle.clipEl ? st.handle.clipPlanes : null
 		st.clippedShell.clippingPlanes = planes
@@ -925,9 +931,7 @@ export class CartridgeStage {
 		if (!st.hidden && r.top + offset >= bottom) {
 			st.hidden = true
 			h.group.visible = false
-			// A beat for the shockwave to be seen before the page opens
-			if (this.ripple) setTimeout(st.resolve, RIPPLE_HOLD_MS)
-			else st.resolve()
+			st.resolve()
 		}
 		return !st.hidden
 	}
@@ -1294,34 +1298,36 @@ export class CartridgeStage {
 			h.pushS += (tPs - h.pushS) * 0.16
 			if (Math.abs(h.leanX - tLx) > 0.002 || Math.abs(h.leanY - tLy) > 0.002 || Math.abs(h.pushX - tPx) > 0.1 || Math.abs(h.pushS - tPs) > 0.002) animating = true
 
-			// The shockwave from a card going into its slot. The blow comes from below,
-			// where it seats, so it moves every card the same way, like a table being
-			// knocked from underneath: each is thrown up as the wave reaches it, tipped
-			// back as it goes up and forward as it comes down, and rings out. Only the
-			// distance differs: farther cards are reached later and moved less. A small
-			// sway to the side, with the side the card is on, is all that is not shared
+			// The blast from a card going into its slot. It reaches each card when the
+			// front does, and sends it off the screen: away from the slot, with a bias
+			// upward, speeding up as it goes, and spinning about all three axes (each
+			// its own way, the same every time). Nearer cards leave faster. If the page
+			// never opens the cards are let go and come back
 			let ripX = 0
 			let ripY = 0
 			let ripRx = 0
 			let ripRy = 0
 			let ripRz = 0
-			if (this.ripple && !away) {
+			// Only the cards that were there when it went off: a card on the page that opens next is not caught in it
+			if (this.ripple && !away && this.ripple.victims.has(h)) {
 				const rp = this.ripple
 				const d = Math.hypot(cxPx - rp.cx, cyPx - rp.cy) || 1
-				const u = (now - rp.start) / 1000 - d / (rp.w * RIPPLE_SPEED)
-				if (u > 0) {
-					const g = 1 / (1 + Math.pow(d / (rp.w * 2.4), 1.25))
-					const decay = Math.exp(-3 * u)
-					const wave = decay * Math.sin(11 * u)
-					const slope = decay * (11 * Math.cos(11 * u) - 3 * Math.sin(11 * u))
-					const side = (cxPx - rp.cx) / d
-					// Up as the crest arrives; it only dips a little below where it was
-					ripY = -(wave > 0 ? wave : wave * 0.35) * g * r.width * 0.55
-					ripX = side * decay * (1 - Math.exp(-14 * u)) * g * r.width * 0.06
-					// Tipped back as it rises and forward as it falls, the same for every card
-					ripRx = -slope * g * 0.03
-					ripRy = side * slope * g * 0.008
-					ripRz = side * wave * g * 0.07
+				const t = (now - rp.start) / 1000 - d / (rp.w * BLAST_SPEED)
+				if (t > 0) {
+					const back = rp.released === null ? 1 : 1 - easeOutCubic(Math.min(1, (now - rp.released) / BLAST_RETURN_MS))
+					let ux = (cxPx - rp.cx) / d
+					let uy = (cyPx - rp.cy) / d - 0.75
+					const ul = Math.hypot(ux, uy) || 1
+					ux /= ul
+					uy /= ul
+					const seed = (n) => { const v = Math.sin(cxPx * 12.9898 + cyPx * 78.233 + n * 37.719) * 43758.5453; return v - Math.floor(v) }
+					const speed = BLAST_LAUNCH_PX * (0.6 + 0.8 / (1 + d / (rp.w * 2)))
+					const travel = speed * t * (1 + 1.6 * t)
+					ripX = ux * travel * back
+					ripY = uy * travel * back
+					ripRx = (seed(1) - 0.5) * 24 * t * back
+					ripRy = (seed(2) - 0.5) * 24 * t * back
+					ripRz = (seed(3) - 0.5) * 20 * t * back
 				}
 			}
 
@@ -1414,8 +1420,10 @@ export class CartridgeStage {
 
 		this.hovered = nextHovered
 		if (this.ripple) {
-			if (now - this.ripple.start < RIPPLE_MS) animating = true
-			else this.ripple = null
+			const rp = this.ripple
+			const over = rp.released !== null ? now - rp.released > BLAST_RETURN_MS : now - rp.start > BLAST_MAX_MS
+			if (over) this.ripple = null
+			else animating = true
 		}
 
 		// Piles of cartridges
