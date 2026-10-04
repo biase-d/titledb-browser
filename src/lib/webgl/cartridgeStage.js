@@ -1267,12 +1267,12 @@ export class CartridgeStage {
 					// A soft falloff (not a cliff at the edge): the nearest cards are moved
 					// most, and the effect is still there three or four cards out
 					const f = Math.pow(1 - dist / reach, 1.6)
-					// Turned away from it, shoved off it, and dipped back
-					tLy = (dx / dist) * f * 0.34
-					tLx = (dy / dist) * f * 0.25
-					tPx = (dx / dist) * f * r.width * 0.3
-					tPy = (dy / dist) * f * r.width * 0.3
-					tPs = f * 0.15
+					// Turned away from it, shoved off it, and dipped back, all of it lightly
+					tLy = (dx / dist) * f * 0.15
+					tLx = (dy / dist) * f * 0.11
+					tPx = (dx / dist) * f * r.width * 0.12
+					tPy = (dy / dist) * f * r.width * 0.12
+					tPs = f * 0.06
 				}
 			}
 			h.leanX += (tLx - h.leanX) * 0.14
