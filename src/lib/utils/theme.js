@@ -1,4 +1,5 @@
 import { Vibrant } from 'node-vibrant/browser'
+import { proxyImage } from '$lib/image'
 
 /**
  * Extracts a dominant color using node-vibrant for better UI palettes
@@ -10,10 +11,7 @@ export async function extractTheme (imageUrl) {
 	if (!imageUrl) return null
 
 	// Bypass CORS for external assets
-	let proxyUrl = imageUrl
-	if (imageUrl.includes('nintendo.net') || imageUrl.includes('nintendo.com') || imageUrl.includes('githubusercontent.com')) {
-		proxyUrl = `/api/v1/proxy/image?url=${encodeURIComponent(imageUrl)}`
-	}
+	const proxyUrl = proxyImage(imageUrl)
 
 	try {
 		const img = new Image()

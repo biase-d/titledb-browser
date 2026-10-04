@@ -901,7 +901,7 @@
 									onclick={() => (lightboxImage = screenshot)}
 								>
 									<img
-										src={proxyImage(screenshot)}
+										src={proxyImage(screenshot, 640)}
 										alt="{name} screenshot"
 										loading="lazy"
 									/>
@@ -1055,7 +1055,7 @@
 		role="presentation"
 	>
 		<img
-			src={lightboxImage}
+			src={proxyImage(lightboxImage)}
 			alt="{name} screenshot"
 			onclick={(e) => e.stopPropagation()}
 			role="presentation"
