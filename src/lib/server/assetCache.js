@@ -48,6 +48,53 @@ function rememberSource (url, entry) {
 export function _clearSourceCacheForTesting () {
 	sourceMemoryCache.clear()
 	inFlightSources.clear()
+	upstreamActive = 0
+	upstreamWaiting.length = 0
+}
+
+/** Upstream fetches in flight at once, so a page of cold images does not hammer Nintendo and get throttled */
+const UPSTREAM_CONCURRENCY = 6
+let upstreamActive = 0
+/** @type {Array<() => void>} */
+const upstreamWaiting = []
+
+async function acquireUpstream () {
+	if (upstreamActive >= UPSTREAM_CONCURRENCY) {
+		await new Promise(resolve => upstreamWaiting.push(() => resolve(undefined)))
+	}
+	upstreamActive++
+}
+
+function releaseUpstream () {
+	upstreamActive--
+	upstreamWaiting.shift()?.()
+}
+
+/** @param {number} ms */
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * One upstream fetch, retried on network errors, timeouts, 429 and 5xx: those
+ * are what a burst of cold requests produces, and a failure here is not cached,
+ * so without a retry the reader sees a blank image until they come back
+ * @param {string} url
+ */
+async function fetchUpstream (url) {
+	const attempts = 3
+	for (let attempt = 1; ; attempt++) {
+		await acquireUpstream()
+		try {
+			logger.info('Fetching upstream source image', { imageUrl: url, attempt })
+			const response = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+			const transient = response.status === 429 || response.status >= 500
+			if (!transient || attempt === attempts) return response
+		} catch (e) {
+			if (attempt === attempts) throw e
+		} finally {
+			releaseUpstream()
+		}
+		await sleep(300 * attempt ** 2)
+	}
 }
 
 /**
@@ -93,8 +140,7 @@ export async function getSourceImage (imageUrl) {
 		}
 
 		// 4. Fetch upstream from Nintendo / origin server
-		logger.info('Fetching upstream source image', { imageUrl: cleanUrl })
-		const response = await fetch(cleanUrl, { signal: AbortSignal.timeout(15_000) })
+		const response = await fetchUpstream(cleanUrl)
 		if (!response.ok) {
 			const status = response.status >= 400 && response.status < 500 ? response.status : 502
 			const err = new Error(`Failed to fetch image from upstream: ${response.status} ${response.statusText}`)

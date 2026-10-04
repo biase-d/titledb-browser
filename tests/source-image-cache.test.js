@@ -38,3 +38,19 @@ describe('proxyImage', () => {
 		expect(proxyImage('https://x.nintendo.net/a.jpg')).toBe('/api/v1/proxy/image?url=https%3A%2F%2Fx.nintendo.net%2Fa.jpg')
 	})
 })
+
+describe('getSourceImage retries', () => {
+	it('retries a 503 and succeeds, without retrying a 404', async () => {
+		_clearSourceCacheForTesting()
+		const fetchMock = vi.spyOn(globalThis, 'fetch')
+			.mockResolvedValueOnce(new Response('', { status: 503 }))
+			.mockResolvedValueOnce(new Response(new Uint8Array([9]), { headers: { 'content-type': 'image/jpeg' } }))
+		const result = await getSourceImage('https://x.nintendo.net/flaky.jpg')
+		expect(result.body.length).toBe(1)
+		expect(fetchMock).toHaveBeenCalledTimes(2)
+
+		fetchMock.mockReset().mockResolvedValue(new Response('', { status: 404 }))
+		await expect(getSourceImage('https://x.nintendo.net/gone.jpg')).rejects.toMatchObject({ status: 404 })
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+	})
+})

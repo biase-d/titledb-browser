@@ -95,14 +95,21 @@ const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
  * @property {{ band?: string, line?: string, glyph?: 'plus' | 'question' }} [ghostCopy] what a stand-in says
  */
 
-/** @param {string} src @returns {Promise<HTMLImageElement | null>} */
-function loadImage (src) {
+/**
+ * A failed load is retried, since the first request for an image may be the one
+ * that makes the server fetch it, and a burst of those can fail transiently
+ * @param {string} src @param {number} [retries] @returns {Promise<HTMLImageElement | null>}
+ */
+function loadImage (src, retries = 2) {
 	return new Promise((resolve) => {
 		const img = new Image()
 		img.crossOrigin = 'anonymous'
 		img.decoding = 'async'
 		img.onload = () => resolve(img)
-		img.onerror = () => resolve(null)
+		img.onerror = () => {
+			if (retries <= 0) return resolve(null)
+			setTimeout(() => resolve(loadImage(src, retries - 1)), 800 * (3 - retries))
+		}
 		img.src = src
 	})
 }

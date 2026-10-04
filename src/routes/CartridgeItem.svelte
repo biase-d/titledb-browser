@@ -88,6 +88,18 @@
   )
 
   let imageFailed = $state(false)
+  let imageRetries = 0
+  /** One failed load is often a cold image on the server: try again before giving up */
+  function retryImage () {
+    if (imageRetries >= 2 || !imageElement) {
+      imageFailed = true
+      return
+    }
+    imageRetries++
+    const src = imageElement.currentSrc || imageElement.src
+    const element = imageElement
+    setTimeout(() => { element.src = src }, 800 * imageRetries)
+  }
   /** @type {HTMLImageElement | undefined} */
   let imageElement = $state()
   $effect(() => {
@@ -431,7 +443,7 @@
             {#if hasArtwork}
               <img
                 bind:this={imageElement}
-                onerror={() => (imageFailed = true)}
+                onerror={retryImage}
                 src={imageSet?.src || iconUrl || titleData.bannerUrl}
                 srcset={imageSet?.srcset}
                 sizes="(max-width: 560px) 45vw, 180px"
