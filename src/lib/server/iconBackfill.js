@@ -11,6 +11,7 @@
  * that page carries the square product image in its page data
  */
 import { sql } from 'drizzle-orm'
+import { ensureIconStore } from '$lib/pipeline/schema-manager.js'
 import logger from '$lib/services/loggerService'
 
 /**
@@ -105,6 +106,18 @@ async function lookup (titleId) {
 	return { icon: null, transient: false }
 }
 
+/** @type {Promise<void> | null} */
+let storeReady = null
+
+/** Once per process, and tried again after a failure @param {any} db */
+function ensureStore (db) {
+	storeReady ??= ensureIconStore(db.$client).catch((e) => {
+		storeReady = null
+		throw e
+	})
+	return storeReady
+}
+
 /** @type {Set<string>} */
 const pending = new Set()
 let chain = Promise.resolve()
@@ -126,6 +139,7 @@ export function ensureIcon (db, game) {
 
 	chain = chain.then(async () => {
 		try {
+			await ensureStore(db)
 			const [row] = await db.execute(sql`
 				SELECT icon_url, attempts, retry_after FROM public.icon_lookups WHERE game_id = ${game.id}
 			`)
@@ -150,7 +164,7 @@ export function ensureIcon (db, game) {
 			if (icon) logger.info('Found a store icon for a title without one', { titleId: game.id })
 			await sleep(SPACING_MS)
 		} catch (e) {
-			logger.warn('Icon backfill failed', { titleId: game.id, error: e instanceof Error ? e.message : String(e) })
+			logger.warn('Icon backfill failed', { titleId: game.id, error: e instanceof Error ? (e.cause instanceof Error ? e.cause.message : e.message) : String(e) })
 		} finally {
 			pending.delete(game.id)
 		}

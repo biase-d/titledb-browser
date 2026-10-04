@@ -158,18 +158,7 @@ export async function ensureSchemas (sqlClient) {
 		WHERE "github_pr_number" IS NOT NULL
 	`)
 
-    // Icons found on Nintendo's store for titles titledb has none for. Kept in
-    // public so a rebuild of a layer does not lose them; the active_games view
-    // lays them over the layer's own icon_url
-    await sqlClient.unsafe(`
-		CREATE TABLE IF NOT EXISTS public.icon_lookups (
-			"game_id" TEXT PRIMARY KEY,
-			"icon_url" TEXT,
-			"attempts" INTEGER NOT NULL DEFAULT 0,
-			"retry_after" TIMESTAMPTZ,
-			"checked_at" TIMESTAMPTZ NOT NULL DEFAULT now()
-		)
-	`)
+    await createIconLookups(sqlClient)
 
     await sqlClient.unsafe(`
 		CREATE INDEX IF NOT EXISTS submissions_status_idx
@@ -185,6 +174,37 @@ export async function ensureSchemas (sqlClient) {
     }
 
     console.log('[SchemaManager] Schemas and control tables ready.')
+}
+
+/**
+ * Icons found on Nintendo's store for titles titledb has none for. Kept in public
+ * so a rebuild of a layer does not lose them; the active_games view lays them over
+ * the layer's own icon_url
+ * @param {import('postgres').Sql} sqlClient
+ */
+async function createIconLookups (sqlClient) {
+    await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.icon_lookups (
+			"game_id" TEXT PRIMARY KEY,
+			"icon_url" TEXT,
+			"attempts" INTEGER NOT NULL DEFAULT 0,
+			"retry_after" TIMESTAMPTZ,
+			"checked_at" TIMESTAMPTZ NOT NULL DEFAULT now()
+		)
+	`)
+}
+
+/**
+ * What the running site needs for looked-up icons: the table, and active_games
+ * laid over the active layer. A deploy does not run the bootstrap (the sync does),
+ * so the site makes sure of both itself the first time it looks an icon up. Both
+ * statements are idempotent
+ * @param {import('postgres').Sql} sqlClient
+ */
+export async function ensureIconStore (sqlClient) {
+    await createIconLookups(sqlClient)
+    const active = await getActiveSchema(sqlClient)
+    await sqlClient.unsafe(viewSql('active_games', 'games', active))
 }
 
 /**
