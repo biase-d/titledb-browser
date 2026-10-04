@@ -1,5 +1,6 @@
 <script>
 	import Icon from '@iconify/svelte'
+	import Logo from '$lib/components/Logo.svelte'
 	import AuthButton from './AuthButton.svelte'
 	import SettingsModal from './SettingsModal.svelte'
 	import { uiStore } from '$lib/stores/ui.svelte'
@@ -113,9 +114,13 @@
 	<div class="header-inner">
 		<!-- Left: Logo -->
 		<div class="header-left">
-			<a href="/" class="logo" onclick={closeMenu}>
-				<span class="logo-text desktop-only">Switch Performance</span>
-				<span class="logo-text mobile-only">SP</span>
+			<a href="/" class="logo" onclick={closeMenu} aria-label="Switch Performance, home">
+				<!-- The cartridge is the logo. It lifts when pointed at and seats when pressed -->
+				<span class="logo-cart"><Logo size="2.4rem" /></span>
+				<span class="logo-words desktop-only" aria-hidden="true">
+					<span class="w1">Switch</span>
+					<span class="w2">Performance</span>
+				</span>
 			</a>
 		</div>
 
@@ -146,6 +151,10 @@
 						aria-controls="search-results-listbox"
 						aria-label="Search across all games"
 					/>
+
+					{#if !searchValue && !isSearchFocused}
+						<kbd class="key-hint desktop-only" aria-hidden="true">/</kbd>
+					{/if}
 
 					{#if searchValue}
 						<button
@@ -355,9 +364,32 @@
 		transition: box-shadow 0.25s ease;
 	}
 
+	/* A lit lip along the bottom edge, like the ledge in the footer: faint at rest,
+	   brighter once the page has scrolled and the bar has slimmed */
+	.app-header::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: -1px;
+		height: 2px;
+		pointer-events: none;
+		background: linear-gradient(
+			90deg,
+			transparent,
+			color-mix(in srgb, var(--primary-color) 60%, transparent) 18%,
+			color-mix(in srgb, var(--primary-color) 60%, transparent) 82%,
+			transparent
+		);
+		opacity: 0.28;
+		transition: opacity 0.25s ease;
+	}
+
 	.app-header.condensed {
 		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 	}
+
+	.app-header.condensed::after { opacity: 0.8; }
 
 	.header-inner {
 		max-width: 1400px;
@@ -392,17 +424,40 @@
 		text-decoration: none;
 		display: flex;
 		align-items: center;
+		gap: 0.8rem;
+		color: var(--text-primary);
 	}
 
-	.logo-text {
-		font-size: 1.25rem;
+	.logo-cart {
+		display: block;
+		filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+		transform-origin: 50% 100%;
+		transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), scale 0.25s ease;
+	}
+
+	.condensed .logo-cart { scale: 0.88; }
+	.logo:hover .logo-cart, .logo:focus-visible .logo-cart { transform: translateY(-3px) rotate(-5deg); }
+	.logo:active .logo-cart { transform: translateY(1px); }
+	.logo:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 4px; border-radius: 8px; }
+
+	.logo-words {
+		flex-direction: column;
+		gap: 0.28rem;
+		line-height: 1;
+	}
+
+	.w1 {
+		font-size: 1.2rem;
 		font-weight: 900;
 		letter-spacing: -0.02em;
-		color: var(--text-primary);
-		background: var(--text-primary);
-		background-clip: text;
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
+	}
+
+	.w2 {
+		font-size: 0.62rem;
+		font-weight: 700;
+		letter-spacing: 0.3em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
 	}
 
 	.header-center {
@@ -431,7 +486,28 @@
 		background: var(--input-bg);
 		color: var(--text-primary);
 		font-size: 0.9rem;
+		/* A screen set into the bar */
+		box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.key-hint {
+		position: absolute;
+		right: 12px;
+		top: 50%;
+		translate: 0 -50%;
+		min-width: 1.35rem;
+		height: 1.35rem;
+		display: grid;
+		place-items: center;
+		padding: 0 0.3rem;
+		border-radius: 5px;
+		border: 1px solid var(--border-color);
+		border-bottom-width: 2px;
+		background: var(--surface-color);
+		color: var(--text-secondary);
+		font: 700 0.7rem var(--font-mono, ui-monospace, monospace);
+		pointer-events: none;
 	}
 
 	.search-bar input:focus {
@@ -540,6 +616,7 @@
 	}
 
 	.quick-link {
+		position: relative;
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
@@ -557,9 +634,23 @@
 		background: var(--input-bg);
 	}
 
+	/* The page you are on: the accent colour and a short notch under it, like a
+	   cartridge seated in its slot */
 	.quick-link.active {
 		color: var(--primary-color);
-		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
+		background: none;
+	}
+
+	.quick-link.active::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		bottom: -0.2rem;
+		width: 1.2rem;
+		height: 2px;
+		border-radius: 2px;
+		translate: -50% 0;
+		background: var(--primary-color);
 	}
 
 	.menu-toggle {

@@ -110,6 +110,25 @@ export async function ensureSchemas (sqlClient) {
 	`)
 
     await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.api_tokens (
+			"id" TEXT PRIMARY KEY,
+			"user_id" TEXT NOT NULL,
+			"login" TEXT NOT NULL,
+			"name" TEXT NOT NULL DEFAULT '',
+			"token_hash" TEXT NOT NULL UNIQUE,
+			"display" TEXT NOT NULL,
+			"created_at" TIMESTAMPTZ DEFAULT now(),
+			"last_used_at" TIMESTAMPTZ,
+			"revoked_at" TIMESTAMPTZ
+		)
+	`)
+
+    await sqlClient.unsafe(`
+		CREATE INDEX IF NOT EXISTS api_tokens_user_idx
+		ON public.api_tokens ("user_id")
+	`)
+
+    await sqlClient.unsafe(`
 		CREATE INDEX IF NOT EXISTS submissions_pr_number_idx
 		ON public.submissions ("github_pr_number")
 		WHERE "github_pr_number" IS NOT NULL

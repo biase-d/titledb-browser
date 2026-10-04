@@ -1,6 +1,7 @@
 <script>
 	import '@fontsource-variable/caveat'
 	import Icon from '@iconify/svelte'
+	import Logo from '$lib/components/Logo.svelte'
 	import { get } from 'svelte/store'
 	import { preferences, isReducedMotion } from '$lib/stores/preferences'
 
@@ -43,7 +44,7 @@
 		<div class="footer-sections">
 			<div class="footer-brand">
 				<div class="logo">
-					<span class="mark" aria-hidden="true"></span>
+					<Logo size="1.9rem" />
 					Switch Performance
 				</div>
 				<p>
@@ -85,6 +86,7 @@
 						target="_blank"
 						rel="noopener noreferrer">NX Performance</a
 					>
+					<a href="/docs/api">API Documentation</a>
 				</nav>
 			</div>
 
@@ -105,7 +107,6 @@
 
 		<!-- The maker, in a section of its own -->
 		<section class="made-by" aria-label="About the maker">
-			<span class="made-label">Made by</span>
 			<a
 				class="self-plug"
 				href="https://github.com/biase-d"
@@ -259,24 +260,6 @@
 		margin-bottom: 1.1rem;
 	}
 
-	/* The site's mark: a cartridge, front on */
-	.mark {
-		position: relative;
-		width: 1.15rem;
-		height: 1.7rem;
-		flex: none;
-		border-radius: 0.2rem 0.2rem 0.08rem 0.08rem;
-		background: #141417;
-		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-	}
-	.mark::before {
-		content: '';
-		position: absolute;
-		inset: 0.22rem 0.18rem 0.42rem;
-		border-radius: 0.1rem;
-		background: linear-gradient(180deg, var(--primary-color) 0 32%, #f4f4f2 32%);
-	}
-
 	.footer-brand p {
 		color: var(--text-secondary);
 		line-height: 1.6;
@@ -384,15 +367,6 @@
 		gap: 0.25rem 1.25rem;
 		padding: 1.75rem 0;
 		border-bottom: 1px solid var(--border-color);
-	}
-
-	.made-label {
-		font-family: var(--font-mono, ui-monospace, monospace);
-		font-size: 0.72rem;
-		font-weight: 800;
-		text-transform: uppercase;
-		letter-spacing: 0.16em;
-		color: var(--text-secondary);
 	}
 
 	.made-note {
