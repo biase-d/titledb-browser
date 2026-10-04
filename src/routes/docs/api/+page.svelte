@@ -27,6 +27,8 @@
 			params: [
 				{ name: 'q', type: 'string', desc: 'Words from a name (every word must match, ignoring accents and case), or a 16-digit title ID for an exact match.' },
 				{ name: 'page', type: 'integer', desc: 'Page number, from 1.' },
+				{ name: 'platform', type: 'string', desc: 'switch (the default) or switch2. Each console is its own listing: Switch 2 titles have IDs starting 04 and are not mixed into the default one.' },
+				{ name: 'key_card', type: 'string', desc: 'Set to 1, with platform=switch2, to list only Game-Key Cards: releases where the card holds a key to download the game rather than the game. Flagged by contributors.' },
 				{ name: 'sort', type: 'string', desc: 'relevance-desc (the default with q), date-desc (the default without), name-asc, or size-desc.' },
 				{ name: 'publisher', type: 'string', desc: 'Only this publisher (case and accent insensitive, whole name).' },
 				{ name: 'docked_fps', type: 'string', desc: 'Only games whose newest profile targets this frame rate when docked, such as 30 or 60.' },

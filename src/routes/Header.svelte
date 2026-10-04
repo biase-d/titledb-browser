@@ -31,7 +31,7 @@
 
 	function handleInput () {
 		clearTimeout(searchDebounce)
-		const isHomepage = page.url.pathname === '/'
+		const isHomepage = page.url.pathname === '/' || page.url.pathname === '/switch-2'
 
 		if (searchValue.length >= 2 || (isHomepage && searchValue === '')) {
 			isSearching = !isHomepage
@@ -76,7 +76,8 @@
 		// Local to this handler, never reactive state
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const url = new URL(window.location.href)
-		url.pathname = '/'
+		// Stay on the Switch 2 listing when searching from it
+		url.pathname = window.location.pathname === '/switch-2' ? '/switch-2' : '/'
 		url.searchParams.set('q', searchValue)
 		url.searchParams.delete('page')
 		goto(url.toString())
@@ -176,7 +177,7 @@
 				</form>
 
 				<!-- Dropdown Results -->
-				{#if isSearchFocused && searchValue.length >= 2 && page.url.pathname !== '/'}
+				{#if isSearchFocused && searchValue.length >= 2 && page.url.pathname !== '/' && page.url.pathname !== '/switch-2'}
 					<div
 						id="search-results-listbox"
 						class="search-dropdown"
@@ -295,6 +296,13 @@
 					class:active={page.url.pathname === '/'}
 				>
 					<Icon icon="mdi:home-outline" /> Home
+				</a>
+				<a
+					href="/switch-2"
+					onclick={closeMenu}
+					class:active={page.url.pathname === '/switch-2'}
+				>
+					<Icon icon="mdi:nintendo-switch" /> Switch 2
 				</a>
 				<a
 					href="/contribute"

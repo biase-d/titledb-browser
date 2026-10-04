@@ -44,6 +44,9 @@ const easeInOutCubic = (/** @type {number} */ t) => (t < 0.5 ? 4 * t * t * t : 1
 
 /** A card is 21 x 31 x 3.4 mm; everything is in card widths, so width is 1 */
 const H = 31 / 21
+/** Switch cartridges are black; Switch 2 ones are red */
+const SHELL_BLACK = 0x0e0e10
+const SHELL_RED = 0x9b0c1a
 // A real card is 3.4 mm; drawn at 80% of that, which reads better at this size
 const D = (3.4 * 0.8) / 21
 /**
@@ -86,6 +89,8 @@ const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
  * @property {string | null} dockedFps
  * @property {string | null} handheldFps
  * @property {string | null} artUrl
+ * @property {'switch' | 'switch2'} [platform] Switch 2 cartridges are red, not black
+ * @property {boolean} [gameKeyCard] a Game-Key Card (Switch 2): it holds a key to the game, not the game
  * @property {boolean} [ghost] an unlabelled stand-in with an invitation on it, not a real game
  * @property {{ band?: string, line?: string, glyph?: 'plus' | 'question' }} [ghostCopy] what a stand-in says
  */
@@ -176,6 +181,29 @@ function drawFront (canvas, d, art) {
 	band.addColorStop(1, hasData ? '#d80f20' : '#55555c')
 	ctx.fillStyle = band
 	ctx.fillRect(lx, ly, lw, bandH)
+
+	// A Game-Key Card carries a key, not the game: a small key in the band's corner
+	if (d.gameKeyCard) {
+		const kx = lx + lw - 7.6 * u
+		const ky = ly + 6.2 * u
+		ctx.save()
+		ctx.strokeStyle = 'rgba(255,255,255,0.92)'
+		ctx.fillStyle = 'rgba(255,255,255,0.92)'
+		ctx.lineWidth = 1.5 * u
+		ctx.lineCap = 'round'
+		ctx.beginPath()
+		ctx.arc(kx, ky, 2.5 * u, 0, Math.PI * 2)
+		ctx.stroke()
+		ctx.beginPath()
+		ctx.moveTo(kx, ky + 2.5 * u)
+		ctx.lineTo(kx, ky + 8 * u)
+		ctx.moveTo(kx, ky + 5.6 * u)
+		ctx.lineTo(kx + 2.2 * u, ky + 5.6 * u)
+		ctx.moveTo(kx, ky + 7.6 * u)
+		ctx.lineTo(kx + 1.6 * u, ky + 7.6 * u)
+		ctx.stroke()
+		ctx.restore()
+	}
 
 	// Band contents: each mode is a small label over a large number. No icons, a
 	// hairline between the two, and a single mode sits in the middle
@@ -629,6 +657,7 @@ export class CartridgeStage {
 		// Its own copy of the shell material, so this card can fade and be clipped
 		// without touching any other
 		const shellMat = this.shellMaterial.clone()
+		shellMat.color.setHex(data.platform === 'switch2' ? SHELL_RED : SHELL_BLACK)
 		const shell = new Mesh(this.geometry, shellMat)
 		group.add(shell)
 
@@ -731,7 +760,11 @@ export class CartridgeStage {
 			/** @type {Promise<void>} */
 			loaded: Promise.resolve(),
 			/** @param {CartridgeData} next */
-			update: (next) => { handle.data = next; return paint() },
+			update: (next) => {
+				handle.data = next
+				shellMat.color.setHex(next.platform === 'switch2' ? SHELL_RED : SHELL_BLACK)
+				return paint()
+			},
 			/** @param {number} nx @param {number} ny -0.5..0.5 across the card */
 			setTilt: (nx, ny) => { handle.tx = nx; handle.ty = ny; this.wake() },
 			/** @param {boolean} on */

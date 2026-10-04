@@ -14,12 +14,14 @@
 	} from '$lib/utils.js'
 
 	import Icon from '@iconify/svelte'
+	import { isSwitch2Id } from '$lib/platform'
 	import PerformanceTab from './components/PerformanceTab.svelte'
 	import GraphicsTab from './components/GraphicsTab.svelte'
 	import YoutubeTab from './components/YoutubeTab.svelte'
 	import GroupingTab from './components/GroupingTab.svelte'
 
 	let { data, form } = $props()
+	const isSwitch2 = $derived(isSwitch2Id(data.id))
 
 	const {
 		id,
@@ -227,7 +229,7 @@
 					...defaultMode,
 					...(p.profiles?.handheld || {}),
 				}
-				return { ...p, profiles: { docked, handheld } }
+				return { ...p, profiles: { docked, handheld, ...(p.profiles?.game_key_card ? { game_key_card: true } : {}) } }
 			},
 		)
 
@@ -285,6 +287,7 @@
 							...defaultMode,
 							...(p.profiles?.handheld || {}),
 						},
+						...(p.profiles?.game_key_card ? { game_key_card: true } : {}),
 					},
 				}
 			})
@@ -606,6 +609,7 @@
 						bind:performanceProfiles
 						{addNewVersion}
 						{removeVersion}
+						{isSwitch2}
 					/>
 				{/if}
 				{#if activeTab === 'graphics'}

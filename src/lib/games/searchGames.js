@@ -96,6 +96,7 @@ export async function searchGames (searchParams) {
 	])
 
 	const isSearchingOrFiltering = searchParams.get('q') || 
+                                   searchParams.get('key_card') || 
                                    searchParams.get('publisher') || 
                                    searchParams.get('region_filter') || 
                                    searchParams.get('docked_fps') || 

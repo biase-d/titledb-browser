@@ -3,6 +3,7 @@
   import { goto, preloadData, beforeNavigate } from '$app/navigation'
   import Icon from '@iconify/svelte'
   import { createImageSet, proxyImage } from '$lib/image'
+  import { isSwitch2Id } from '$lib/platform'
   import { getRegionLabel, getRegionLabelShort } from '$lib/regions'
   import { get } from 'svelte/store'
   import { preferences, isReducedMotion } from '$lib/stores/preferences'
@@ -127,6 +128,9 @@
     // Half the size unless high-resolution images are on in Settings
     artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, $preferences.highResImages ? 512 : 256) || null),
     ghost,
+    // Switch 2 cartridges are red, and a Game-Key Card has a key on its label
+    platform: isSwitch2Id(id) ? 'switch2' : 'switch',
+    gameKeyCard: !!performance.game_key_card,
     ghostCopy: titleData.ghostCopy
   })
 
@@ -382,6 +386,7 @@
   class="cell"
   class:hero
   class:ghost
+  class:s2={isSwitch2Id(id)}
   class:grows={grow > 0}
   data-sveltekit-preload-data={hero ? undefined : 'tap'}
   role={hero ? (onactivate ? 'button' : 'img') : undefined}
@@ -492,6 +497,13 @@
     text-decoration: none;
     color: inherit;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Switch 2 cartridges are red */
+  .cell.s2 {
+    --shell: #b3101f;
+    --shell-light: #d62b3c;
+    --shell-dark: #7a0812;
   }
 
   /* A card that grows under the pointer: its pointer area reaches out as far as the

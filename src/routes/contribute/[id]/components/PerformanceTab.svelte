@@ -1,6 +1,6 @@
 <script>
 	import Icon from '@iconify/svelte'
-	let { performanceProfiles = $bindable(), addNewVersion, removeVersion } = $props()
+	let { performanceProfiles = $bindable(), addNewVersion, removeVersion, isSwitch2 = false } = $props()
 </script>
 
 <section class="form-section">
@@ -24,6 +24,16 @@
 					</button>
 				{/if}
 			</div>
+			{#if isSwitch2}
+				<!-- Switch 2 only: some releases are a Game-Key Card, which holds a key to download the game rather than the game itself -->
+				<label class="key-card-field">
+					<input type="checkbox" checked={!!profile.profiles.game_key_card} onchange={(e) => { profile.profiles.game_key_card = e.currentTarget.checked }} />
+					<span>
+						<strong>This is a Game-Key Card release</strong>
+						<small>The card holds a key to download the game, not the game itself. Tick it if the copy you tested is one.</small>
+					</span>
+				</label>
+			{/if}
 			<div class="mode-container">
 				<!-- Handheld Performance -->
 				<fieldset class="handheld">
@@ -290,4 +300,9 @@
 	.tooltip .tooltip-text { visibility: hidden; width: 250px; background-color: #333; color: #fff; text-align: left; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -125px; opacity: 0; transition: opacity 0.3s; font-size: 0.8rem; line-height: 1.4; pointer-events: none; }
 	.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
 	.tooltip-text strong { color: #eee; }
+
+	.key-card-field { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.85rem 1rem; margin: 0 0 1rem; border: 1px solid var(--border-color); border-radius: 12px; background: var(--input-bg); cursor: pointer; }
+	.key-card-field input { margin-top: 0.2rem; width: 1.1rem; height: 1.1rem; accent-color: var(--primary-color); }
+	.key-card-field strong { display: block; }
+	.key-card-field small { display: block; margin-top: 0.15rem; color: var(--text-secondary); line-height: 1.4; }
 </style>

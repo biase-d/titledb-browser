@@ -21,6 +21,8 @@ export function pruneEmptyValues (value) {
 	const prunedObj = {}
 	let keyCount = 0
 	for (const key of Object.keys(value)) {
+		// The Game-Key Card flag is written only when it is true; an unticked box is no entry at all
+		if (key === 'game_key_card' && value[key] !== true) continue
 		const prunedValue = pruneEmptyValues(value[key])
 		if (prunedValue !== undefined) {
 			prunedObj[key] = prunedValue

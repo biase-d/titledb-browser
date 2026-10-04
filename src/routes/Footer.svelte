@@ -62,6 +62,7 @@
 				<h4>Navigate</h4>
 				<nav>
 					<a href="/">Home</a>
+					<a href="/switch-2">Switch 2</a>
 					<a href="/favorites">Favorites</a>
 					<a href="/contribute">Contribute</a>
 					<a href="/stats">Insights</a>

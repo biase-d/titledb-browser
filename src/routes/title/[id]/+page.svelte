@@ -2,6 +2,7 @@
 	import SeasonProp from '$lib/components/SeasonProp.svelte'
 	import NintendoEgg from '$lib/components/NintendoEgg.svelte'
 	import ListPicker from '$lib/components/ListPicker.svelte'
+	import { isSwitch2Id } from '$lib/platform'
 	import { eggFor } from '$lib/franchise'
 	import { fade } from 'svelte/transition'
 	import { browser } from '$app/environment'
@@ -402,8 +403,12 @@
 		names: game.names,
 		regions: game.regions,
 		publisher: game.publisher,
-		performance: heroPerformance,
+		performance: { ...heroPerformance, game_key_card: isKeyCard },
 	})
+
+	// Switch 2 titles are on their own listing; a Game-Key Card is flagged by contributors on a profile
+	const isS2 = $derived(isSwitch2Id(game.id))
+	const isKeyCard = $derived(isS2 && !!(performanceHistory ?? []).find((p) => p.profiles?.game_key_card))
 
 	// The stand-in cartridge's data: nothing in it, as it is not a game
 	const ghostData = { id: 'ghost', names: [''], regions: [], publisher: null, performance: {} }
@@ -526,6 +531,12 @@
 							{/if}
 							{#if game.formattedSize !== 'N/A'}
 								<span>{game.formattedSize}</span>
+							{/if}
+							{#if isS2}
+								<a class="console-chip" href="/switch-2">Switch 2</a>
+							{/if}
+							{#if isKeyCard}
+								<span class="console-chip key"><Icon icon="mdi:key-variant" width="14" /> Game-Key Card</span>
 							{/if}
 							{#if gameHasPerformanceData}
 								<PlayabilityBadge
@@ -1852,4 +1863,9 @@
 		border-color: #f59e0b;
 		color: #d97706;
 	}
+
+	/* Which console it is for, and whether it is a Game-Key Card */
+	.console-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.6rem; border-radius: 999px; background: #e60012; color: #fff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; }
+	.console-chip.key { background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3); }
+	.facts > .console-chip::before { display: none; }
 </style>
