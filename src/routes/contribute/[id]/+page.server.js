@@ -2,6 +2,8 @@ import { getGameDetails } from '$lib/games/getGameDetails'
 import { GitHubService, GitConflictError } from '$lib/services/GitHubService'
 import { prepareFileUpdate, prepareGroupUpdate, submitContribution } from '$lib/services/ContributionService'
 import { error, redirect, fail } from '@sveltejs/kit'
+import * as contributeService from '$lib/services/contributeService'
+import { badgeProgress } from '$lib/badges'
 import stringify from 'json-stable-stringify'
 import { pruneEmptyValues, generateChangeSummary, isProfileEmpty, EMPTY_ROW_NOTE } from '$lib/utils.js'
 
@@ -312,7 +314,17 @@ export const actions = {
 			const result = await submitContribution(prDetails, user, locals.db)
 
 			if (result.success) {
-				return { success: true, prUrl: result.url }
+				// Where this leaves them with the badges, for the celebration. It counts once
+				// the pull request is merged, so it says "will", and a failure here is no failure to submit
+				/** @type {any} */
+				let progress = null
+				try {
+					const before = await contributeService.getMyProgress(locals.db, user.login)
+					const after = badgeProgress(before.total + 1)
+					const unlocks = after.current && after.current.threshold !== before.current?.threshold ? after.current : null
+					progress = { total: before.total, after: after.total, next: after.next, remaining: after.remaining, fraction: after.fraction, unlocks }
+				} catch { /* no celebration of the badge, only of the submission */ }
+				return { success: true, prUrl: result.url, progress }
 			}
 			return fail(500, { error: result.error || 'An unexpected error occurred.' })
 		} catch (err) {

@@ -1,5 +1,5 @@
 import { games, performanceProfiles, graphicsSettings, youtubeLinks, dataRequests, favorites } from '$lib/db/schema'
-import { and, count, countDistinct, desc, eq, gte, inArray, lt, sql, sum } from 'drizzle-orm'
+import { and, count, countDistinct, desc, eq, gte, inArray, lt, or, sql, sum } from 'drizzle-orm'
 import { countContributions, tallyContributors } from '$lib/contributions'
 
 const GB = 1024 ** 3
@@ -184,14 +184,49 @@ export async function getStats (db, searchParams) {
 		}).from(youtubeLinks)
 			.where(and(approved(youtubeLinks), inArray(youtubeLinks.groupId, groupsInScope))),
 
-		// The newest profile of each group, reduced to the three fields charted
-		db.selectDistinctOn([performanceProfiles.groupId], {
-			dockedFps: sql`${performanceProfiles.profiles}->'docked'->>'target_fps'`.as('docked_fps'),
-			handheldFps: sql`${performanceProfiles.profiles}->'handheld'->>'target_fps'`.as('handheld_fps'),
-			dockedResolution: sql`${performanceProfiles.profiles}->'docked'->>'resolution_type'`.as('docked_resolution')
-		}).from(performanceProfiles)
-			.where(and(approved(performanceProfiles), inArray(performanceProfiles.groupId, groupsInScope)))
-			.orderBy(performanceProfiles.groupId, desc(performanceProfiles.lastUpdated)),
+		// The newest profile of each group, reduced to the three fields charted.
+		// Combines community performance profiles and graphics settings with COALESCE,
+		// matching the logic used across the site
+		(() => {
+			const latestProfile = db.$with('latest_profile').as(
+				db.selectDistinctOn([performanceProfiles.groupId], {
+					groupId: performanceProfiles.groupId,
+					profiles: performanceProfiles.profiles,
+					status: performanceProfiles.status,
+					lastUpdated: performanceProfiles.lastUpdated
+				}).from(performanceProfiles)
+					.where(and(approved(performanceProfiles), inArray(performanceProfiles.groupId, groupsInScope)))
+					.orderBy(performanceProfiles.groupId, desc(performanceProfiles.lastUpdated))
+			)
+			const scopeGroups = db.$with('scope_groups').as(
+				db.selectDistinct({ groupId: games.groupId }).from(games).where(gameScope)
+			)
+
+			return db.with(latestProfile, scopeGroups).select({
+				dockedFps: sql`COALESCE(
+					(${latestProfile.profiles}->'docked'->>'target_fps'),
+					CASE WHEN (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType') = 'Unlocked' THEN 'Unlocked' END,
+					(${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'),
+					(${graphicsSettings.settings}->'docked'->'framerate'->>'lockType')
+				)`.as('docked_fps'),
+				handheldFps: sql`COALESCE(
+					(${latestProfile.profiles}->'handheld'->>'target_fps'),
+					CASE WHEN (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType') = 'Unlocked' THEN 'Unlocked' END,
+					(${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+					(${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+				)`.as('handheld_fps'),
+				dockedResolution: sql`COALESCE(
+					(${latestProfile.profiles}->'docked'->>'resolution_type'),
+					(${graphicsSettings.settings}->'docked'->'resolution'->>'resolutionType')
+				)`.as('docked_resolution')
+			}).from(scopeGroups)
+				.leftJoin(latestProfile, eq(scopeGroups.groupId, latestProfile.groupId))
+				.leftJoin(graphicsSettings, and(eq(scopeGroups.groupId, graphicsSettings.groupId), approved(graphicsSettings)))
+				.where(or(
+					sql`(${latestProfile.groupId} IS NOT NULL AND ${latestProfile.profiles}::text != '{}')`,
+					sql`${graphicsSettings.groupId} IS NOT NULL`
+				))
+		})(),
 
 		db.select({
 			month: sql`to_char(date_trunc('month', ${performanceProfiles.lastUpdated}), 'YYYY-MM')`.as('month'),

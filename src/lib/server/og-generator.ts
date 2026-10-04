@@ -14,6 +14,7 @@ import { html as toVdom } from 'satori-html'
 import { createRequire } from 'node:module'
 import { readFile } from 'node:fs/promises'
 import logger from '$lib/services/loggerService'
+import { isSwitch2Id } from '$lib/platform'
 
 const require = createRequire(import.meta.url)
 
@@ -130,6 +131,8 @@ export interface OgData {
 	/** The frame rates for the cartridge's red band: 30, 60, 'Unlocked', or null when there is none */
 	dockedFps?: string | null;
 	handheldFps?: string | null;
+	/** Switch 2 cartridges are red, not black */
+	platform?: 'switch' | 'switch2';
 }
 
 /**
@@ -196,8 +199,9 @@ export async function generateOgImage (data: OgData): Promise<Buffer> {
 	}
 	fonts.push({ name: 'Inter', data: regular, weight: 400, style: 'normal' })
 
+	const isSwitch2 = data.platform === 'switch2' || isSwitch2Id(data.gameId)
 	const title = escapeHtml(data.title)
-	const publisher = escapeHtml(data.publisher || 'Nintendo Switch')
+	const publisher = escapeHtml(data.publisher || (isSwitch2 ? 'Nintendo Switch 2' : 'Nintendo Switch'))
 	const docked = escapeHtml(data.dockedText)
 	const handheld = escapeHtml(data.handheldText)
 	const gameId = escapeHtml(data.gameId || '')
@@ -247,8 +251,16 @@ export async function generateOgImage (data: OgData): Promise<Buffer> {
 		? `<img src="${cover}" width="${labelW}" height="${artHeight}" style="display: flex; width: ${labelW}px; height: ${artHeight}px; object-fit: cover; border-radius: 0 0 6px 6px;" />`
 		: `<div style="display: flex; width: ${labelW}px; height: ${artHeight}px; border-radius: 0 0 6px 6px; background: linear-gradient(160deg, #3a3d4a, #20222b);"></div>`
 
+	const shellBg = isSwitch2
+		? 'linear-gradient(135deg, #d62b3c, #b3101f 42%, #6f0710)'
+		: 'linear-gradient(135deg, #34343c, #19191e 42%, #0a0a0d)'
+
+	const shellShadow = isSwitch2
+		? '0 34px 60px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.22), inset 0 0 0 1px rgba(255,255,255,0.1)'
+		: '0 34px 60px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.06)'
+
 	const cartridge = `
-		<div style="display: flex; position: relative; width: ${W}px; height: ${cartH}px; border-radius: 24px; background: linear-gradient(135deg, #34343c, #19191e 42%, #0a0a0d); box-shadow: 0 34px 60px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(255,255,255,0.06);">
+		<div style="display: flex; position: relative; width: ${W}px; height: ${cartH}px; border-radius: 24px; background: ${shellBg}; box-shadow: ${shellShadow};">
 			<div style="display: flex; position: absolute; left: ${labelX - 3}px; top: ${labelY - 3}px; width: ${labelW + 6}px; height: ${labelH + 6}px; border-radius: 9px; background: #050506;"></div>
 			<div style="display: flex; flex-direction: column; position: absolute; left: ${labelX}px; top: ${labelY}px; width: ${labelW}px; height: ${labelH}px; border-radius: 6px; background: #f4f4f2;">
 				<div style="display: flex; position: relative; width: ${labelW}px; height: ${bandH}px; border-radius: 6px 6px 0 0; background: ${hasData ? 'linear-gradient(180deg, #ee2a38, #c3121f)' : 'linear-gradient(180deg, #7b7b84, #5a5a62)'};">${bandContent}</div>
@@ -277,7 +289,7 @@ export async function generateOgImage (data: OgData): Promise<Buffer> {
 
         <div style="display: flex; flex-direction: column; position: absolute; left: 540px; top: 54px; width: 604px; height: 456px;">
             <div style="display: flex; align-items: center; margin-bottom: 38px;">
-                <div style="display: flex; flex-direction: column; width: 30px; height: 36px; border-radius: 7px; background: #17171b; padding: 4px 4px 7px 4px;">
+                <div style="display: flex; flex-direction: column; width: 30px; height: 36px; border-radius: 7px; background: ${isSwitch2 ? '#b3101f' : '#17171b'}; padding: 4px 4px 7px 4px;">
                     <div style="display: flex; width: 22px; height: 24px; border-radius: 3px; background: #f4f4f2; flex-direction: column;"><div style="display: flex; width: 22px; height: 9px; background: #e4202f; border-radius: 3px 3px 0 0;"></div></div>
                 </div>
                 <div style="display: flex; font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.9); margin-left: 14px; font-family: 'Inter';">Switch Performance</div>

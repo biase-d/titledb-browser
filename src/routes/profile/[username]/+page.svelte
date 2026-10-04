@@ -5,8 +5,8 @@
 	import { goto } from '$app/navigation'
 	import { onMount } from 'svelte'
 	import { browser } from '$app/environment'
-	import CanvasFlair from './CanvasFlair.svelte'
-	import ProfileBanner from '$lib/components/ProfileBanner.svelte'
+	import ProfileScene from '$lib/components/ProfileScene.svelte'
+	import Celebrate from '$lib/components/Celebrate.svelte'
 	import Coin from '$lib/components/Coin.svelte'
 	import { BADGES } from '$lib/badges'
 	import { fade } from 'svelte/transition'
@@ -47,6 +47,32 @@
 
 	let viewMode = $state('grid')
 
+	// A badge reached since they last looked: celebrated once, on their own profile. The first
+	// visit only records where they are, so nobody is congratulated for badges from long ago
+	let celebrated = $state(/** @type {any} */ (null))
+	onMount(() => {
+		if (!isOwnProfile || !currentTierBadge) return
+		const key = `sp_tier_${username.toLowerCase()}`
+		try {
+			const seen = Number(localStorage.getItem(key))
+			if (seen && currentTierBadge.threshold > seen) celebrated = currentTierBadge
+			localStorage.setItem(key, String(currentTierBadge.threshold))
+		} catch { /* storage can be unavailable */ }
+	})
+
+	// Where the stats' top edge is, so the scene's creatures stand on it at any size
+	let heroEl = $state(/** @type {HTMLElement | undefined} */ (undefined))
+	let bentoEl = $state(/** @type {HTMLElement | undefined} */ (undefined))
+	let ledge = $state(0)
+	$effect(() => {
+		if (!heroEl || !bentoEl) return
+		const measure = () => { ledge = bentoEl?.offsetTop ?? 0 }
+		measure()
+		const observer = new ResizeObserver(measure)
+		observer.observe(heroEl)
+		return () => observer.disconnect()
+	})
+
 	onMount(() => {
 		const savedView = localStorage.getItem('profileViewMode')
 		if (savedView === 'grid' || savedView === 'list') viewMode = savedView
@@ -79,10 +105,21 @@
 	/>
 </svelte:head>
 
+{#if celebrated}
+	<Celebrate
+		title="You earned a new badge"
+		subtitle="Thank you for everything you have added. Your banner has changed to match."
+		badge={celebrated}
+		big
+		onclose={() => (celebrated = null)}
+	/>
+{/if}
+
 <div class="profile-container">
 	<div class="profile-content-wrapper" in:fade={{ duration: 400 }}>
 		<!-- Hero Section -->
 		<div
+			bind:this={heroEl}
 			class="profile-hero"
 			data-tier={currentTierName?.toLowerCase().replace(/\s+/g, '-')}
 		>
@@ -100,18 +137,11 @@
 						<img src={featuredIcon.src} alt="" class="blurred-bg" />
 					{/if}
 				{/key}
-				<ProfileBanner badge={currentTierBadge ?? null} />
 				<div class="overlay-gradient"></div>
 			</div>
 
-			{#if currentTierBadge}
-				<div class="canvas-container">
-					<CanvasFlair
-						tier={currentTierBadge}
-						animated={currentTierBadge.threshold >= 50}
-					/>
-				</div>
-			{/if}
+			<!-- The badge's scene: a backdrop behind everything, and creatures standing on the top edge of the stats below -->
+			<ProfileScene badge={currentTierBadge ?? null} {ledge} />
 
 			<div class="hero-content">
 				<div class="user-info">
@@ -174,7 +204,7 @@
 			</div>
 
 			<!-- Bento Stats -->
-			<div class="bento-stats">
+			<div class="bento-stats" bind:this={bentoEl}>
 				<div class="stat-card primary">
 					<div class="stat-icon">
 						<Icon icon="mdi:chart-line" width="32" height="32" />

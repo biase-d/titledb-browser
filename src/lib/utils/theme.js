@@ -11,7 +11,7 @@ export async function extractTheme (imageUrl) {
 
 	// Bypass CORS for external assets
 	let proxyUrl = imageUrl
-	if (imageUrl.includes('nintendo.net') || imageUrl.includes('githubusercontent.com')) {
+	if (imageUrl.includes('nintendo.net') || imageUrl.includes('nintendo.com') || imageUrl.includes('githubusercontent.com')) {
 		proxyUrl = `/api/v1/proxy/image?url=${encodeURIComponent(imageUrl)}`
 	}
 

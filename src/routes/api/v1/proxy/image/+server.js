@@ -20,6 +20,7 @@ function isAllowedHost (value) {
 	}
 	if (parsed.protocol !== 'https:') return false
 	if (ALLOWED_HOSTS.has(parsed.hostname)) return true
+	if (parsed.hostname === 'nintendo.com' || parsed.hostname === 'nintendo.net') return true
 	return ALLOWED_SUFFIXES.some(suffix => parsed.hostname.endsWith(suffix))
 }
 

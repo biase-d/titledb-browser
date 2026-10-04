@@ -9,7 +9,7 @@ export function proxyImage (src, width = 0, height = 0) {
 	if (!src) return src
 
 	// Proxy external images for caching and CORS
-	if (src.includes('nintendo.net') || src.includes('githubusercontent.com')) {
+	if (src.includes('nintendo.net') || src.includes('nintendo.com') || src.includes('githubusercontent.com')) {
 		let url = `/api/v1/proxy/image?url=${encodeURIComponent(src)}`
 		if (width > 0) url += `&w=${width}`
 		if (height > 0) url += `&h=${height}`

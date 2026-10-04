@@ -2,6 +2,7 @@ import * as gameRepo from '$lib/repositories/gameRepository'
 import { generateOgImage } from '$lib/server/og-generator'
 import { cached } from '$lib/server/assetCache'
 import logger from '$lib/services/loggerService'
+import { isSwitch2Id } from '$lib/platform'
 
 /**
  * Format performance profile data for display
@@ -89,7 +90,9 @@ export async function GET ({ params, locals }) {
 		const handheldFps = fpsOf(perf?.profiles?.handheld, graphics?.settings?.handheld)
 
 		// v3: the cartridge card. v2 was the glass panel, v1 was PNG: the key moves with the design
-		const { body } = await cached(`og/v3/${gameId}.jpg`, 'image/jpeg', () => generateOgImage({
+		const isS2 = isSwitch2Id(gameId)
+		const cacheKey = isS2 ? `og/v3-s2/${gameId}.jpg` : `og/v3/${gameId}.jpg`
+		const { body } = await cached(cacheKey, 'image/jpeg', () => generateOgImage({
 			title: game.names[0],
 			publisher: game.publisher,
 			bannerUrl: game.bannerUrl,
@@ -98,7 +101,8 @@ export async function GET ({ params, locals }) {
 			dockedText,
 			handheldText,
 			dockedFps,
-			handheldFps
+			handheldFps,
+			platform: isS2 ? 'switch2' : 'switch'
 		}))
 
 		return new Response(body, {

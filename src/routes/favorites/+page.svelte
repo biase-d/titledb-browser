@@ -272,7 +272,7 @@
 	}
 
 	/* Under the ledge, out of the cartridge's way */
-	.lists-btn { position: absolute; left: 50%; bottom: -2.3rem; translate: -50% 0; }
+	.lists-btn { position: absolute; left: 50%; bottom: -2.3rem; translate: -50% 0; z-index: 10; }
 
 	.empty-state { text-align: center; padding: 3rem 2rem; background-color: var(--surface-color); border-radius: var(--radius-lg); border: 2px dashed var(--border-color); }
 	.empty-state h3 { font-size: 1.5rem; margin: 0 0 0.5rem; }

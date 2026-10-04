@@ -109,6 +109,16 @@
 		if (e.key === 'Escape') { e.stopPropagation(); close() }
 	}
 
+	/** @param {HTMLElement} node */
+	function portal (node) {
+		document.body.appendChild(node)
+		return {
+			destroy () {
+				if (node.parentNode) node.parentNode.removeChild(node)
+			}
+		}
+	}
+
 	$effect(() => {
 		if (open) tick().then(() => nameInput?.focus())
 	})
@@ -128,16 +138,17 @@
 </button>
 
 {#if open}
-	<div class="backdrop" role="presentation" onclick={close} transition:fade={{ duration: 150 }}></div>
-	<div
-		class="dialog"
-		role="dialog"
-		aria-modal="true"
-		aria-label="Add {gameName || 'this game'} to a list"
-		tabindex="-1"
-		onkeydown={key}
-		transition:scale={{ start: 0.96, duration: 160 }}
-	>
+	<div use:portal>
+		<div class="backdrop" role="presentation" onclick={close} transition:fade={{ duration: 150 }}></div>
+		<div
+			class="dialog"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Add {gameName || 'this game'} to a list"
+			tabindex="-1"
+			onkeydown={key}
+			transition:scale={{ start: 0.96, duration: 160 }}
+		>
 		<header>
 			<h2>Add to a list</h2>
 			{#if gameName}<p class="game">{gameName}</p>{/if}
@@ -177,6 +188,7 @@
 		{/if}
 
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
+	</div>
 	</div>
 {/if}
 

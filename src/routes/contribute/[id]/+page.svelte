@@ -15,12 +15,14 @@
 
 	import Icon from '@iconify/svelte'
 	import { isSwitch2Id } from '$lib/platform'
+	import Celebrate from '$lib/components/Celebrate.svelte'
 	import PerformanceTab from './components/PerformanceTab.svelte'
 	import GraphicsTab from './components/GraphicsTab.svelte'
 	import YoutubeTab from './components/YoutubeTab.svelte'
 	import GroupingTab from './components/GroupingTab.svelte'
 
 	let { data, form } = $props()
+	let celebrating = $state(true)
 	const isSwitch2 = $derived(isSwitch2Id(data.id))
 
 	const {
@@ -497,6 +499,16 @@
 		</div>
 	</div>
 
+	{#if form?.success && celebrating}
+		<Celebrate
+			title={form.progress?.unlocks ? 'A new badge is on its way' : 'Submitted!'}
+			subtitle={form.progress?.unlocks ? 'It is yours the moment your pull request is merged.' : 'Your pull request is open. Thank you for adding what you know.'}
+			badge={form.progress?.unlocks ?? null}
+			big={!!form.progress?.unlocks}
+			onclose={() => (celebrating = false)}
+		/>
+	{/if}
+
 	{#if form?.success}
 		<div class="success-message" role="alert">
 			<Icon icon="mdi:check-decagram" aria-hidden="true" />
@@ -505,6 +517,19 @@
 				<p>
 					Your contribution has been submitted for review. Thank you!
 				</p>
+				{#if form.progress}
+					<div class="progress" aria-label="Progress toward your next badge">
+						{#if form.progress.next}
+							<p class="progress-line">
+								Once it is merged you will have <strong>{form.progress.after}</strong> contributions.
+								<strong>{form.progress.remaining}</strong> more for <strong>{form.progress.next.name}</strong>.
+							</p>
+							<div class="bar"><span style="width: {Math.round(form.progress.fraction * 100)}%"></span></div>
+						{:else}
+							<p class="progress-line">Every badge is yours already. Thank you!</p>
+						{/if}
+					</div>
+				{/if}
 				<div class="success-actions">
 					<a
 						href={form.prUrl}
@@ -1252,4 +1277,11 @@
 		color: var(--text-primary);
 		border: 1px solid var(--border-color);
 	}
+
+	.progress { margin: 0.5rem 0 1rem; }
+	.progress-line { margin: 0 0 0.5rem; font-size: 0.92rem; color: var(--text-secondary); }
+	.progress-line strong { color: var(--text-primary); }
+	.bar { height: 8px; border-radius: 99px; background: var(--input-bg); overflow: hidden; max-width: 22rem; }
+	.bar span { display: block; height: 100%; border-radius: inherit; background: var(--primary-color); animation: fill 1.2s 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+	@keyframes fill { from { width: 0 !important; } }
 </style>
