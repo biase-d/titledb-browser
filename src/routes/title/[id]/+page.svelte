@@ -431,7 +431,7 @@
 		property="og:description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="og:image" content="{url.origin}/api/og/{id}.jpg?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
+	<meta property="og:image" content="{url.origin}/api/og/{id}.jpg?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v3'}" />
 	<meta property="og:image:type" content="image/jpeg" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
@@ -443,7 +443,7 @@
 		property="twitter:description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="twitter:image" content="{url.origin}/api/og/{id}.jpg?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
+	<meta property="twitter:image" content="{url.origin}/api/og/{id}.jpg?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v3'}" />
 
 	{#if gameJsonLd}
 		<!-- JSON-LD must be raw script content. serializeJsonLd escapes `<`, so no

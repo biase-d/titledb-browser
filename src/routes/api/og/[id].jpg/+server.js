@@ -80,13 +80,25 @@ export async function GET ({ params, locals }) {
 			if (h) handheldText = h
 		}
 
-		// v2: the cards were PNG under v1, so the key namespace moves with the format
-		const { body } = await cached(`og/v2/${gameId}.jpg`, 'image/jpeg', () => generateOgImage({
+		// The numbers for the cartridge's band: this game's newest profile, or its graphics settings
+		const fpsOf = (/** @type {any} */ mode, /** @type {any} */ gfx) => {
+			const v = mode?.target_fps ?? gfx?.framerate?.targetFps
+			return v && (typeof v === 'number' || v === 'Unlocked' || !isNaN(parseInt(v, 10))) ? String(v) : null
+		}
+		const dockedFps = fpsOf(perf?.profiles?.docked, graphics?.settings?.docked)
+		const handheldFps = fpsOf(perf?.profiles?.handheld, graphics?.settings?.handheld)
+
+		// v3: the cartridge card. v2 was the glass panel, v1 was PNG: the key moves with the design
+		const { body } = await cached(`og/v3/${gameId}.jpg`, 'image/jpeg', () => generateOgImage({
 			title: game.names[0],
 			publisher: game.publisher,
 			bannerUrl: game.bannerUrl,
+			iconUrl: game.iconUrl,
+			gameId: game.id,
 			dockedText,
-			handheldText
+			handheldText,
+			dockedFps,
+			handheldFps
 		}))
 
 		return new Response(body, {
