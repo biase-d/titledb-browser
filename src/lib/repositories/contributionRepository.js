@@ -245,6 +245,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion,
                 id: games.id,
                 names: games.names,
                 iconUrl: games.iconUrl,
+                bannerUrl: games.bannerUrl,
                 regions: games.regions,
                 requestCount: sql`COALESCE(${requestCountSubquery.count}, 0)`
             })
