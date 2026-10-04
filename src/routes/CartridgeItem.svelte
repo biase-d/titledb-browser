@@ -215,7 +215,7 @@
             reduced: isReducedMotion(prefs),
             light: lightFor(activeScenes(prefs.seasonal, page.url.searchParams))
           })
-          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost } : { style: pose, layout, hoverGrow: grow })
+          const h = stage.register(cell, cartridgeData, hero ? { style: 'hero', scrollAmp: 2.4, layout: 'snap', ghost, arrive: true } : { style: pose, layout, hoverGrow: grow })
           await h.loaded
           if (cancelled) { h.dispose(); return }
           handle = h

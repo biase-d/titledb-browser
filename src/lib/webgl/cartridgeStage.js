@@ -51,6 +51,14 @@ const D = (3.4 * 0.8) / 21
  * in its slot: how fast it travels (card widths a second), how long the page waits
  * for it to be seen, and how long it rings
  */
+/**
+ * When a game opens from the grid, the cartridge on its page arrives as if the
+ * page had been struck: dropped a little, it bounces and rocks until it settles.
+ * This is when the last card was put into its slot, kept at module level because
+ * the stage can be rebuilt by the time the next page has drawn
+ */
+let lastInsertAt = 0
+const ARRIVAL_WINDOW_MS = 6000
 const RIPPLE_SPEED = 5.5
 const RIPPLE_HOLD_MS = 420
 const RIPPLE_MS = 2600
@@ -600,7 +608,7 @@ export class CartridgeStage {
 	 * Draws a cartridge over an element and keeps it there
 	 * @param {HTMLElement} el
 	 * @param {CartridgeData} data
-	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap', ghost?: boolean, hoverGrow?: number }} [opts]
+	 * @param {{ style?: 'flat' | 'angled' | 'sway' | 'float' | 'hero', scrollAmp?: number, layout?: 'glide' | 'snap', ghost?: boolean, hoverGrow?: number, arrive?: boolean }} [opts]
 	 */
 	register (el, data, opts = {}) {
 		const group = new Group()
@@ -667,6 +675,8 @@ export class CartridgeStage {
 			scrollRx: 0, scrollRy: 0,
 			// Leaning away from a hovered neighbour
 			leanX: 0, leanY: 0,
+			/** Arrives with a bounce when the page was opened from a card (see lastInsertAt) */
+			arrive: !!opts.arrive, kickAt: /** @type {number | null} */ (null),
 			// Pushed away and dipped back by the card the pointer is on
 			pushX: 0, pushY: 0, pushS: 0,
 			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
@@ -707,6 +717,7 @@ export class CartridgeStage {
 			reveal: (delay = 0) => {
 				if (handle.revealAt === null) {
 					handle.revealAt = this.options.reduced ? performance.now() - FLIP_MS : performance.now() + delay
+					if (handle.arrive && !this.options.reduced && performance.now() - lastInsertAt < ARRIVAL_WINDOW_MS) handle.kickAt = handle.revealAt + 140
 					this.wake()
 				}
 			},
@@ -843,6 +854,7 @@ export class CartridgeStage {
 		faceMaterials.forEach((/** @type {any} */ m) => { m.clippingPlanes = [clip]; m.needsUpdate = true })
 		this.renderer.localClippingEnabled = true
 
+		lastInsertAt = performance.now()
 		// The shockwave, from this card's centre, set off as it seats (not as it is pulled out)
 		if (!this.options.reduced) {
 			const er = handle.el.getBoundingClientRect()
@@ -1311,6 +1323,20 @@ export class CartridgeStage {
 					ripRy = side * slope * g * 0.008
 					ripRz = side * wave * g * 0.07
 				}
+			}
+
+			// The arrival bounce: dropped, it lands and bounces, rocking as it does,
+			// each bounce smaller than the last
+			if (h.kickAt !== null && !away) {
+				const u = (now - h.kickAt) / 1000
+				if (u > 0 && u < 2.4) {
+					const decay = Math.exp(-2.7 * u)
+					ripY -= Math.abs(Math.sin(7.2 * u)) * decay * r.width * 0.5
+					ripRx -= decay * Math.sin(10 * u) * 0.34
+					ripRy += decay * Math.sin(8 * u) * 0.16
+					ripRz += decay * Math.sin(6.5 * u) * 0.08
+				} else if (u >= 2.4) h.kickAt = null
+				if (h.kickAt !== null) animating = true
 			}
 
 			if (h.hoverTarget === 1 && !away) nextHovered = { handle: h, cx: cxPx, cy: cyPx, w: r.width }
