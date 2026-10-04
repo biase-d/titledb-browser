@@ -210,7 +210,7 @@
                                 <Icon icon="mdi:clock-outline" /> Latest Update
                             </span>
                             {#if game.publisher}
-                                <span class="hero-publisher">{game.publisher}</span>
+                                <a class="hero-publisher" href="/publisher/{encodeURIComponent(game.publisher)}" tabindex={isActive ? 0 : -1}>{game.publisher}</a>
                             {/if}
                         </div>
 
@@ -475,6 +475,15 @@
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    /* As on the game page: the publisher is a link to its titles */
+    .hero-publisher:hover {
+        color: #fff;
+        text-decoration: underline;
+        text-underline-offset: 0.25em;
     }
 
     .hero-badge {
