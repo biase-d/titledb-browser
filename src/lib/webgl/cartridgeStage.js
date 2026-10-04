@@ -846,7 +846,7 @@ export class CartridgeStage {
 		// The shockwave, from this card's centre, set off as it seats (not as it is pulled out)
 		if (!this.options.reduced) {
 			const er = handle.el.getBoundingClientRect()
-			this.ripple = { cx: er.left + er.width / 2, cy: er.top + (er.width * H) / 2, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.55 }
+			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.55 }
 		}
 
 		this.inserting = {
@@ -1262,15 +1262,17 @@ export class CartridgeStage {
 				const dx = cxPx - hov.cx
 				const dy = cyPx - hov.cy
 				const dist = Math.hypot(dx, dy) || 1
-				const reach = hov.w * 2.4
+				const reach = hov.w * 4.6
 				if (dist < reach) {
-					const f = 1 - dist / reach
-					// Turned away from it, shoved off it, and dipped back, the nearest most
-					tLy = (dx / dist) * f * 0.3
-					tLx = (dy / dist) * f * 0.22
-					tPx = (dx / dist) * f * f * r.width * 0.34
-					tPy = (dy / dist) * f * f * r.width * 0.34
-					tPs = f * f * 0.16
+					// A soft falloff (not a cliff at the edge): the nearest cards are moved
+					// most, and the effect is still there three or four cards out
+					const f = Math.pow(1 - dist / reach, 1.6)
+					// Turned away from it, shoved off it, and dipped back
+					tLy = (dx / dist) * f * 0.34
+					tLx = (dy / dist) * f * 0.25
+					tPx = (dx / dist) * f * r.width * 0.3
+					tPy = (dy / dist) * f * r.width * 0.3
+					tPs = f * 0.15
 				}
 			}
 			h.leanX += (tLx - h.leanX) * 0.14
@@ -1280,26 +1282,37 @@ export class CartridgeStage {
 			h.pushS += (tPs - h.pushS) * 0.16
 			if (Math.abs(h.leanX - tLx) > 0.002 || Math.abs(h.leanY - tLy) > 0.002 || Math.abs(h.pushX - tPx) > 0.1 || Math.abs(h.pushS - tPs) > 0.002) animating = true
 
-			// The shockwave from a card going into its slot: it reaches each card when
-			// the wave does, and rings and dies away. Nearer cards are thrown further:
-			// up, sideways away, and over
+			// The shockwave from a card going into its slot. The blow comes from below,
+			// where it seats, so it moves every card the same way, like a table being
+			// knocked from underneath: each is thrown up as the wave reaches it, tipped
+			// back as it goes up and forward as it comes down, and rings out. Only the
+			// distance differs: farther cards are reached later and moved less. A small
+			// sway to the side, with the side the card is on, is all that is not shared
 			let ripX = 0
 			let ripY = 0
 			let ripRx = 0
+			let ripRy = 0
 			let ripRz = 0
 			if (this.ripple && !away) {
-				const u = (now - this.ripple.start) / 1000 - Math.hypot(cxPx - this.ripple.cx, cyPx - this.ripple.cy) / (this.ripple.w * RIPPLE_SPEED)
+				const rp = this.ripple
+				const d = Math.hypot(cxPx - rp.cx, cyPx - rp.cy) || 1
+				const u = (now - rp.start) / 1000 - d / (rp.w * RIPPLE_SPEED)
 				if (u > 0) {
-					const d = Math.hypot(cxPx - this.ripple.cx, cyPx - this.ripple.cy) || 1
-					const reachK = 1 / (1 + d / (this.ripple.w * 3))
-					const env = Math.exp(-u * 2.6) * reachK * 1.5
-					const side = (cxPx - this.ripple.cx) / d
-					ripY = -Math.abs(Math.sin(u * 8.5)) * env * r.width * 0.5
-					ripX = side * Math.sin(u * 11) * env * r.width * 0.2
-					ripRx = Math.sin(u * 10.5) * env * 0.5
-					ripRz = side * Math.sin(u * 9) * env * 0.55
+					const g = 1 / (1 + Math.pow(d / (rp.w * 2.4), 1.25))
+					const decay = Math.exp(-3 * u)
+					const wave = decay * Math.sin(11 * u)
+					const slope = decay * (11 * Math.cos(11 * u) - 3 * Math.sin(11 * u))
+					const side = (cxPx - rp.cx) / d
+					// Up as the crest arrives; it only dips a little below where it was
+					ripY = -(wave > 0 ? wave : wave * 0.35) * g * r.width * 0.55
+					ripX = side * decay * (1 - Math.exp(-14 * u)) * g * r.width * 0.06
+					// Tipped back as it rises and forward as it falls, the same for every card
+					ripRx = -slope * g * 0.03
+					ripRy = side * slope * g * 0.008
+					ripRz = side * wave * g * 0.07
 				}
 			}
+
 			if (h.hoverTarget === 1 && !away) nextHovered = { handle: h, cx: cxPx, cy: cyPx, w: r.width }
 
 			// Pose fades as it leaves for the dock: a docked card just turns
@@ -1343,7 +1356,7 @@ export class CartridgeStage {
 			g.scale.setScalar(s)
 			g.rotation.set(
 				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX + this.gy * stay + ripRx,
-				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.leanY + this.gx * stay + h.flip * ENTRY_YAW + flightYaw,
+				h.ry + (h.poseRy + h.scrollRy) * stay + h.spinY + h.sx + h.leanY + this.gx * stay + h.flip * ENTRY_YAW + flightYaw + ripRy,
 				ripRz
 			)
 			g.position.set(
