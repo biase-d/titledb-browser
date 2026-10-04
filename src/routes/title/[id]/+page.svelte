@@ -1,6 +1,7 @@
 <script>
 	import SeasonProp from '$lib/components/SeasonProp.svelte'
-	import QuestionBlock from '$lib/components/QuestionBlock.svelte'
+	import NintendoEgg from '$lib/components/NintendoEgg.svelte'
+	import { eggFor } from '$lib/franchise'
 	import { fade } from 'svelte/transition'
 	import { browser } from '$app/environment'
 	import { onMount } from 'svelte'
@@ -205,8 +206,8 @@
 	})
 
 	let name = $derived(getLocalizedName(game.names, preferredRegion))
-	// An easter egg for the plumbers' games
-	let isMario = $derived((game.names ?? []).some((/** @type {string} */ n) => /\b(mario|luigi|wario)\b/i.test(n)))
+	// An easter egg for Nintendo games, from the franchise it belongs to
+	let egg = $derived(eggFor(game.names, game.publisher))
 	let altNames = $derived(
 		game.names ? game.names.filter((n) => n !== name) : [],
 	)
@@ -478,7 +479,7 @@
 				<div class="header-content">
 					<div class="season-corner"><SeasonProp /></div>
 					<div class="hero-cart" bind:this={heroElement}>
-						{#if isMario}<div class="egg-spot"><QuestionBlock /></div>{/if}
+						{#if egg}<div class="egg-spot"><NintendoEgg kind={egg} /></div>{/if}
 						<CartridgeItem
 							titleData={heroData}
 							hero
