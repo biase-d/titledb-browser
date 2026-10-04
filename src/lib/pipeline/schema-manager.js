@@ -158,6 +158,19 @@ export async function ensureSchemas (sqlClient) {
 		WHERE "github_pr_number" IS NOT NULL
 	`)
 
+    // Icons found on Nintendo's store for titles titledb has none for. Kept in
+    // public so a rebuild of a layer does not lose them; the active_games view
+    // lays them over the layer's own icon_url
+    await sqlClient.unsafe(`
+		CREATE TABLE IF NOT EXISTS public.icon_lookups (
+			"game_id" TEXT PRIMARY KEY,
+			"icon_url" TEXT,
+			"attempts" INTEGER NOT NULL DEFAULT 0,
+			"retry_after" TIMESTAMPTZ,
+			"checked_at" TIMESTAMPTZ NOT NULL DEFAULT now()
+		)
+	`)
+
     await sqlClient.unsafe(`
 		CREATE INDEX IF NOT EXISTS submissions_status_idx
 		ON public.submissions ("status")
@@ -332,6 +345,31 @@ const PUBLIC_VIEWS = [
 ]
 
 /**
+ * The SQL of one public view over a layer's table. active_games is the layer's
+ * games with icons found at runtime laid over it: titledb's own icon wins when
+ * it has one, the looked-up one fills the gaps
+ * @param {string} view
+ * @param {string} table
+ * @param {string} schema
+ */
+function viewSql (view, table, schema) {
+    if (view === 'active_games') {
+        return `
+			CREATE OR REPLACE VIEW public."active_games" AS
+			SELECT g."id", g."group_id", g."names", g."regions", g."publisher", g."release_date",
+				g."size_in_bytes", COALESCE(NULLIF(g."icon_url", ''), l."icon_url") AS "icon_url",
+				g."banner_url", g."screenshots", g."last_updated"
+			FROM "${schema}"."games" g
+			LEFT JOIN public.icon_lookups l ON l."game_id" = g."id"
+		`
+    }
+    return `
+			CREATE OR REPLACE VIEW public."${view}" AS
+			SELECT * FROM "${schema}"."${table}"
+		`
+}
+
+/**
  * Ensure public views pointing to the active schema exist.
  * Safe to call at startup — idempotent.
  * @param {import('postgres').Sql} sqlClient
@@ -339,10 +377,7 @@ const PUBLIC_VIEWS = [
  */
 export async function ensurePublicViews (sqlClient, activeSchema) {
     for (const { view, table } of PUBLIC_VIEWS) {
-        await sqlClient.unsafe(`
-			CREATE OR REPLACE VIEW public."${view}" AS
-			SELECT * FROM "${activeSchema}"."${table}"
-		`)
+        await sqlClient.unsafe(viewSql(view, table, activeSchema))
     }
 }
 
@@ -375,10 +410,7 @@ export async function swapSchemas (sqlClient, newActiveSchema) {
 
         // Refresh public views to point at the new active schema
         for (const { view, table } of PUBLIC_VIEWS) {
-            await tx.unsafe(`
-				CREATE OR REPLACE VIEW public."${view}" AS
-				SELECT * FROM "${newActiveSchema}"."${table}"
-			`)
+            await tx.unsafe(viewSql(view, table, newActiveSchema))
         }
     })
 

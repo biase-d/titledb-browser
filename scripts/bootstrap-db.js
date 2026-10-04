@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 // The same DDL the sync pipeline uses for a layer, so there is one definition
 // of what a layer holds rather than a copy here that drifts from it
-import { ensurePhysicalTables, ensureSchemas } from '../src/lib/pipeline/schema-manager.js';
+import { ensurePhysicalTables, ensurePublicViews, ensureSchemas, getActiveSchema } from '../src/lib/pipeline/schema-manager.js';
 async function bootstrap() {
     const connectionString = process.env.POSTGRES_URL;
     if (!connectionString) {
@@ -58,16 +58,9 @@ async function bootstrap() {
         VALUES ('layer_a')
         ON CONFLICT (id) DO NOTHING
     `);
-    const views = [
-        ['active_game_groups', 'game_groups'],
-        ['active_games', 'games'],
-        ['active_performance_data', 'performance_profiles'],
-        ['active_graphics_settings', 'graphics_settings'],
-        ['active_youtube_links', 'youtube_links']
-    ];
-    for (const [viewName, tableName] of views) {
-        await sql.unsafe(`CREATE OR REPLACE VIEW public."${viewName}" AS SELECT * FROM "layer_a"."${tableName}"`);
-    }
+    // The same view definitions the swap uses (active_games carries the icons
+    // looked up at runtime), over whichever layer is active rather than always layer_a
+    await ensurePublicViews(sql, await getActiveSchema(sql));
     await sql.end();
 }
 bootstrap().then(() => {
