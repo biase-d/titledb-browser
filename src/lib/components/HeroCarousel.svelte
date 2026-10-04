@@ -1,5 +1,6 @@
 <script>
-    import SeasonProp from '$lib/components/SeasonProp.svelte'
+    import SeasonHeroScene from '$lib/components/SeasonHeroScene.svelte'
+    import SeasonBats from '$lib/components/SeasonBats.svelte'
     import { get } from 'svelte/store'
     import { browser } from '$app/environment'
     import { onMount, onDestroy } from 'svelte'
@@ -137,6 +138,8 @@
 </script>
 
 {#if recentUpdates.length > 0}
+    <!-- Wrapped so the bats can fly over the whole panel, which clips its own contents -->
+    <div class="hero-wrap">
     <section
         bind:this={carousel}
         class="hero-carousel"
@@ -199,10 +202,9 @@
                         <div class="hero-overlay"></div>
                     </div>
 
-                    <!-- The season's scene: as big as it likes, but behind the title -->
-                    {#if isActive}
-                        <div class="season-back" aria-hidden="true"><SeasonProp /></div>
-                    {/if}
+                    <!-- The season's scene, in layers over the banner and under the text and
+                         the cartridge. One at a time: the slide that is showing -->
+                    {#if isActive}<SeasonHeroScene />{/if}
 
                     <div class="hero-content">
                         <div class="hero-eyebrow">
@@ -262,7 +264,6 @@
                             layout="snap"
                             shown={isActive}
                             clipTo={clipZone}
-                            grow={0.9}
                             onglactive={(on) => { slideGl[i] = on }}
                         />
                     </div>
@@ -293,9 +294,15 @@
             </div>
         </div>
     </section>
+    <SeasonBats />
+    </div>
 {/if}
 
 <style>
+    .hero-wrap {
+        position: relative;
+    }
+
     .hero-carousel {
         position: relative;
         display: flex;           /* Add this */
@@ -403,20 +410,6 @@
         --cart-max: 100%;
         opacity: 0;
         transition: opacity 0.5s ease 0.15s;
-    }
-
-    /* The scene stands on the panel's floor, to the left of the cartridge and running
-       back under the title (which is above it). Not on phones, where the title is
-       centred over the whole panel */
-    .season-back {
-        position: absolute;
-        z-index: 0;
-        right: clamp(9rem, 22%, 15rem);
-        bottom: 0.9rem;
-        width: 16rem;
-        --prop-right: 0;
-        --prop-width: 100%;
-        opacity: 0.92;
     }
 
     @media (min-width: 769px) {
@@ -708,10 +701,6 @@
         }
 
         /* Above the text, in the middle, rather than beside it, and inside the panel */
-        .season-back {
-            display: none;
-        }
-
         .hero-cart {
             top: 1.5rem;
             bottom: auto;
