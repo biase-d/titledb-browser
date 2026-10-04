@@ -97,6 +97,10 @@ function createPreferencesStore () {
 		: 'flat'
 
 	/** @type {'auto' | 'off'} */
+	// How a game opens from the cartridge view: the cartridge flies to its page (the
+	// default), or slides into a slot first
+	const initialOpenStyle = browser && localStorage.getItem('open_style') === 'slot' ? 'slot' : 'flight'
+
 	const initialSeasonal = browser && localStorage.getItem('seasonal') === 'off' ? 'off' : 'auto'
 
 	// Off until asked for: it reads the phone's sensors and keeps the screen busy
@@ -109,6 +113,7 @@ function createPreferencesStore () {
 
 	const { subscribe, update } = writable({
 		pxPerMm: initialPxPerMm,
+		openStyle: initialOpenStyle,
 		gridTilt: initialGridTilt,
 		seasonal: initialSeasonal,
 		motion: initialMotion,
@@ -215,6 +220,18 @@ function createPreferencesStore () {
 			update(state => {
 				localStorage.setItem('grid_tilt', enabled.toString())
 				return { ...state, gridTilt: enabled }
+			})
+		},
+		/**
+		 * How opening a game looks from the cartridge view
+		 * @param {'flight' | 'slot'} openStyle
+		 */
+		setOpenStyle: (openStyle) => {
+			if (!browser) return
+
+			update(state => {
+				localStorage.setItem('open_style', openStyle)
+				return { ...state, openStyle }
 			})
 		},
 		/**

@@ -344,6 +344,28 @@
 
                     <div class="setting-item stacked">
                         <div class="setting-info">
+                            <span class="setting-label">Opening a game</span>
+                            <span class="setting-desc"
+                                >In the cartridge view, a game can open with its
+                                cartridge flying to the page while the other
+                                cartridges are blown away, or the cartridge can
+                                slide into a slot first.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Opening a game">
+                            {#each [['flight', 'Fly to the page'], ['slot', 'Slide into a slot']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.openStyle === value}
+                                    class:selected={$preferences.openStyle === value}
+                                    onclick={() => preferences.setOpenStyle(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
                             <span class="setting-label">Cartridge size</span>
                             <span class="setting-desc"
                                 >Hold a bank card upright against the screen and

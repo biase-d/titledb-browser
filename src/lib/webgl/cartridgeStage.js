@@ -65,6 +65,25 @@ const BLAST_RETURN_MS = 600
  * the stage can be rebuilt by the time the next page has drawn
  */
 let lastInsertAt = 0
+/**
+ * A card that was opened by flight leaves where it was, so the cartridge on the
+ * game page can start there and fly to its own place (see CartridgeStage.launch)
+ * @type {{ at: number, rect: { left: number, top: number, width: number } } | null}
+ */
+let pendingTravel = null
+const FLIGHT_MS = 780
+const TRAVEL_WINDOW_MS = 8000
+/**
+ * Going back: after cards were flung away, the next grid to appear has them
+ * flying back in from where they were thrown. Where the blast came from, whether
+ * a return is owed, and how long a batch of cards arriving together counts as one
+ * @type {{ cx: number, cy: number, w: number } | null}
+ */
+let lastBlast = null
+let returnPending = false
+let returnWindowEnd = 0
+const RETURN_S = 0.85
+const RETURN_FROM_T = 0.85
 const ARRIVAL_WINDOW_MS = 6000
 const FACE_PX = 512
 const FACE_PX_H = Math.round(FACE_PX * H)
@@ -681,6 +700,13 @@ export class CartridgeStage {
 			leanX: 0, leanY: 0,
 			/** Arrives with a bounce when the page was opened from a card (see lastInsertAt) */
 			arrive: !!opts.arrive, kickAt: /** @type {number | null} */ (null),
+			isHero: opts.style === 'hero',
+			/** Flying from where the card that opened this page was, to its own place @type {{ from: { left: number, top: number, width: number }, start: number } | null} */
+			travel: null,
+			/** Opened by flight: it lifts and waits for the page */
+			launched: false, launchedAt: 0,
+			/** Flying back into a grid that was blown away: when it starts, in ms */
+			returnAt: /** @type {number | null} */ (null),
 			// Pushed away and dipped back by the card the pointer is on
 			pushX: 0, pushY: 0, pushS: 0,
 			/** How much the page's scrolling moves this card: 1 on the grid, more on a hero */
@@ -720,8 +746,26 @@ export class CartridgeStage {
 			/** @param {number} [delay] ms */
 			reveal: (delay = 0) => {
 				if (handle.revealAt === null) {
-					handle.revealAt = this.options.reduced ? performance.now() - FLIP_MS : performance.now() + delay
-					if (handle.arrive && !this.options.reduced && performance.now() - lastInsertAt < ARRIVAL_WINDOW_MS) handle.kickAt = handle.revealAt + 140
+					const nowT = performance.now()
+					handle.revealAt = this.options.reduced ? nowT - FLIP_MS : nowT + delay
+					if (handle.arrive && !this.options.reduced) {
+						if (pendingTravel && nowT - pendingTravel.at < TRAVEL_WINDOW_MS) {
+							// The card that was opened leaves from where it was and flies here
+							handle.travel = { from: pendingTravel.rect, start: nowT }
+							handle.revealAt = nowT - FLIP_MS
+							pendingTravel = null
+						} else if (nowT - lastInsertAt < ARRIVAL_WINDOW_MS) {
+							handle.kickAt = handle.revealAt + 140
+						}
+					}
+					// Going back to a grid that was blown away: the cards fly back in
+					if (!handle.isHero && handle.layoutMode === 'glide' && !this.options.reduced) {
+						if (returnPending) { returnPending = false; returnWindowEnd = nowT + 1800 }
+						if (nowT < returnWindowEnd && lastBlast) {
+							handle.revealAt = nowT - FLIP_MS
+							handle.returnAt = nowT + delay
+						}
+					}
 					this.wake()
 				}
 			},
@@ -792,6 +836,8 @@ export class CartridgeStage {
 			endDrag: () => { handle.dragging = false; this.wake() },
 			/** Slides this card down into an invisible slot, resolving once it is out of sight */
 			insert: () => this.beginInsert(handle),
+			/** Opens by flight: the others are blown away and this one waits to fly to the next page */
+			launch: () => this.launch(handle),
 			dispose: () => this.unregister(el)
 		}
 
@@ -841,6 +887,59 @@ export class CartridgeStage {
 	}
 
 	/**
+	 * Opens a game by flight. Every other card near the screen is blown away from
+	 * this one, and this one lifts and waits; the page is already opening, and the
+	 * cartridge on it starts from where this one is. Call releaseLaunch afterwards
+	 * @param {any} handle
+	 */
+	launch (handle) {
+		const nowT = performance.now()
+		const er = handle.el.getBoundingClientRect()
+		lastInsertAt = nowT
+		pendingTravel = { at: nowT, rect: { left: er.left, top: er.top, width: er.width } }
+		if (!this.options.reduced) {
+			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: nowT + 40, released: null, victims: new Set([...this.handles.values()].filter(h => h !== handle && h.near)) }
+			lastBlast = { cx: this.ripple.cx, cy: this.ripple.cy, w: this.ripple.w }
+			returnPending = true
+		}
+		handle.launched = true
+		handle.launchedAt = nowT
+		this.wake()
+	}
+
+	/** The page has opened (or did not): let go of the cards, which come back if they are still here */
+	releaseLaunch () {
+		for (const h of this.handles.values()) h.launched = false
+		if (this.ripple && this.ripple.released === null) this.ripple.released = performance.now()
+		this.wake()
+	}
+
+	/**
+	 * Where a card is flung to, a time t after the blast reached it
+	 * @param {number} cxPx @param {number} cyPx where the card is
+	 * @param {{ cx: number, cy: number, w: number }} src where the blast came from
+	 * @param {number} t seconds
+	 */
+	fling (cxPx, cyPx, src, t) {
+		const d = Math.hypot(cxPx - src.cx, cyPx - src.cy) || 1
+		let ux = (cxPx - src.cx) / d
+		let uy = (cyPx - src.cy) / d - 0.75
+		const ul = Math.hypot(ux, uy) || 1
+		ux /= ul
+		uy /= ul
+		const seed = (/** @type {number} */ n) => { const v = Math.sin(cxPx * 12.9898 + cyPx * 78.233 + n * 37.719) * 43758.5453; return v - Math.floor(v) }
+		const speed = BLAST_LAUNCH_PX * (0.6 + 0.8 / (1 + d / (src.w * 2)))
+		const travel = speed * t * (1 + 1.6 * t)
+		return {
+			x: ux * travel,
+			y: uy * travel,
+			rx: (seed(1) - 0.5) * 24 * t,
+			ry: (seed(2) - 0.5) * 24 * t,
+			rz: (seed(3) - 0.5) * 20 * t
+		}
+	}
+
+	/**
 	 * Opening a card, in place: it pulls back a touch, then slides down into an
 	 * invisible slot at its own bottom edge, clipped there so it seems to go in.
 	 * Nothing else on the page changes. Resolves once it is out of sight; call
@@ -862,7 +961,9 @@ export class CartridgeStage {
 		// The shockwave, from this card's centre, set off as it seats (not as it is pulled out)
 		if (!this.options.reduced) {
 			const er = handle.el.getBoundingClientRect()
-			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.3, released: null, victims: new Set(this.handles.values()) }
+			this.ripple = { cx: er.left + er.width / 2, cy: er.top + er.width * H, w: er.width, start: performance.now() + INSERT_PULL_MS + INSERT_SLIDE_MS * 0.3, released: null, victims: new Set([...this.handles.values()].filter(h => h !== handle && h.near)) }
+			lastBlast = { cx: this.ripple.cx, cy: this.ripple.cy, w: this.ripple.w }
+			returnPending = true
 		}
 
 		this.inserting = {
@@ -1315,20 +1416,29 @@ export class CartridgeStage {
 				const t = (now - rp.start) / 1000 - d / (rp.w * BLAST_SPEED)
 				if (t > 0) {
 					const back = rp.released === null ? 1 : 1 - easeOutCubic(Math.min(1, (now - rp.released) / BLAST_RETURN_MS))
-					let ux = (cxPx - rp.cx) / d
-					let uy = (cyPx - rp.cy) / d - 0.75
-					const ul = Math.hypot(ux, uy) || 1
-					ux /= ul
-					uy /= ul
-					const seed = (n) => { const v = Math.sin(cxPx * 12.9898 + cyPx * 78.233 + n * 37.719) * 43758.5453; return v - Math.floor(v) }
-					const speed = BLAST_LAUNCH_PX * (0.6 + 0.8 / (1 + d / (rp.w * 2)))
-					const travel = speed * t * (1 + 1.6 * t)
-					ripX = ux * travel * back
-					ripY = uy * travel * back
-					ripRx = (seed(1) - 0.5) * 24 * t * back
-					ripRy = (seed(2) - 0.5) * 24 * t * back
-					ripRz = (seed(3) - 0.5) * 20 * t * back
+					const f = this.fling(cxPx, cyPx, rp, t)
+					ripX = f.x * back
+					ripY = f.y * back
+					ripRx = f.rx * back
+					ripRy = f.ry * back
+					ripRz = f.rz * back
 				}
+			}
+
+			// Coming back after a blast: the same flight, run backwards, slowing as it
+			// lands. Until its turn it waits out of sight where it was thrown
+			if (h.returnAt !== null && !away && lastBlast) {
+				const T = (now - h.returnAt) / 1000
+				if (T < RETURN_S) {
+					const t = RETURN_FROM_T * (T <= 0 ? 1 : 1 - easeOutCubic(T / RETURN_S))
+					const f = this.fling(cxPx, cyPx, lastBlast, t)
+					ripX = f.x
+					ripY = f.y
+					ripRx = f.rx
+					ripRy = f.ry
+					ripRz = f.rz
+					animating = true
+				} else h.returnAt = null
 			}
 
 			// The arrival bounce: dropped, it lands and bounces, rocking as it does,
@@ -1362,6 +1472,25 @@ export class CartridgeStage {
 				flightYaw = e * Math.PI * 2
 			}
 
+			// Flying in from where the card that opened this page was
+			if (h.travel) {
+				const tv = h.travel
+				const p = Math.min(1, Math.max(0, (now - tv.start) / FLIGHT_MS))
+				const k = easeInOutCubic(p)
+				const fromCx = tv.from.left + tv.from.width / 2
+				const fromCy = tv.from.top + (tv.from.width * H) / 2
+				cx = fromCx + (cx - fromCx) * k
+				// An arc, up and over, and one full turn on the way
+				cy = fromCy + (cy - fromCy) * k - Math.sin(Math.PI * k) * this.viewH * 0.09
+				width = tv.from.width + (width - tv.from.width) * k
+				flightYaw += k * Math.PI * 2
+				if (p >= 1) {
+					h.travel = null
+					h.kickAt = now
+				}
+				animating = true
+			}
+
 			// Fading in as it eases in: nothing at the start, all of it a little before the end
 			const fade = h.revealAt === null ? 0 : Math.min(1, (1 - h.flip) * 1.8)
 			if (fade !== h.appliedFade) {
@@ -1384,7 +1513,12 @@ export class CartridgeStage {
 
 			cx += h.pushX + ripX
 			cy += h.pushY + ripY
-			const s = width * (1 + (0.04 + h.hoverGrow) * h.hover) * (1 - 0.06 * h.flip) * (1 - h.pushS)
+			if (h.launched) {
+				const lift = easeOutCubic(Math.min(1, (now - h.launchedAt) / 220))
+				cy -= lift * width * 0.05
+				animating = true
+			}
+			const s = width * (1 + (0.04 + h.hoverGrow) * h.hover + (h.launched ? 0.08 * easeOutCubic(Math.min(1, (now - h.launchedAt) / 220)) : 0)) * (1 - 0.06 * h.flip) * (1 - h.pushS)
 			g.scale.setScalar(s)
 			g.rotation.set(
 				h.rx + (h.poseRx + h.scrollRx) * stay + h.spinX + h.sy + h.leanX + this.gy * stay + ripRx,

@@ -277,11 +277,12 @@
   let inserting = false
 
   /**
-   * Opening a game: the cartridge stays where it is and slides down into an
-   * invisible slot at its own bottom edge, then the details page opens. Only for
-   * a plain click on the WebGL card. A modified click (new tab, new window), a
-   * second click mid-animation, reduced motion, and the CSS card are all the
-   * ordinary link
+   * Opening a game from the cartridge view. By flight (the default): the page
+   * starts opening at once, the other cards are blown away, and this cartridge
+   * waits to fly to its place on the page. Or, if chosen in Settings, it slides
+   * into a slot and then the page opens. Only for a plain click on the WebGL
+   * card. A modified click (new tab, new window), a second click mid-animation,
+   * reduced motion, and the CSS card are all the ordinary link
    * @param {MouseEvent} e
    */
   async function open (e) {
@@ -294,8 +295,21 @@
     e.preventDefault()
     inserting = true
     const href = linkTo ?? `/title/${id}`
-    // Start fetching the page now, so it is ready by the time the card is in
     preloadData(href).catch(() => {})
+
+    if (get(preferences).openStyle !== 'slot') {
+      // The page does not wait for the animation
+      handle.launch()
+      try {
+        await goto(href)
+      } finally {
+        stage.releaseLaunch()
+        inserting = false
+        setTimeout(() => stageModule?.releaseStage(), 700)
+      }
+      return
+    }
+
     try {
       await handle.insert()
       await goto(href)
