@@ -52,9 +52,14 @@ export const GET = async ({ url, locals }) => {
         <changefreq>weekly</changefreq>
     </url>
     <url>
-        <loc>${origin}/pending-verification</loc>
-        <priority>0.4</priority>
-        <changefreq>daily</changefreq>
+        <loc>${origin}/legal</loc>
+        <priority>0.3</priority>
+        <changefreq>monthly</changefreq>
+    </url>
+    <url>
+        <loc>${origin}/privacy</loc>
+        <priority>0.3</priority>
+        <changefreq>monthly</changefreq>
     </url>
     ${allGames
             .map((game) => {

@@ -6,6 +6,52 @@ export function getBaseId (titleId) {
 }
 
 /**
+ * titledb_filtered keeps the Switch titles in output/ and the Switch 2 titles in
+ * output2/, each with the same files: main.json (title ID to names),
+ * main_regions.json (title ID to the regions it is sold in) and a titleid/ folder
+ * of per-title details. output/ is required; output2/ is read if it is there, so a
+ * checkout without it still syncs the Switch library
+ */
+export const TITLEDB_OUTPUTS = ['output', 'output2']
+
+/**
+ * Reads every output folder of titledb_filtered and combines them. A title ID is
+ * on one console only, so nothing in one folder overwrites another's
+ *
+ * @param {string} repoPath
+ * @returns {Promise<{ mainGamesList: Record<string, string[]>, regionsList: Record<string, string[]>, titleIdDirs: string[] }>}
+ */
+export async function readTitledbOutputs (repoPath) {
+  /** @type {Record<string, string[]>} */
+  const mainGamesList = {}
+  /** @type {Record<string, string[]>} */
+  const regionsList = {}
+  /** @type {string[]} */
+  const titleIdDirs = []
+
+  for (const dir of TITLEDB_OUTPUTS) {
+    const base = path.join(repoPath, dir)
+    try {
+      Object.assign(mainGamesList, JSON.parse(await fs.readFile(path.join(base, 'main.json'), 'utf-8')))
+    } catch (e) {
+      // The first is the library; without it there is nothing to sync. A later one is a bonus
+      if (dir === TITLEDB_OUTPUTS[0]) throw e
+      console.warn(`Could not read ${dir}/main.json. Skipping those titles.`)
+      continue
+    }
+
+    try {
+      Object.assign(regionsList, JSON.parse(await fs.readFile(path.join(base, 'main_regions.json'), 'utf-8')))
+    } catch (e) {
+      console.warn(`Could not read ${dir}/main_regions.json. Skipping region data for it.`)
+    }
+    titleIdDirs.push(path.join(base, 'titleid'))
+  }
+
+  return { mainGamesList, regionsList, titleIdDirs }
+}
+
+/**
  * Reads data repositories to discover game groups, title mappings, and all data files
  * @param {object} REPOS - The repository configuration object
  * @returns {Promise<{
@@ -73,17 +119,7 @@ export async function discoverDataSources (REPOS) {
     }
   }
 
-  const mainJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main.json')
-  const regionsJsonPath = path.join(REPOS.titledb_filtered.path, 'output', 'main_regions.json')
-  
-  const mainGamesList = JSON.parse(await fs.readFile(mainJsonPath, 'utf-8'))
-  
-  let regionsList = {}
-  try {
-    regionsList = JSON.parse(await fs.readFile(regionsJsonPath, 'utf-8'))
-  } catch (e) {
-    console.warn('Could not read main_regions.json. Skipping region data.')
-  }
+  const { mainGamesList, regionsList, titleIdDirs } = await readTitledbOutputs(REPOS.titledb_filtered.path)
 
   for (const id of Object.keys(mainGamesList)) {
     allGroupIds.add(getBaseId(id))
@@ -94,7 +130,7 @@ export async function discoverDataSources (REPOS) {
   }
 
   console.log(`Discovered ${allGroupIds.size} unique game groups.`)
-  return { allGroupIds, customGroupMap, mainGamesList, regionsList, discoveredFiles }
+  return { allGroupIds, customGroupMap, mainGamesList, regionsList, titleIdDirs, discoveredFiles }
 }
 
 /**

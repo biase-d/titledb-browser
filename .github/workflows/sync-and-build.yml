@@ -1,9 +1,10 @@
 name: Sync And Build
 
+# Manual only. The data repository now calls a webhook on the server instead
+# (POST /api/v1/internal/pipeline), which syncs locally rather than cloning both
+# repositories onto a runner and writing every row across the internet.
+# This stays as an escape hatch for when the server cannot run it
 on:
-  repository_dispatch:
-    types: [nx-performance-updated]
-
   workflow_dispatch:
   
 concurrency:
@@ -47,7 +48,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: 'npm'
 
       - name: Install dependencies

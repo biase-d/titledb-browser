@@ -1,9 +1,23 @@
 <script>
     import Icon from '@iconify/svelte'
+    import { page } from '$app/state'
 </script>
 
 <svelte:head>
     <title>Legal & Disclaimers | Switch Performance</title>
+    <meta
+        name="description"
+        content="Legal notices, trademark disclaimers, and project information for Switch Performance community database."
+    />
+    <link rel="canonical" href="{page.url.origin}/legal" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{page.url.origin}/legal" />
+    <meta property="og:title" content="Legal & Disclaimers | Switch Performance" />
+    <meta
+        property="og:description"
+        content="Legal notices, trademark disclaimers, and project information for Switch Performance community database."
+    />
+    <meta property="og:site_name" content="Switch Performance" />
 </svelte:head>
 
 <div class="legal-page">

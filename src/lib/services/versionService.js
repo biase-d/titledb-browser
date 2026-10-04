@@ -31,10 +31,11 @@ export function getVersionInfo () {
 	return {
 		version: version || '3.0.0', // Fallback if not injected
 		features: {
+			// The database + GitHub flow, now the only one. Was opt-in behind a
+			// "Beta Contribution Flow" toggle in settings
 			newContributionFlow: true,
 			gamification: false, // Planned feature
 			cloudStorage: true,
-			betaFlow: false, // New multi-stage flow (User-controlled via Settings)
 			discoverSection: false // Disabled for now as it lacks purpose
 		},
 		announcements: [
@@ -71,9 +72,9 @@ export function getVersionInfo () {
 			{
 				id: 'feature-beta-refinements',
 				date: '2026-02-14',
-				message: 'Enhanced Contributions! The Beta Workflow is now more robust with improved verification and feedback.',
+				message: 'Enhanced Contributions! Submissions now appear on the site straight away while their pull request is reviewed.',
 				type: 'feature',
-				link: '/settings#beta',
+				link: '/contribute',
 				active: true
 			},
 			{

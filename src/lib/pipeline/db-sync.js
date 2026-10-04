@@ -15,7 +15,7 @@ export async function syncDatabase (db, REPOS, contributorMap, dateMap, metadata
   console.log('Starting database synchronization...')
 
   // Discover all data sources, groups, title mappings, and data files
-  const { allGroupIds, mainGamesList, regionsList, discoveredFiles } = await discoverDataSources(REPOS)
+  const { allGroupIds, mainGamesList, regionsList, titleIdDirs, discoveredFiles } = await discoverDataSources(REPOS)
 
   // Ensure all game group parent rows exist in the database
   if (allGroupIds.size > 0) {
@@ -25,7 +25,7 @@ export async function syncDatabase (db, REPOS, contributorMap, dateMap, metadata
   }
 
   // Sync the base game data from titledb_filtered
-  const gamesUpserted = await syncBaseGameData(db, REPOS, mainGamesList, regionsList, metadata)
+  const gamesUpserted = await syncBaseGameData(db, REPOS, mainGamesList, regionsList, titleIdDirs, metadata)
 
   // Sync the performance, graphics, video, and group data from nx-performance
   const affectedGroupIds = new Set()
@@ -204,9 +204,8 @@ async function syncDataType (context) {
 /**
  * Syncs the base game information from the titledb_filtered repository
  */
-async function syncBaseGameData (db, REPOS, mainGamesList, regionsList, metadata) {
+async function syncBaseGameData (db, REPOS, mainGamesList, regionsList, titleIdDirs, metadata) {
   console.log('Syncing base game data...')
-  const titleIdDir = path.join(REPOS.titledb_filtered.path, 'output', 'titleid')
   const titledbRepoPath = REPOS.titledb_filtered.path
   const git = simpleGit()
 
@@ -216,10 +215,14 @@ async function syncBaseGameData (db, REPOS, mainGamesList, regionsList, metadata
   const gamesToUpsert = []
   for (const [id, names] of Object.entries(mainGamesList)) {
     if (!names || !Array.isArray(names) || names.length === 0) continue
+    // The title's details are in whichever output folder holds it (output/ for Switch, output2/ for Switch 2)
     let details = {}
-    try {
-      details = JSON.parse(await fs.readFile(path.join(titleIdDir, `${id}.json`), 'utf-8'))
-    } catch (e) { /* ignore */ }
+    for (const dir of titleIdDirs) {
+      try {
+        details = JSON.parse(await fs.readFile(path.join(dir, `${id}.json`), 'utf-8'))
+        break
+      } catch (e) { /* not in this folder */ }
+    }
 
     const groupId = getBaseId(id)
     const regions = regionsList[id] || []

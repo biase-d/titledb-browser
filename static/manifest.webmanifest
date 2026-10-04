@@ -4,7 +4,7 @@
 	"description": "Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles.",
 	"start_url": "/",
 	"display": "standalone",
-	"background_color": "#1a1a1a",
+	"background_color": "#14161d",
 	"theme_color": "#4dabf7",
 	"icons": [
 		{
@@ -16,6 +16,17 @@
 			"src": "/icons/icon-512x512.png",
 			"sizes": "512x512",
 			"type": "image/png"
+		},
+		{
+			"src": "/icons/icon-maskable-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/favicon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml"
 		}
 	]
 }

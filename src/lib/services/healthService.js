@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm'
 import { getPlatformInfo } from '$lib/platform/adapter'
 import logger from '$lib/services/loggerService'
 import { getBuildStatus } from '$lib/repositories/buildStatusRepository'
+import { probeStorage } from '$lib/storage/health'
 
 /**
  * @typedef {Object} HealthReport
@@ -14,7 +15,7 @@ import { getBuildStatus } from '$lib/repositories/buildStatusRepository'
  * @property {number} latency
  * @property {{
  *   database: { status: string, latency: string },
- *   storage: { status: string },
+ *   storage: { status: string, latency: string },
  *   platform: any,
  *   build: { isBuilding: boolean, phase: string|null }
  * }} services
@@ -25,10 +26,9 @@ import { getBuildStatus } from '$lib/repositories/buildStatusRepository'
  * Check health of all system components
  * @param {import('$lib/database/types').DatabaseAdapter} db
  * @param {import('$lib/storage/types').StorageAdapter|null} storage
- * @param {Object} [platform] - Adapter platform context, when the host provides one
  * @returns {Promise<HealthReport>}
  */
-export async function checkHealth (db, storage, platform) {
+export async function checkHealth (db, storage) {
 	const start = globalThis.performance.now()
 
 	// Check Database
@@ -45,23 +45,22 @@ export async function checkHealth (db, storage, platform) {
 		logger.error('DB Health Check Failed', err)
 	}
 
-	// Check Storage
-	let storageStatus = 'not-configured'
-	if (storage) {
-		storageStatus = 'configured'
-	}
+	// Actually reach the object store. "configured" only ever meant that an
+	// adapter had been constructed, which stays true with a wrong bucket,
+	// wrong credentials or an unreachable host
+	const storageProbe = await probeStorage(storage)
 
 	// Check Build Status
 	const buildStatus = await getBuildStatus(db)
 
-	const info = getPlatformInfo(platform)
+	const info = getPlatformInfo()
 
 	return {
 		status: dbStatus === 'healthy' ? 'healthy' : 'degraded',
 		latency: Math.round(globalThis.performance.now() - start),
 		services: {
 			database: { status: dbStatus, latency: Math.round(dbLatency) + 'ms' },
-			storage: { status: storageStatus },
+			storage: { status: storageProbe.status, latency: storageProbe.latency + 'ms' },
 			platform: info,
 			build: buildStatus || { isBuilding: false, phase: null }
 		},

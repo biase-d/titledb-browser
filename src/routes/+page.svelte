@@ -7,6 +7,7 @@
 	import Icon from '@iconify/svelte'
 	import ListItem from './ListItem.svelte'
 	import GridItem from './GridItem.svelte'
+	import CartridgeItem from './CartridgeItem.svelte'
 	import TableItem from './TableItem.svelte'
 	import GalleryItem from './GalleryItem.svelte'
 	import DetailedItem from './DetailedItem.svelte'
@@ -20,9 +21,20 @@
 	import { navigating } from '$app/stores'
 
 	import { isFeatureEnabled } from '$lib/services/versionService'
+	import { serializeJsonLd } from '$lib/jsonLd'
 
 	let { data } = $props()
 	let { randomGames = [] } = $derived(data)
+
+	// The same page lists either console's titles (/ is the Switch, /switch-2 the Switch 2)
+	const platform = $derived(data.platform ?? 'switch')
+	const isS2 = $derived(platform === 'switch2')
+	const keyCardOnly = $derived(page.url.searchParams.get('key_card') === '1')
+	const home = $derived(isS2 ? '/switch-2' : '/')
+	const pageTitle = $derived(isS2 ? 'Switch 2 Game Performance - Switch Performance' : 'Switch Performance — Nintendo Switch Game Performance Database')
+	const pageDescription = $derived(isS2
+		? 'Frame rates, resolutions and graphics settings for Nintendo Switch 2 games, collected by the community. Includes Game-Key Cards.'
+		: 'Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles.')
 
 	let results = $derived(data.results)
 	let recentUpdates = $derived(data.recentUpdates || [])
@@ -36,7 +48,7 @@
 	let regionFilter = $state('')
 	let selectedSort = $state('date-desc')
 	let currentPage = $state(1)
-	/** @type {"list" | "grid" | "table" | "detailed" | "gallery" | "activity"} */
+	/** @type {"list" | "grid" | "cartridge" | "table" | "detailed" | "gallery" | "activity"} */
 	let viewMode = $state('grid')
 	let preferredRegion = $state('US')
 	let isViewPickerOpen = $state(false)
@@ -63,6 +75,7 @@
 		const validModes = [
 			'list',
 			'grid',
+			'cartridge',
 			'table',
 			'detailed',
 			'gallery',
@@ -142,7 +155,7 @@
 		if (search !== q) search = q
 	})
 
-	let showSkeletons = $derived($navigating?.to?.url.pathname === '/')
+	let showSkeletons = $derived($navigating?.to?.url.pathname === (page.url.pathname === '/switch-2' ? '/switch-2' : '/'))
 
 	function updateData ({ resetPage = false } = {}) {
 		if (!browser) return
@@ -202,28 +215,32 @@
 			if (search || hasActiveFilters) {
 				return `Found ${count} titles`
 			}
-			return 'All Titles'
+			if (keyCardOnly) return `${count} Game-Key Card${count === 1 ? '' : 's'}`
+			return isS2 ? 'All Switch 2 Titles' : 'All Titles'
 		})(),
 	)
+
+	let websiteJsonLd = $derived({
+		'@context': 'https://schema.org',
+		'@type': 'WebSite',
+		name: 'Switch Performance',
+		url: page.url.origin,
+		description: pageDescription,
+		potentialAction: {
+			'@type': 'SearchAction',
+			target: `${page.url.origin}${home}?q={search_term_string}`,
+			'query-input': 'required name=search_term_string',
+		},
+	})
 </script>
 
 <svelte:head>
-	<title>Switch Performance — Nintendo Switch Game Performance Database</title
-	>
-	<meta
-		name="description"
-		content="Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles."
-	/>
+	<title>{pageTitle}</title>
+	<meta name="description" content={pageDescription} />
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={page.url.href} />
-	<meta
-		property="og:title"
-		content="Switch Performance — Nintendo Switch Game Performance Database"
-	/>
-	<meta
-		property="og:description"
-		content="Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles."
-	/>
+	<meta property="og:title" content={pageTitle} />
+	<meta property="og:description" content={pageDescription} />
 	<meta property="og:site_name" content="Switch Performance" />
 	<link rel="canonical" href={page.url.origin + page.url.pathname} />
 	{#if recentUpdates?.[0]?.bannerUrl}
@@ -233,26 +250,51 @@
 			href={proxyImage(recentUpdates[0].bannerUrl, 1000)}
 		/>
 	{/if}
-	{@html `<script type="application/ld+json">
-	{
-		"@context": "https://schema.org",
-		"@type": "WebSite",
-		"name": "Switch Performance",
-		"url": "${page.url.origin}",
-		"description": "Browse Nintendo Switch game performance data. Find FPS, resolution, and graphics details for thousands of Switch titles.",
-		"potentialAction": {
-			"@type": "SearchAction",
-			"target": "${page.url.origin}/?q={search_term_string}",
-			"query-input": "required name=search_term_string"
-		}
-	}
-	${'<'}/script>`}
+	<!-- JSON-LD must be raw script content. serializeJsonLd escapes `<`, so no
+	     value can close the tag early -->
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html `<script type="application/ld+json">${serializeJsonLd(websiteJsonLd)}${'<'}/script>`}
 </svelte:head>
 
 <svelte:window onscroll={handleScroll} onresize={handleResize} />
 
-<main class="main-content">
-	{#if data.isLandingPage}
+<main class="main-content" class:s2={isS2}>
+	{#if data.isLandingPage && isS2}
+		<!-- Switch 2: the same page, reimagined. The intro becomes a panel in the console's red -->
+		<header class="s2-intro">
+			<div class="s2-text">
+				<span class="s2-pill">Switch 2</span>
+				<h1>Switch 2 game performance</h1>
+				<p>
+					Frame rates, resolutions and graphics settings for Switch 2
+					games, collected by the community. The cartridges are red...
+					very innovative.
+				</p>
+				<div class="s2-actions">
+					<a href={keyCardOnly ? '/switch-2' : '/switch-2?key_card=1'} class="key-chip" class:on={keyCardOnly}>
+						<Icon icon="mdi:key-variant" width="18" />
+						<span>{keyCardOnly ? 'Showing Game-Key Cards' : 'Game-Key Cards only'}</span>
+						{#if keyCardOnly}<Icon icon="mdi:close" width="16" />{/if}
+					</a>
+					<a href="/" class="s2-back">Switch games</a>
+				</div>
+			</div>
+			<div class="s2-stand" aria-hidden="true">
+				{#each [2.6, 3.2, 2.9] as h, n (n)}
+					<i class="s2-cart" style="--h: {h}rem; --r: {n === 1 ? 0 : n === 0 ? -4 : 3}deg"></i>
+				{/each}
+			</div>
+		</header>
+	{:else if data.isLandingPage}
+		<header class="intro">
+			<h1>Nintendo Switch game performance</h1>
+			<p>
+				Frame rates, resolutions and graphics settings for Switch games,
+				collected by the community and open to anyone.
+				<a href="/stats">See the numbers</a>
+			</p>
+		</header>
+
 		<!-- Recently Updated Carousel -->
 		<HeroCarousel {recentUpdates} {preferredRegion} />
 
@@ -314,6 +356,8 @@
 								? 'mdi:view-list'
 								: viewMode === 'grid'
 									? 'mdi:view-grid'
+									: viewMode === 'cartridge'
+										? 'mdi:sd'
 									: viewMode === 'table'
 										? 'mdi:table'
 											: viewMode === 'detailed'
@@ -336,7 +380,7 @@
 							role="menu"
 						>
 							<div class="menu-section">
-								<span class="section-title">Standard</span>
+								<span class="menu-section-title">Standard</span>
 								<button
 									class:active={viewMode === 'grid'}
 									onclick={() => (viewMode = 'grid')}
@@ -344,6 +388,14 @@
 								>
 									<Icon icon="mdi:view-grid" />
 									<span>Grid</span>
+								</button>
+								<button
+									class:active={viewMode === 'cartridge'}
+									onclick={() => (viewMode = 'cartridge')}
+									role="menuitem"
+								>
+									<Icon icon="mdi:sd" />
+									<span>Cartridge</span>
 								</button>
 								<button
 									class:active={viewMode === 'list'}
@@ -355,7 +407,7 @@
 								</button>
 							</div>
 							<div class="menu-section">
-								<span class="section-title">Advanced</span>
+								<span class="menu-section-title">Advanced</span>
 								<button
 									class:active={viewMode === 'table'}
 									onclick={() => (viewMode = 'table')}
@@ -373,8 +425,29 @@
 									<span>Detailed View</span>
 								</button>
 							</div>
+							<div class="menu-section options">
+								<span class="menu-section-title">Options</span>
+								<button
+									class="option-row"
+									role="menuitemcheckbox"
+									aria-checked={$preferences.showTitleIds}
+									onclick={() =>
+										preferences.setShowTitleIds(
+											!$preferences.showTitleIds,
+										)}
+								>
+									<Icon icon="mdi:tag-text-outline" />
+									<span>Show title IDs</span>
+									<Icon
+										class="option-check"
+										icon={$preferences.showTitleIds
+											? 'mdi:check-circle'
+											: 'mdi:checkbox-blank-circle-outline'}
+									/>
+								</button>
+							</div>
 							<div class="menu-section">
-								<span class="section-title">Specialized</span>
+								<span class="menu-section-title">Specialized</span>
 								<button
 									class:active={viewMode === 'gallery'}
 									onclick={() => (viewMode = 'gallery')}
@@ -414,27 +487,40 @@
 				class="results-container {viewMode}"
 			>
 				{#if showSkeletons}
-					{#each Array(viewMode === 'grid' || viewMode === 'gallery' ? 12 : 8) as _}
+					{#each Array(viewMode === 'grid' || viewMode === 'gallery' || viewMode === 'cartridge' ? 12 : 8) as _}
 						<SkeletonCard {viewMode} />
 					{/each}
 				{:else}
-					{#each results as item (item.id)}
-						{#if viewMode === 'list'}
-							<ListItem titleData={item} query={search} />
-						{:else if viewMode === 'grid'}
-							<GridItem titleData={item} query={search} />
-						{:else if viewMode === 'table'}
-							<TableItem titleData={item} query={search} />
-						{:else if viewMode === 'gallery'}
-							<GalleryItem titleData={item} />
-						{:else if viewMode === 'detailed'}
-							<DetailedItem titleData={item} query={search} />
-						{:else if viewMode === 'activity'}
-							<ActivityItem titleData={item} />
-						{/if}
-					{:else}
-						<NoResults onClear={clearFilters} />
-					{/each}
+					<!-- A new view replaces the old at once: the cards' slide-out would otherwise
+					     play over the new ones -->
+					{#key viewMode}
+						{#each results as item, i (item.id)}
+							{#if viewMode === 'list'}
+								<ListItem titleData={item} query={search} />
+							{:else if viewMode === 'grid'}
+								<GridItem titleData={item} query={search} />
+							{:else if viewMode === 'cartridge'}
+								<CartridgeItem titleData={item} index={i} />
+							{:else if viewMode === 'table'}
+								<TableItem titleData={item} query={search} />
+							{:else if viewMode === 'gallery'}
+								<GalleryItem titleData={item} />
+							{:else if viewMode === 'detailed'}
+								<DetailedItem titleData={item} query={search} />
+							{:else if viewMode === 'activity'}
+								<ActivityItem titleData={item} />
+							{/if}
+						{:else}
+							{#if isS2 && !search && !hasActiveFilters && !keyCardOnly}
+								<div class="s2-empty">
+									<h3>Switch 2 games appear here as they are added</h3>
+									<p>Performance data for Switch 2 titles is just beginning. If you have one, <a href="/contribute">add what you know</a>.</p>
+								</div>
+							{:else}
+								<NoResults onClear={clearFilters} />
+							{/if}
+						{/each}
+					{/key}
 				{/if}
 			</div>
 		</div>
@@ -464,7 +550,7 @@
 			<div class="branding-badge">
 				<Icon icon="mdi:account-group" /> Join the Community
 			</div>
-			<h1>Everything runs better with info</h1>
+			<h2>Everything runs better with info</h2>
 			<p>
 				Contribute performance data, report graphics settings, or help
 				verify existing entries. Together we build the best database for
@@ -541,7 +627,7 @@
 			color-mix(in srgb, var(--primary-color) 20%, transparent);
 	}
 
-	.branding-hero h1 {
+	.branding-hero h2 {
 		font-size: clamp(2.2rem, 6vw, 3.5rem);
 		font-weight: 900;
 		line-height: 1.05;
@@ -691,6 +777,28 @@
 		font-size: 1.5rem;
 	}
 
+	.intro h1 {
+		margin: 0 0 0.375rem;
+		font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		line-height: 1.15;
+		color: var(--text-primary);
+	}
+
+	.intro p {
+		margin: 0;
+		max-width: 42rem;
+		color: var(--text-secondary);
+		line-height: 1.5;
+	}
+
+	.intro a {
+		color: var(--primary-color);
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
 	.discover-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -734,6 +842,29 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 		gap: 1.5rem;
+	}
+
+	.results-container.cartridge {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+		gap: 2rem 1.25rem;
+		justify-items: center;
+		padding-block: 0.5rem;
+	}
+
+	@media (max-width: 560px) {
+		.results-container.cartridge {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 1.5rem 0.75rem;
+		}
+	}
+
+	/* On a phone one 200px minimum meant one card per screen */
+	@media (max-width: 560px) {
+		.results-container.grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.75rem;
+		}
 	}
 
 	.results-container.gallery {
@@ -879,15 +1010,29 @@
     margin-bottom: 0.25rem;
   }
 
-  .section-title {
+  /* Was .section-title, which is also the page heading wrapper further up this
+     same style block. That rule sets margin-bottom: 2rem, and this one only
+     overrode `display`, so every group label in the menu carried 32px of
+     invisible margin - roughly 96px of dead space in a 220px-wide menu */
+  .menu-section-title {
     display: block;
-    padding: 0.25rem 0.5rem; /* Aligned with the new button padding */
+    margin: 0;
+    padding: 0.25rem 0.5rem;
     font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-secondary);
     opacity: 0.6;
     letter-spacing: 0.05em;
+  }
+
+  .option-row {
+    justify-content: space-between;
+  }
+
+  .option-row :global(.option-check) {
+    margin-left: auto;
+    opacity: 0.85;
   }
 
   .menu-section button {
@@ -1035,4 +1180,93 @@
 		color: var(--text-secondary);
 		font-weight: 500;
 	}
+
+	/* ---- Switch 2: the same page in the console's red ---- */
+	.main-content.s2 {
+		--primary-color: #e60012;
+		--primary-color-rgb: 230, 0, 18;
+	}
+
+	.s2-intro {
+		position: relative;
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 1.5rem;
+		padding: 2rem 2rem 2.25rem;
+		border-radius: 20px;
+		color: #fff;
+		background:
+			radial-gradient(60% 120% at 88% 110%, rgba(255, 70, 80, 0.45), transparent 70%),
+			linear-gradient(135deg, #3a0a10, #14090b 70%);
+		box-shadow: 0 20px 40px -12px rgba(120, 0, 10, 0.45);
+		overflow: visible;
+	}
+
+	/* A lit lip along the foot, as on the footer's ledge, with the cartridges standing on it */
+	.s2-intro::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 0.55rem;
+		border-radius: 0 0 20px 20px;
+		background: linear-gradient(180deg, #ff6b74 0 18%, #b8101d 18% 100%);
+	}
+
+	.s2-pill {
+		display: inline-block;
+		padding: 0.25rem 0.8rem;
+		border-radius: 999px;
+		background: #e60012;
+		font: 800 0.72rem var(--font-mono, ui-monospace, monospace);
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		margin-bottom: 0.9rem;
+	}
+
+	.s2-intro h1 { margin: 0 0 0.5rem; font-size: clamp(1.8rem, 1.2rem + 2.4vw, 3rem); font-weight: 900; letter-spacing: -0.03em; line-height: 1.08; color: #fff; }
+	.s2-intro p { margin: 0 0 1.25rem; max-width: 36rem; line-height: 1.55; color: rgba(255, 255, 255, 0.78); }
+	.s2-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+
+	.key-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		height: 2.4rem;
+		padding: 0 1rem;
+		border-radius: 999px;
+		border: 1px solid rgba(255, 255, 255, 0.28);
+		background: rgba(255, 255, 255, 0.1);
+		color: #fff;
+		font-weight: 700;
+		font-size: 0.88rem;
+		text-decoration: none;
+		transition: background 0.2s, transform 0.2s;
+	}
+	.key-chip:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-1px); }
+	.key-chip.on { background: #fff; color: #b8101d; }
+	.s2-intro .s2-back { color: rgba(255, 255, 255, 0.75); font-weight: 600; font-size: 0.88rem; text-decoration: none; }
+	.s2-intro .s2-back:hover { color: #fff; text-decoration: underline; }
+
+	.s2-stand { display: none; align-items: flex-end; gap: 0.6rem; margin-bottom: 0.45rem; padding-right: 1rem; }
+	@media (min-width: 760px) { .s2-stand { display: flex; } }
+	.s2-cart {
+		position: relative;
+		display: block;
+		width: 2.1rem;
+		height: var(--h);
+		border-radius: 0.3rem 0.3rem 0.14rem 0.14rem;
+		background: linear-gradient(90deg, #e8283a, #c00d1e 45%, #8e0814);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 3px 5px rgba(0, 0, 0, 0.4);
+		transform: rotate(var(--r));
+		transform-origin: 50% 100%;
+	}
+	.s2-cart::before { content: ''; position: absolute; left: 0.28rem; right: 0.28rem; top: 0.4rem; bottom: 0.8rem; border-radius: 0.16rem; background: linear-gradient(180deg, #1a1a1f 0 30%, #f4f4f2 30%); }
+	.s2-cart::after { content: ''; position: absolute; left: 50%; bottom: 0.22rem; translate: -50% 0; border-inline: 0.32rem solid transparent; border-top: 0.26rem solid rgba(255, 255, 255, 0.3); }
+
+	.s2-empty { grid-column: 1 / -1; text-align: center; padding: 3rem 1.5rem; border: 2px dashed var(--border-color); border-radius: 16px; color: var(--text-secondary); }
+	.s2-empty h3 { margin: 0 0 0.5rem; color: var(--text-primary); font-size: 1.3rem; }
+	.s2-empty a { color: var(--primary-color); font-weight: 700; }
 </style>

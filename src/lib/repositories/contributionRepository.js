@@ -117,6 +117,12 @@ export async function rejectContribution (db, prNumber) {
  * @returns {Promise<{perfContribs: Array<any>, graphicsContribs: Array<any>, videoContribs: Array<any>}>}
  */
 export async function getUserContributionStats (db, username) {
+    // Exact, case-insensitive match against each listed name. `ILIKE` here
+    // treated `_` and `%` in a name as wildcards, and a name with stray
+    // whitespace in a data file never matched at all
+    const name = username.trim().toLowerCase()
+    const listsUser = (/** @type {any} */ column) => sql`EXISTS (SELECT 1 FROM unnest(${column}) AS c WHERE lower(btrim(c)) = ${name})`
+
     const [perfContribs, graphicsContribs, videoContribs] = await Promise.all([
         db.select({
             groupId: performanceProfiles.groupId,
@@ -126,7 +132,7 @@ export async function getUserContributionStats (db, username) {
             prNumber: performanceProfiles.prNumber
         }).from(performanceProfiles).where(
             and(
-                sql`${username} ILIKE ANY(${performanceProfiles.contributor})`,
+                listsUser(performanceProfiles.contributor),
                 eq(performanceProfiles.status, 'approved')
             )
         ),
@@ -136,7 +142,7 @@ export async function getUserContributionStats (db, username) {
             prNumber: graphicsSettings.prNumber
         }).from(graphicsSettings).where(
             and(
-                sql`${username} ILIKE ANY(${graphicsSettings.contributor})`,
+                listsUser(graphicsSettings.contributor),
                 eq(graphicsSettings.status, 'approved')
             )
         ),
@@ -146,7 +152,7 @@ export async function getUserContributionStats (db, username) {
             prNumber: youtubeLinks.prNumber
         }).from(youtubeLinks).where(
             and(
-                sql`${youtubeLinks.submittedBy} ILIKE ${username}`,
+                sql`lower(btrim(${youtubeLinks.submittedBy})) = ${name}`,
                 eq(youtubeLinks.status, 'approved')
             )
         )
@@ -164,7 +170,9 @@ export async function getUserContributionStats (db, username) {
  * @param {string} options.preferredRegion
  * @returns {Promise<{games: Array, sortBy: string, pagination: Object}>}
  */
-export async function getMissingDataGroups (db, { page, sortBy, preferredRegion }) {
+export async function getMissingDataGroups (db, { page, sortBy, preferredRegion, platform = 'all' }) {
+    // 'all', or one console's titles (a Switch 2 group's ID starts 04; see $lib/platform)
+    const onPlatform = platform === 'switch2' ? sql`${gameGroups.id} LIKE '04%'` : platform === 'switch' ? sql`${gameGroups.id} NOT LIKE '04%'` : undefined
     const subqueryPerformance = db
         .select({ groupId: performanceProfiles.groupId })
         .from(performanceProfiles)
@@ -179,7 +187,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
     const countQuery = db
         .select({ count: count() })
         .from(gameGroups)
-        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics)))
+        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics), onPlatform))
 
     // Get total count for pagination
     const totalCountResult = await countQuery
@@ -190,9 +198,9 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
         .select({ id: gameGroups.id })
         .from(gameGroups)
         .leftJoin(games, eq(games.groupId, gameGroups.id))
-        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics)))
+        .where(and(notExists(subqueryPerformance), notExists(subqueryGraphics), onPlatform))
         .groupBy(gameGroups.id)
-        .orderBy(desc(sql`MAX(${games.lastUpdated})`))
+        .orderBy(sql`MAX(${games.lastUpdated}) DESC NULLS LAST`)
 
     // Get paginated group IDs
     let groupIds = []
@@ -233,6 +241,7 @@ export async function getMissingDataGroups (db, { page, sortBy, preferredRegion 
 
         gamesList = await db
             .selectDistinctOn([games.groupId], {
+                groupId: games.groupId,
                 id: games.id,
                 names: games.names,
                 iconUrl: games.iconUrl,

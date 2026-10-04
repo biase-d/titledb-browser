@@ -5,28 +5,24 @@
 
 import { createStorage } from './factory.js'
 
+/** @type {import('./types').StorageAdapter | null | undefined} */
+let instance
+
 /**
- * Get storage instance from SvelteKit request context
- * Lazily creates storage connection if not already present
- *
- * @param {Object} locals - SvelteKit event.locals object
+ * The adapter is process-wide, not per-request: it holds a connection pool and
+ * nothing about it varies by request
+ * @param {Object} [_locals] - Unused, kept so call sites read the same everywhere
  * @returns {import('./types').StorageAdapter | null}
  */
-export function getStorage (locals) {
-	if (!locals.storage) {
-		// Create storage from platform environment or process.env
-		const env = locals.platform?.env || process.env
-		const platform = locals.platform
-
-		locals.storage = createStorage(env, platform)
+export function getStorage (_locals) {
+	if (instance === undefined) {
+		instance = createStorage(process.env)
 	}
-
-	return locals.storage
+	return instance
 }
 
 /**
- * Check if storage is configured and available
- * @param {Object} locals - SvelteKit event.locals
+ * @param {Object} [locals]
  * @returns {boolean}
  */
 export function hasStorage (locals) {

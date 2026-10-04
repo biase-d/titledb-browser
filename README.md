@@ -9,6 +9,184 @@ A community-powered project for browsing and contributing Nintendo Switch perfor
 -   **Personalization**: Mark games as favorites for quick access
 -   **Contributor Profiles**: See all contributions made by community members
 
+## Running it
+
+### Development
+
+```sh
+docker compose up -d          # Postgres on :5432
+cp .env.example .env          # set POSTGRES_URL at least
+npm install
+node scripts/bootstrap-db.js  # creates layer_a/layer_b and applies migrations
+npm run build:index           # first data sync (clones the two data repos)
+npm run dev
+```
+
+With `S3_ENDPOINT` unset the storage layer writes to `./storage`, so no object
+store is needed to work on the app.
+
+### Deployment (Coolify)
+
+Built from the `Dockerfile`. Node 22 on Debian, because `sharp` and
+`@resvg/resvg-js` ship prebuilt glibc binaries.
+
+**Environment.** Every variable is read at runtime through
+`$env/dynamic/private`, so none are needed at build time and none end up in an
+image layer. Set them as runtime variables in Coolify. The ones that are not
+optional: `POSTGRES_URL`, `ORIGIN`, `AUTH_SECRET`, `GITHUB_ID`, `GITHUB_SECRET`,
+`GITHUB_BOT_TOKEN`.
+
+`ORIGIN` must be the public URL. Without it adapter-node rejects form actions and
+the auth callback as cross-site, which breaks sign-in and every contribution.
+
+**Volumes.** Two, or the container loses state that is expensive to rebuild:
+
+| Path | Holds | Cost of losing it |
+| --- | --- | --- |
+| `/app/data` | the `nx-performance` and `titledb_filtered` clones, and `data/logs` | every sync re-clones both repositories |
+| `/app/.cache` | the contributor map and pipeline metadata | every incremental sync degrades into a full rebuild |
+
+The resized-artwork and OG-image caches are *not* on disk — they live in the
+object store, so they survive redeploys on their own.
+
+**Syncing on push.** The data repository calls the server directly, so a sync is
+a local clone and a local database socket instead of a GitHub runner cloning both
+repositories and then writing every row across the internet.
+
+In `nx-performance` → Settings → Webhooks:
+
+| Field | Value |
+| --- | --- |
+| Payload URL | `https://your-domain/api/v1/internal/pipeline` |
+| Content type | `application/json` |
+| Secret | the same string as `PIPELINE_WEBHOOK_SECRET` on the app |
+| Events | Just the push event |
+
+The request is answered in milliseconds with `202` and the sync runs as its own
+process — a webhook that waited for it would time out after ten seconds, and a
+sync inside the web server could take the site down with it when it fails. Its
+output goes to `data/logs/pipeline-<date>.log`, and a non-zero exit alerts.
+
+Pushes to branches other than the data branch are ignored, an unsigned or
+wrongly signed request is rejected, and a trigger arriving while a sync is
+running is a no-op rather than a second sync.
+
+**Scheduled task.** Still worth keeping as a backstop, in case a webhook is
+missed while the server is down. Add one on the app resource:
+
+```
+0 */12 * * *   node scripts/build.js
+```
+
+It runs the pipeline in the container. `--full-rebuild` rebuilds into the standby
+schema and swaps it in; `--no-cache` ignores the cached contributor map. A run
+takes a Postgres advisory lock first, so an overlapping run exits as a no-op
+rather than corrupting the schema swap. That is also why the GitHub Actions
+workflows no longer carry a cron: `refresh-db.yml` and `pipeline-failover.yml`
+are manual (`workflow_dispatch`) escape hatches for when the host is unavailable.
+
+**Database setup.** Run before each deploy, not only the first — it is
+idempotent, and it is what applies a new migration and repairs a database whose
+schema has drifted:
+
+```sh
+node scripts/bootstrap-db.js          # schemas, migrations, layers, public views
+```
+
+On a first deploy, follow it with a populate:
+
+```sh
+node scripts/build.js --full-rebuild
+```
+
+Migrations apply to `public` only. The layers get their content tables from the
+sync pipeline, which is what fills and swaps them; `public` holds the shared
+types and the tables that are never swapped — users, submissions, favorites,
+user_preferences, data_requests.
+
+**Health.** The image declares a `HEALTHCHECK` against
+`/api/v1/status?strict=1`, which answers 503 only when the database is
+unreachable. A GitHub or CDN outage leaves it 200, because those cost a feature
+rather than the site.
+
+### Storage (Garage)
+
+Garage holds the derived-asset caches: artwork resized by `/api/v1/proxy/image`
+and the OG cards from `/api/og/[id].jpg`. Both are recomputable, so storage is
+optional — with none configured every request recomputes, which is slower but
+never wrong. Bring the app up first and add this afterwards if you prefer.
+
+**1. Run Garage.** As its own resource in the Coolify project, so it shares the
+network with the app. Minimal `garage.toml`:
+
+```toml
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+replication_factor = 1          # single node
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "<64 hex chars: openssl rand -hex 32>"
+
+[s3_api]
+s3_region = "garage"            # this is S3_REGION below
+api_bind_addr = "[::]:3900"     # this is the port in S3_ENDPOINT
+root_domain = ".s3.garage.localhost"
+```
+
+**2. Assign a layout.** A fresh node reports `NO ROLE ASSIGNED` and refuses
+everything until it has one — this is the step that looks like a broken install:
+
+```sh
+docker exec -it <garage-container> /garage status        # copy the node id
+docker exec -it <garage-container> /garage layout assign -z dc1 -c 10G <node-id>
+docker exec -it <garage-container> /garage layout apply --version 1
+```
+
+**3. Create the bucket and key**, then read the secret back — `key create`
+prints it once, `key info --show-secret` prints it again later:
+
+```sh
+docker exec -it <garage-container> /garage bucket create titledb-assets
+docker exec -it <garage-container> /garage key create titledb-browser
+docker exec -it <garage-container> /garage bucket allow --read --write titledb-assets --key titledb-browser
+docker exec -it <garage-container> /garage key info titledb-browser --show-secret
+```
+
+**4. Set the variables** on the app, from what those commands gave you:
+
+| Variable | Where it comes from |
+| --- | --- |
+| `S3_ENDPOINT` | `http://<garage-service-name>:3900` — the service name on the Docker network, never `localhost`, which inside the app container means the app itself |
+| `S3_BUCKET` | the name from `bucket create`, e.g. `titledb-assets` |
+| `S3_ACCESS_KEY_ID` | `Key ID` from `key info` (starts `GK…`) |
+| `S3_SECRET_ACCESS_KEY` | `Secret key` from `key info --show-secret` |
+| `S3_REGION` | `s3_region` in `garage.toml`, e.g. `garage`. Not an AWS region; it only has to match the server |
+
+Addressing is path-style, so no wildcard DNS is needed.
+
+**5. Check it**, from inside the app container so it uses the same network and
+the same variables the app reads:
+
+```sh
+docker exec -it <app-container> node scripts/check-storage.js
+```
+
+Run on the host instead and it reads `.env`, which on a Coolify deployment does
+not hold these — Coolify injects them into the container. That is what
+"Not configured. Missing: S3_ENDPOINT…" means: the variables exist where the app
+runs, not in the shell you typed into.
+
+It writes, reads back, lists and deletes one object under `healthcheck/`, using
+the same variables the app reads, and names which step failed rather than
+leaving you with "images seem slow". `/api/health` and `/api/v1/status` probe it
+too, so a broken store shows as `degraded` — never `down`, because every image
+is still served, just recomputed each time.
+
+Nothing prunes these caches. They are content-addressed, so they only grow when
+artwork or game data changes, but a bucket lifecycle rule is worth adding if that
+turns out to matter.
+
 ## Monitoring
 
 Two halves, and you want both.
@@ -85,5 +263,23 @@ occurrence retries. If `N8N_WEBHOOK_URL` is unset the whole thing is skipped,
 and a broken webhook is never allowed to turn logging an error into a second
 error.
 
-The same errors still go to `data/logs/` and, if SMTP is configured, to
-`ALERT_EMAIL_TO`. See `.env.example`.
+### 3. Mail — the two messages worth waking up for
+
+With SMTP configured, `ALERT_EMAIL_TO` gets a message when the verdict changes:
+
+| Subject | When |
+| --- | --- |
+| `[DOWN] Switch Performance is not serving` | the verdict becomes `down`, naming what failed |
+| `[RECOVERED] Switch Performance is serving again` | it stops being `down` |
+
+Sent on the **change**, not on every check, so an outage is one message rather
+than one a minute for as long as it lasts. Nothing is sent on the first check
+after a restart, or a deploy landing during a blip would mail every time.
+
+`degraded` deliberately does not mail. It means a feature is lost — artwork,
+submitting a contribution, image caching — while the site still serves, and
+mailing on it is how an inbox becomes something you stop reading. Those still
+reach `data/logs/` and the webhook.
+
+Individual `logger.error` calls still mail, throttled to one per distinct
+message per 5 minutes. See `.env.example`.

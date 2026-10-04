@@ -4,7 +4,77 @@
  */
 
 import { sql } from 'drizzle-orm'
-import logger from '$lib/services/loggerService'
+import logger, { sendAlertEmail } from '$lib/services/loggerService'
+import { notify } from '$lib/services/notifyService'
+import { probeStorage } from '$lib/storage/health'
+
+/**
+ * The last verdict this process reported, so an outage is announced when it
+ * starts rather than on every poll. A monitor hitting /api/v1/status every
+ * minute would otherwise mean a mail every minute for as long as it lasted
+ *
+ * Per-process, which is right for a single container: were this ever scaled,
+ * each replica would announce the outage it can see, which is still the truth
+ * from where it sits
+ * @type {'up'|'degraded'|'down'|null}
+ */
+let lastVerdict = null
+
+/**
+ * Mail on the way down and on the way back up
+ *
+ * Only for `down` - the site unable to serve at all. Degrading costs a feature:
+ * artwork, or submitting a contribution, or image caching. Those are already
+ * logged, and already reach the webhook when a check errors, and mailing on
+ * them is how an inbox becomes something you stop reading
+ *
+ * @param {'up'|'degraded'|'down'} verdict
+ * @param {Record<string, { status: string, message?: string }>} services
+ */
+async function announceVerdictChange (verdict, services) {
+	const previous = lastVerdict
+	lastVerdict = verdict
+
+	// First check after a restart: nothing to compare against. Announcing an
+	// outage here would fire on every deploy that lands while a dependency is
+	// briefly unreachable
+	if (previous === null) return
+
+	if (verdict === 'down' && previous !== 'down') {
+		const broken = Object.entries(services)
+			.filter(([, check]) => check.status === 'down')
+			.map(([name, check]) => `  ${name}: ${check.message ?? 'unreachable'}`)
+			.join('\n')
+
+		await sendAlertEmail({
+			subject: '[DOWN] Switch Performance is not serving',
+			text: `The site cannot serve requests.\n\nFailing:\n${broken}\n\n`
+				+ `Checked at ${new Date().toISOString()}\n\n`
+				+ 'This is sent once when the outage starts, not on every check. '
+				+ 'A recovery message follows when it clears.'
+		})
+		await notify({
+			event: 'dependency_down',
+			title: 'Switch Performance is down',
+			detail: broken,
+			dedupeKey: 'verdict:down'
+		})
+		return
+	}
+
+	if (previous === 'down' && verdict !== 'down') {
+		await sendAlertEmail({
+			subject: '[RECOVERED] Switch Performance is serving again',
+			text: `The site is answering again, now ${verdict}.\n\n`
+				+ `Recovered at ${new Date().toISOString()}`
+		})
+		await notify({
+			event: 'error',
+			title: `Switch Performance recovered (now ${verdict})`,
+			dedupeKey: 'verdict:recovered'
+		})
+	}
+}
 
 /**
  * What a failing check actually means for someone using the site
@@ -29,6 +99,12 @@ const IMPACT = {
 	github: {
 		down: 'New contributions cannot be submitted right now. Browsing is unaffected.',
 		degraded: 'Submitting a contribution may take longer than usual.'
+	},
+	// Deliberately says nothing about which object store this is: the page is
+	// public and the reader only cares what it costs them
+	imageCache: {
+		down: 'Images are being resized on every request, so pages may load more slowly.',
+		degraded: 'Images are taking longer than usual to load.'
 	}
 }
 
@@ -60,27 +136,29 @@ function toError (e) {
  * @property {'up'|'degraded'|'down'} status - Overall verdict, for monitors
  * @property {string} timestamp
  * @property {number} latency_ms
- * @property {{ database: ServiceCheck, nintendoCdn: ServiceCheck, github: ServiceCheck }} services
+ * @property {{ database: ServiceCheck, nintendoCdn: ServiceCheck, github: ServiceCheck, imageCache: ServiceCheck }} services
  * @property {Object} system
  */
 
 /**
  * Get comprehensive system health report
  * @param {import('$lib/database/types').DatabaseAdapter} db
+ * @param {import('$lib/storage/types').StorageAdapter|null} [storage]
  * @returns {Promise<SystemHealth>}
  */
-export async function getSystemHealth (db) {
+export async function getSystemHealth (db, storage = null) {
     const start = Date.now()
 
     const results = await Promise.allSettled([
         checkDatabase(db),
         checkExternalService('https://img-eshop.cdn.nintendo.net/i/ad1726955ae2cbddaaa0c531c836fd368c175f7302f9efab2c0f99118a53f2c4.jpg', 'nintendoCdn'),
-        checkExternalService('https://github.com/biase-d/nx-performance/blob/38851298169a5b691fc1e62b977ea6955833c5f6/scripts/validate-data.sh', 'github')
+        checkExternalService('https://github.com/biase-d/nx-performance/blob/38851298169a5b691fc1e62b977ea6955833c5f6/scripts/validate-data.sh', 'github'),
+        checkImageCache(storage)
     ])
 
     // A rejected check means the check itself threw, which is still an outage
     // from the reader's point of view - report it in the same language
-    const [database, nintendoCdn, github] = ['database', 'nintendoCdn', 'github']
+    const [database, nintendoCdn, github, imageCache] = ['database', 'nintendoCdn', 'github', 'imageCache']
         .map((service, i) => {
             const result = results[i]
             if (result.status === 'fulfilled') return result.value
@@ -89,18 +167,27 @@ export async function getSystemHealth (db) {
             return { status: 'down', message: impactOf(service, 'down'), latency: 0 }
         })
 
+    const verdict = summarise({ database, nintendoCdn, github, imageCache })
+
+    // Not awaited: a monitor polling this endpoint should not wait on SMTP.
+    // Node keeps the process alive until it settles, and both paths swallow
+    // their own failures
+    announceVerdictChange(verdict, { database, nintendoCdn, github, imageCache })
+        .catch(() => {})
+
     return {
         // One field for a monitor to branch on. The database being unreachable
         // means the site cannot serve anything, so that alone is 'down'; a
         // failing CDN or GitHub costs artwork or contributions but leaves the
         // site usable, so those only ever degrade it
-        status: summarise({ database, nintendoCdn, github }),
+        status: verdict,
         timestamp: new Date().toISOString(),
         latency_ms: Date.now() - start,
         services: {
             database,
             nintendoCdn,
-            github
+            github,
+            imageCache
         },
         system: {
             uptime: process.uptime(),
@@ -112,16 +199,31 @@ export async function getSystemHealth (db) {
 
 /**
  * Roll the individual checks up into one overall state
- * @param {{ database: { status: string }, nintendoCdn: { status: string }, github: { status: string } }} services
+ * @param {Record<string, { status: string }>} services
  * @returns {'up'|'degraded'|'down'}
  */
 function summarise (services) {
 	if (services.database.status === 'down') return 'down'
 
-	const others = [services.database, services.nintendoCdn, services.github]
-	if (others.some(s => s.status !== 'up')) return 'degraded'
+	// A storage outage costs caching, not correctness - every image is still
+	// served, just recomputed - so it degrades and never takes the site down.
+	// 'not-configured' is a deployment choice, not a fault, so it reads as up
+	const checks = [services.database, services.nintendoCdn, services.github, services.imageCache]
+	if (checks.some(s => s.status !== 'up' && s.status !== 'not-configured')) return 'degraded'
 
 	return 'up'
+}
+
+/**
+ * @param {import('$lib/storage/types').StorageAdapter|null} storage
+ */
+async function checkImageCache (storage) {
+    const probe = await probeStorage(storage)
+    if (probe.status === 'up') return { status: 'up', latency: probe.latency }
+    if (probe.status === 'not-configured') return { status: 'not-configured', latency: 0 }
+
+    logger.error('Status check failed: image cache', toError(new Error('Object store unreachable')))
+    return { status: 'down', message: impactOf('imageCache', 'down'), latency: probe.latency }
 }
 
 /**

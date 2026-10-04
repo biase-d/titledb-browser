@@ -24,13 +24,9 @@ import { checkHealth } from '$lib/services/healthService'
 
 /** @type {import('@sveltejs/kit').RemoteQueryFunction<void, SystemStatus>} */
 export const getSystemStatus = query(async () => {
-	const { locals, platform } = getRequestEvent()
+	const { locals } = getRequestEvent()
 
-	const health = await checkHealth(
-		getDatabase(locals),
-		getStorage(locals),
-		platform
-	)
+	const health = await checkHealth(getDatabase(locals), getStorage(locals))
 
 	const build = health.services?.build
 

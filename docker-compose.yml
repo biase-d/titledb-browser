@@ -1,7 +1,14 @@
+# Local development dependencies
+#
+# Only Postgres: with S3_ENDPOINT unset the storage layer falls back to the
+# filesystem (./storage), so there is no need to run an object store to work on
+# the app. Production points S3_* at Garage — see "Storage" in the README
+#
+# The previous file also ran ghcr.io/timowilhelm/local-neon-http-proxy, which
+# existed purely to imitate Neon's HTTP driver. The app talks plain TCP now
 services:
   postgres:
     image: postgres:17
-    command: '-d 1'
     volumes:
       - db_data:/var/lib/postgresql/data
     ports:
@@ -15,16 +22,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  neon-proxy:
-    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
-    environment:
-      - PG_CONNECTION_STRING=postgres://postgres:postgres@postgres:5432/main
-    ports:
-      - '4444:4444'
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
   db_data:

@@ -1,27 +1,12 @@
 import { games, performanceProfiles, graphicsSettings } from '$lib/db/schema'
 import { desc, eq, sql, or, and, countDistinct, isNotNull, exists, inArray } from 'drizzle-orm'
 import { calculatePlayabilityScore } from '$lib/playability'
+import { mapGraphicsToPerformance } from '$lib/graphicsPerformance'
+import { asPlatform } from '$lib/platform'
+
+export { mapGraphicsToPerformance }
 
 const PAGE_SIZE = 50
-
-function mapGraphicsToPerformance (graphics) {
-	if (!graphics) return null
-	const mapMode = (gMode) => {
-		if (!gMode) return {}
-		const res = gMode.resolution || {}
-		const fps = gMode.framerate || {}
-		return {
-			resolution_type: res.resolutionType,
-			resolution: res.fixedResolution,
-			min_res: res.minResolution,
-			max_res: res.maxResolution,
-			resolutions: res.multipleResolutions?.join(', '),
-			target_fps: fps.targetFps || (fps.lockType === 'Unlocked' ? 'Unlocked' : null),
-			fps_behavior: fps.lockType === 'API' ? 'Locked' : 'Stable'
-		}
-	}
-	return { docked: mapMode(graphics.docked), handheld: mapMode(graphics.handheld) }
-}
 
 function isPerformanceValid (perf) {
 	if (!perf) return false
@@ -33,6 +18,8 @@ function isPerformanceValid (perf) {
 }
 
 export async function searchGames (db, searchParams) {
+    // Each console has its own listing: Switch 2 titles are not mixed into the main one
+    const platform = asPlatform(searchParams.get('platform'))
     const page = parseInt(searchParams.get('page') || '1', 10)
     const q = searchParams.get('q') || ''
     const publisher = searchParams.get('publisher')
@@ -42,6 +29,8 @@ export async function searchGames (db, searchParams) {
     const sort = searchParams.get('sort') || (q ? 'relevance-desc' : 'date-desc')
     const preferredRegion = searchParams.get('region') || 'US'
     const regionFilter = searchParams.get('region_filter')
+    // Game-Key Cards (Switch 2 only): a card that holds a key to download the game, not the game. Flagged by contributors on a profile
+    const keyCardOnly = searchParams.get('key_card') === '1'
 
     const latestProfileSubquery = db.$with('latest_profile').as(
         db.selectDistinctOn([performanceProfiles.groupId], {
@@ -53,6 +42,7 @@ export async function searchGames (db, searchParams) {
     )
 
     const whereClauses = []
+    whereClauses.push(platform === 'switch2' ? sql`${games.id} LIKE '04%'` : sql`${games.id} NOT LIKE '04%'`)
     if (q) {
         if (/^[0-9A-F]{16}$/i.test(q)) {
             whereClauses.push(eq(games.id, q.toUpperCase()))
@@ -61,6 +51,7 @@ export async function searchGames (db, searchParams) {
             whereClauses.push(and(...searchWords.map(word => sql`extensions.unaccent(array_to_string(${games.names}, ' ')) ILIKE extensions.unaccent(${'%' + word + '%'})`)))
         }
     }
+    if (keyCardOnly) whereClauses.push(sql`${latestProfileSubquery.profiles}->>'game_key_card' = 'true'`)
     if (publisher) whereClauses.push(sql`extensions.unaccent(${games.publisher}) ILIKE extensions.unaccent(${publisher})`)
     
     if (regionFilter) {
@@ -78,7 +69,7 @@ export async function searchGames (db, searchParams) {
     if (handheldFps) whereClauses.push(sql`COALESCE(${latestProfileSubquery.profiles}->'handheld'->>'target_fps', ${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps') = ${handheldFps}`)
     if (resolutionType) whereClauses.push(sql`${latestProfileSubquery.profiles}->'docked'->>'resolution_type' = ${resolutionType} OR ${latestProfileSubquery.profiles}->'handheld'->>'resolution_type' = ${resolutionType}`)
 
-    if (!(q || publisher || regionFilter || dockedFps || handheldFps || resolutionType)) {
+    if (!(q || publisher || regionFilter || dockedFps || handheldFps || resolutionType || keyCardOnly)) {
         whereClauses.push(or(sql`${graphicsSettings.groupId} IS NOT NULL`, sql`(${latestProfileSubquery.groupId} IS NOT NULL AND ${latestProfileSubquery.profiles}::text != '{}')`))
     }
 
@@ -104,8 +95,26 @@ export async function searchGames (db, searchParams) {
             lastUpdated: games.lastUpdated,
             groupLastUpdated: sql`MAX(GREATEST(${games.lastUpdated}, COALESCE(${latestProfileSubquery.lastUpdated}, '1970-01-01'), COALESCE(${graphicsSettings.lastUpdated}, '1970-01-01'))) OVER (PARTITION BY ${games.groupId})`.as('groupLastUpdated'),
             sizeInBytes: games.sizeInBytes,
-            dockedFps: sql`COALESCE((${latestProfileSubquery.profiles}->'docked'->>'target_fps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType'))`.as('dockedFps'),
-            handheldFps: sql`COALESCE((${latestProfileSubquery.profiles}->'handheld'->>'target_fps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'), (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType'))`.as('handheldFps'),
+            // An Unlocked lock has to be read before targetFps: a record moved
+            // from a fixed target to Unlocked can still carry the old number,
+            // and COALESCE would take it and report the game as locked to it
+            dockedFps: sql`COALESCE(
+                (${latestProfileSubquery.profiles}->'docked'->>'target_fps'),
+                CASE WHEN (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType') = 'Unlocked'
+                    THEN 'Unlocked' END,
+                (${graphicsSettings.settings}->'docked'->'framerate'->>'targetFps'),
+                (${graphicsSettings.settings}->'docked'->'framerate'->>'lockType')
+            )`.as('dockedFps'),
+            // An Unlocked lock has to be read before targetFps: a record moved
+            // from a fixed target to Unlocked can still carry the old number,
+            // and COALESCE would take it and report the game as locked to it
+            handheldFps: sql`COALESCE(
+                (${latestProfileSubquery.profiles}->'handheld'->>'target_fps'),
+                CASE WHEN (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType') = 'Unlocked'
+                    THEN 'Unlocked' END,
+                (${graphicsSettings.settings}->'handheld'->'framerate'->>'targetFps'),
+                (${graphicsSettings.settings}->'handheld'->'framerate'->>'lockType')
+            )`.as('handheldFps'),
             performance: latestProfileSubquery.profiles,
             graphics: graphicsSettings.settings
         })
@@ -162,11 +171,35 @@ export async function searchGames (db, searchParams) {
     return { results: mappedResults, pagination: { currentPage: page, totalPages: Math.ceil((countResult[0]?.count || 0) / PAGE_SIZE), totalItems: countResult[0]?.count || 0 } }
 }
 
-export async function getRandomGames (db, limit = 12) {
+export async function getRandomGames (db, limit = 12, platform = 'switch') {
     return await db.select({ id: games.id, names: games.names, iconUrl: games.iconUrl, publisher: games.publisher })
         .from(games)
-        .where(and(isNotNull(games.iconUrl), or(exists(db.select({ one: sql`1` }).from(performanceProfiles).where(eq(performanceProfiles.groupId, games.groupId))), exists(db.select({ one: sql`1` }).from(graphicsSettings).where(eq(graphicsSettings.groupId, games.groupId))))))
+        .where(and(platform === 'switch2' ? sql`${games.id} LIKE '04%'` : sql`${games.id} NOT LIKE '04%'`, isNotNull(games.iconUrl), or(exists(db.select({ one: sql`1` }).from(performanceProfiles).where(eq(performanceProfiles.groupId, games.groupId))), exists(db.select({ one: sql`1` }).from(graphicsSettings).where(eq(graphicsSettings.groupId, games.groupId))))))
         .orderBy(sql`RANDOM()`)
+        .limit(limit)
+}
+
+/**
+ * Artwork for the signed-out backdrop on the contribute page
+ *
+ * Ordered by recency rather than at random, deliberately. A random set would be
+ * a different thirty images on every request, so their placeholders would never
+ * be cached and the page would look different each time it loaded. This picks
+ * the same set for everyone until the data changes, which keeps it warm - and
+ * quietly shows the games people have been working on
+ *
+ * @param {any} db
+ * @param {number} [limit]
+ */
+export async function getBackdropArtwork (db, limit = 18) {
+    return await db.select({
+        id: games.id,
+        names: games.names,
+        iconUrl: games.iconUrl
+    })
+        .from(games)
+        .where(isNotNull(games.iconUrl))
+        .orderBy(desc(games.lastUpdated))
         .limit(limit)
 }
 

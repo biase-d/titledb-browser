@@ -113,6 +113,6 @@ export async function getPublisherStats (db, publisherName) {
  * @param {number} [limit=12]
  * @returns {Promise<Array>}
  */
-export async function getRandomGames (db, limit = 12) {
-	return await searchRepo.getRandomGames(db, limit)
+export async function getRandomGames (db, limit = 12, platform = 'switch') {
+	return await searchRepo.getRandomGames(db, limit, platform)
 }

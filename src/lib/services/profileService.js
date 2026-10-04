@@ -1,19 +1,9 @@
 import * as gameRepo from '$lib/repositories/gameRepository'
 import * as contributionRepo from '$lib/repositories/contributionRepository'
 import * as prefRepo from '$lib/repositories/preferencesRepository'
+import { countContributions } from '$lib/contributions'
 
-const BADGES = [
-	{ threshold: 1, name: 'Shroom Stomper', color: '#a16207', icon: 'mdi:mushroom' },
-	{ threshold: 5, name: 'Grumpy Gator', color: '#16a34a', icon: 'mdi:alligator' },
-	{ threshold: 15, name: 'Floating Brain Jelly', color: '#f59e0b', icon: 'mdi:jellyfish' },
-	{ threshold: 30, name: 'Spooky Robe Guy', color: '#e11d48', icon: 'mdi:ghost' },
-	{ threshold: 50, name: 'Big Buff Croc', color: '#78716c', icon: 'mdi:arm-flex' },
-	{ threshold: 100, name: 'Evil Gray Twin', color: '#4f46e5', icon: 'mdi:sword-cross' },
-	{ threshold: 200, name: 'King K. Roolish', color: '#facc15', icon: 'mdi:crown' },
-	{ threshold: 300, name: 'Big Purple Pterodactyl', color: '#8b5cf6', icon: 'mdi:bird' },
-	{ threshold: 400, name: 'Ancient Angel Borb', color: '#d1d5db', icon: 'mdi:shield-star' },
-	{ threshold: 500, name: 'Creative Right Hand', color: '#fde047', icon: 'mdi:hand-back-right' }
-].sort((a, b) => b.threshold - a.threshold)
+import { BADGES } from '$lib/badges'
 
 /**
  * @typedef {Object} UserContributionResult
@@ -46,27 +36,13 @@ export async function getUserContributions (db, username, page) {
 		featuredGame = await gameRepo.findGameById(db, preferences.featuredGameId)
 	}
 
-	// Normalize PR identifiers to avoid double counting
-	/** @param {any} p @param {string} type @param {number|string} id */
-	const getPrId = (p, type, id) => {
-		if (p.prNumber) return `pr-${p.prNumber}`
-		const url = p.sourcePrUrl?.toLowerCase()
-		if (url) {
-			const match = url.match(/\/pull\/(\d+)/)
-			if (match) return `pr-${match[1]}`
-			return url
-		}
-		// Fallback: If no PR metadata is found, treat each DB entry as a unique legacy contribution
-		return `legacy-${type}-${id}`
-	}
-
-	const uniquePrs = new Set([
-		...data.perfContribs.map((/** @type {any} */ p, /** @type {number} */ i) => getPrId(p, 'perf', p.id || i)),
-		...data.graphicsContribs.map((/** @type {any} */ g, /** @type {number} */ i) => getPrId(g, 'graph', g.groupId || i)),
-		...data.videoContribs.map((/** @type {any} */ v, /** @type {number} */ i) => getPrId(v, 'vid', v.id || i))
-	].filter(Boolean))
-
-	const totalContributions = uniquePrs.size
+	// One pull request is one contribution, however many profiles, graphics
+	// settings or videos it carried. The same rule as the stats page
+	const totalContributions = countContributions([
+		...data.perfContribs,
+		...data.graphicsContribs,
+		...data.videoContribs
+	])
 	const currentTier = BADGES.find(badge => totalContributions >= badge.threshold) || null
 
 	const allGroupIds = [...new Set([
@@ -156,3 +132,5 @@ export async function getUserContributions (db, username, page) {
 		}
 	}
 }
+
+export { BADGES, badgeProgress } from '$lib/badges'

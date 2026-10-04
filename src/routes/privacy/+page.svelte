@@ -1,9 +1,23 @@
 <script>
     import Icon from '@iconify/svelte'
+    import { page } from '$app/state'
 </script>
 
 <svelte:head>
     <title>Privacy Policy | Switch Performance</title>
+    <meta
+        name="description"
+        content="Privacy policy detailing data handling, GitHub authentication, and local storage usage on Switch Performance."
+    />
+    <link rel="canonical" href="{page.url.origin}/privacy" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{page.url.origin}/privacy" />
+    <meta property="og:title" content="Privacy Policy | Switch Performance" />
+    <meta
+        property="og:description"
+        content="Privacy policy detailing data handling, GitHub authentication, and local storage usage on Switch Performance."
+    />
+    <meta property="og:site_name" content="Switch Performance" />
 </svelte:head>
 
 <div class="legal-page">
@@ -35,6 +49,20 @@
                 your contributions and display your name on our contributors'
                 list. We do not have access to your private GitHub data or
                 repositories.
+            </p>
+
+            <h3>Using the API</h3>
+            <p>
+                If you use our public data API, we count your use so that very
+                heavy use can be found and limited. For each day we keep how
+                many requests came from you (a token, which belongs to your
+                GitHub username, or if you use none, your IP address), how
+                many were turned away for going over the limit, when you were
+                last seen, and the User-Agent your software sent. We do not
+                keep what you asked for or what you were given. These records
+                are deleted after 30 days. Requests made by this site's own
+                pages are not recorded. Tokens are stored only as a one-way
+                hash.
             </p>
 
             <h3>Preferences & Local Storage</h3>

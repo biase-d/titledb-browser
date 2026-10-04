@@ -1,78 +1,21 @@
 <script>
+	import CountUp from '$lib/components/CountUp.svelte'
 	import Icon from '@iconify/svelte'
 	import { page } from '$app/state'
 	import { goto } from '$app/navigation'
 	import { onMount } from 'svelte'
 	import { browser } from '$app/environment'
-	import CanvasFlair from './CanvasFlair.svelte'
+	import ProfileScene from '$lib/components/ProfileScene.svelte'
+	import Celebrate from '$lib/components/Celebrate.svelte'
+	import Coin from '$lib/components/Coin.svelte'
+	import { BADGES } from '$lib/badges'
 	import { fade } from 'svelte/transition'
 	import { createImageSet } from '$lib/image'
 	import { getRegionLabel } from '$lib/regions'
 
 	import { preferences } from '$lib/stores/preferences'
 
-	const badges = [
-		{
-			threshold: 500,
-			name: 'Creative Right Hand',
-			color: '#fde047',
-			icon: 'mdi:hand-back-right',
-		},
-		{
-			threshold: 400,
-			name: 'Ancient Angel Borb',
-			color: '#d1d5db',
-			icon: 'mdi:shield-star',
-		},
-		{
-			threshold: 300,
-			name: 'Big Purple Pterodactyl',
-			color: '#8b5cf6',
-			icon: 'mdi:bird',
-		},
-		{
-			threshold: 200,
-			name: 'King K. Roolish',
-			color: '#facc15',
-			icon: 'mdi:crown',
-		},
-		{
-			threshold: 100,
-			name: 'Evil Gray Twin',
-			color: '#4f46e5',
-			icon: 'mdi:sword-cross',
-		},
-		{
-			threshold: 50,
-			name: 'Big Buff Croc',
-			color: '#78716c',
-			icon: 'mdi:arm-flex',
-		},
-		{
-			threshold: 30,
-			name: 'Spooky Robe Guy',
-			color: '#e11d48',
-			icon: 'mdi:ghost',
-		},
-		{
-			threshold: 15,
-			name: 'Floating Brain Jelly',
-			color: '#f59e0b',
-			icon: 'mdi:jellyfish',
-		},
-		{
-			threshold: 5,
-			name: 'Grumpy Gator',
-			color: '#16a34a',
-			icon: 'mdi:alligator',
-		},
-		{
-			threshold: 1,
-			name: 'Shroom Stomper',
-			color: '#a16207',
-			icon: 'mdi:mushroom',
-		},
-	]
+	const badges = BADGES
 
 	let { data } = $props()
 
@@ -103,6 +46,32 @@
 	)
 
 	let viewMode = $state('grid')
+
+	// A badge reached since they last looked: celebrated once, on their own profile. The first
+	// visit only records where they are, so nobody is congratulated for badges from long ago
+	let celebrated = $state(/** @type {any} */ (null))
+	onMount(() => {
+		if (!isOwnProfile || !currentTierBadge) return
+		const key = `sp_tier_${username.toLowerCase()}`
+		try {
+			const seen = Number(localStorage.getItem(key))
+			if (seen && currentTierBadge.threshold > seen) celebrated = currentTierBadge
+			localStorage.setItem(key, String(currentTierBadge.threshold))
+		} catch { /* storage can be unavailable */ }
+	})
+
+	// Where the stats' top edge is, so the scene's creatures stand on it at any size
+	let heroEl = $state(/** @type {HTMLElement | undefined} */ (undefined))
+	let bentoEl = $state(/** @type {HTMLElement | undefined} */ (undefined))
+	let ledge = $state(0)
+	$effect(() => {
+		if (!heroEl || !bentoEl) return
+		const measure = () => { ledge = bentoEl?.offsetTop ?? 0 }
+		measure()
+		const observer = new ResizeObserver(measure)
+		observer.observe(heroEl)
+		return () => observer.disconnect()
+	})
 
 	onMount(() => {
 		const savedView = localStorage.getItem('profileViewMode')
@@ -136,10 +105,21 @@
 	/>
 </svelte:head>
 
+{#if celebrated}
+	<Celebrate
+		title="You earned a new badge"
+		subtitle="Thank you for everything you have added. Your banner has changed to match."
+		badge={celebrated}
+		big
+		onclose={() => (celebrated = null)}
+	/>
+{/if}
+
 <div class="profile-container">
 	<div class="profile-content-wrapper" in:fade={{ duration: 400 }}>
 		<!-- Hero Section -->
 		<div
+			bind:this={heroEl}
 			class="profile-hero"
 			data-tier={currentTierName?.toLowerCase().replace(/\s+/g, '-')}
 		>
@@ -160,14 +140,8 @@
 				<div class="overlay-gradient"></div>
 			</div>
 
-			{#if currentTierBadge}
-				<div class="canvas-container">
-					<CanvasFlair
-						tier={currentTierBadge}
-						animated={currentTierBadge.threshold >= 50}
-					/>
-				</div>
-			{/if}
+			<!-- The badge's scene: a backdrop behind everything, and creatures standing on the top edge of the stats below -->
+			<ProfileScene badge={currentTierBadge ?? null} {ledge} />
 
 			<div class="hero-content">
 				<div class="user-info">
@@ -215,13 +189,7 @@
 							{#each badges
 								.filter((b) => totalContributions >= b.threshold)
 								.slice(0, 8) as badge}
-								<div
-									class="mini-badge"
-									style="--badge-color: {badge.color}"
-									title={badge.name}
-								>
-									<Icon icon={badge.icon} />
-								</div>
+								<Coin {badge} />
 							{/each}
 						</div>
 					</div>
@@ -236,13 +204,13 @@
 			</div>
 
 			<!-- Bento Stats -->
-			<div class="bento-stats">
+			<div class="bento-stats" bind:this={bentoEl}>
 				<div class="stat-card primary">
 					<div class="stat-icon">
 						<Icon icon="mdi:chart-line" width="32" height="32" />
 					</div>
 					<div class="stat-data">
-						<span class="value">{totalContributions}</span>
+						<span class="value"><CountUp value={totalContributions} /></span>
 						<span class="label">Approved Contributions</span>
 					</div>
 				</div>
@@ -600,24 +568,49 @@
 		margin-top: 1rem;
 	}
 
+	/* A collectible: a coin that turns over on hover to show what it was earned at */
 	.mini-badge {
-		width: 32px;
-		height: 32px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 10px;
-		background: var(--input-bg);
-		color: var(--badge-color);
-		border: 1px solid var(--border-color);
-		transition: all 0.2s;
+		width: 2.25rem;
+		height: 2.25rem;
+		perspective: 220px;
+		color: #fff;
 	}
 
-	.mini-badge:hover {
-		transform: translateY(-2px);
-		background: color-mix(in srgb, var(--badge-color) 10%, var(--input-bg));
-		border-color: var(--badge-color);
+	.coin {
+		position: relative;
+		display: block;
+		width: 100%;
+		height: 100%;
+		transform-style: preserve-3d;
+		transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 	}
+
+	.mini-badge:hover .coin { transform: rotateY(180deg); }
+
+	.coin-face {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		border-radius: 50%;
+		backface-visibility: hidden;
+		font-size: 1.1rem;
+		background:
+			radial-gradient(circle at 30% 24%, color-mix(in srgb, var(--badge-color) 45%, white), var(--badge-color) 58%, color-mix(in srgb, var(--badge-color) 72%, black));
+		box-shadow:
+			inset 0 0 0 2px rgba(255, 255, 255, 0.4),
+			inset 0 -3px 5px rgba(0, 0, 0, 0.25),
+			0 3px 8px rgba(0, 0, 0, 0.22);
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+	}
+
+	.coin-back {
+		transform: rotateY(180deg);
+		font-size: 0.8rem;
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+	}
+
 
 	.action-btn {
 		display: flex;

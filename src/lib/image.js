@@ -9,7 +9,7 @@ export function proxyImage (src, width = 0, height = 0) {
 	if (!src) return src
 
 	// Proxy external images for caching and CORS
-	if (src.includes('nintendo.net') || src.includes('githubusercontent.com')) {
+	if (src.includes('nintendo.net') || src.includes('nintendo.com') || src.includes('githubusercontent.com')) {
 		let url = `/api/v1/proxy/image?url=${encodeURIComponent(src)}`
 		if (width > 0) url += `&w=${width}`
 		if (height > 0) url += `&h=${height}`
@@ -43,8 +43,9 @@ export function createImageSet (src, options = {}) {
 	// For icons/thumbnails, we want 1x and 2x (for Retina displays)
 	const x1 = proxyImage(src, baseWidth)
 
-	// Only generate srcset if it's likely to be beneficial (high res requested or large banner)
-	if (highRes || baseWidth > 300) {
+	// A 2x version is only offered when high-resolution images are on in
+	// Settings; otherwise every size is its single 1x file
+	if (highRes) {
 		const x2 = proxyImage(src, baseWidth * 2)
 		return {
 			src: x1,

@@ -13,6 +13,10 @@
                 return '#f59e0b'
             case 'down':
                 return '#ef4444'
+            // A deployment choice rather than a fault, so it gets a neutral
+            // colour instead of sharing the unknown-state grey
+            case 'not-configured':
+                return 'var(--text-secondary)'
             default:
                 return 'var(--text-secondary)'
         }
@@ -26,6 +30,8 @@
                 return 'Degraded Performance'
             case 'down':
                 return 'Service Outage'
+            case 'not-configured':
+                return 'Not Configured'
             default:
                 return 'Unknown'
         }
@@ -128,6 +134,34 @@
                 </div>
             {/if}
         </div>
+
+        {#if health.services.imageCache}
+            <div class="service-card" in:fade={{ delay: 500 }}>
+                <div class="service-info">
+                    <Icon icon="mdi:image-multiple-outline" />
+                    <h3>Image Cache</h3>
+                </div>
+                <div class="service-status">
+                    <span
+                        class="status-pill"
+                        style:background-color={getStatusColor(
+                            health.services.imageCache.status,
+                        )}
+                    >
+                        {getStatusLabel(health.services.imageCache.status)}
+                    </span>
+                    <span class="latency"
+                        >{health.services.imageCache.latency}ms</span
+                    >
+                </div>
+                {#if health.services.imageCache.message && health.services.imageCache.status !== 'up'}
+                    <div class="error-detail">
+                        <Icon icon="mdi:alert-circle-outline" />
+                        <span>{health.services.imageCache.message}</span>
+                    </div>
+                {/if}
+            </div>
+        {/if}
     </div>
 
     <div class="system-details" in:fade={{ delay: 600 }}>

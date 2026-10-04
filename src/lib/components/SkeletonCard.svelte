@@ -1,5 +1,5 @@
 <script>
-    /** @type {{ viewMode?: 'grid' | 'list' | 'table' | 'detailed' | 'gallery' | 'compact' | 'activity' }} */
+    /** @type {{ viewMode?: 'grid' | 'cartridge' | 'list' | 'table' | 'detailed' | 'gallery' | 'compact' | 'activity' }} */
     let { viewMode = 'grid' } = $props()
 </script>
 
@@ -15,6 +15,8 @@
             </div>
         </div>
     </div>
+{:else if viewMode === 'cartridge'}
+    <div class="skeleton-cartridge"></div>
 {:else if viewMode === 'gallery'}
     <div class="skeleton-gallery-item">
         <div class="skeleton-overlay">
@@ -73,6 +75,15 @@
 
 <style>
     .skeleton-card,
+    .skeleton-cartridge {
+        width: 100%;
+        max-width: 11rem;
+        margin-inline: auto;
+        aspect-ratio: 21 / 31;
+        border-radius: 8px;
+        background: var(--input-bg);
+    }
+
     .skeleton-list-item {
         background: var(--surface-color);
         border: 1px solid var(--border-color);

@@ -12,20 +12,31 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        # Floor is set by vitest 5, which supports neither Node 20 nor the
+        # odd-numbered non-LTS releases. See "engines" in package.json
+        node-version: [22.x, 24.x]
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Typecheck
+      run: npm run check
+      continue-on-error: true
+
     - name: Run Unit Tests
-      run: |
-        npm test
+      run: npm test
+
+    - name: Build
+      run: npm run build

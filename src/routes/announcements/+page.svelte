@@ -1,5 +1,6 @@
 <script>
     import { getVersionInfo } from '$lib/services/versionService'
+    import { page } from '$app/state'
     import Icon from '@iconify/svelte'
     import { uiStore } from '$lib/stores/ui.svelte'
 
@@ -55,6 +56,21 @@
     <title>Announcements & Updates - Switch Performance</title>
     <meta
         name="description"
+        content="Latest updates, new features, and maintenance notices for Switch Performance."
+    />
+    <link rel="canonical" href="{page.url.origin}/announcements" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{page.url.origin}/announcements" />
+    <meta property="og:title" content="Announcements & Updates - Switch Performance" />
+    <meta
+        property="og:description"
+        content="Latest updates, new features, and maintenance notices for Switch Performance."
+    />
+    <meta property="og:site_name" content="Switch Performance" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Announcements & Updates - Switch Performance" />
+    <meta
+        name="twitter:description"
         content="Latest updates, new features, and maintenance notices for Switch Performance."
     />
 </svelte:head>

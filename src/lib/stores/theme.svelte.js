@@ -19,7 +19,6 @@ class ThemeStore {
 		if (typeof window !== 'undefined') {
 			window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 				if (this.isActive && this.lastColorSource) {
-					console.log('[ThemeStore] System theme changed, refreshing theme')
 					this.setTheme(this.lastColorSource, this.lastBackgroundUrl)
 				}
 			})
@@ -31,7 +30,6 @@ class ThemeStore {
      * @param {string | null} [backgroundUrl]
      */
 	async setTheme (colorSource, backgroundUrl) {
-		console.log('[ThemeStore] Setting theme for:', colorSource)
 		this.lastColorSource = colorSource
 		this.lastBackgroundUrl = backgroundUrl || null
 
@@ -42,7 +40,6 @@ class ThemeStore {
 
 		const theme = await extractTheme(colorSource)
 		if (theme) {
-			console.log('[ThemeStore] Theme extracted and applying:', theme)
 			this.colors = theme
 			this.backgroundImage = backgroundUrl || colorSource
 			this.isActive = true
@@ -52,7 +49,6 @@ class ThemeStore {
 	}
 
 	clearTheme () {
-		console.log('[ThemeStore] Clearing theme')
 		this.colors = null
 		this.backgroundImage = null
 		this.isActive = false

@@ -60,6 +60,30 @@ export function createLocalAdapter (config = {}) {
 		},
 
 		/**
+         * Fetch bytes and content type in one call, or null when absent.
+         * Mirrors the S3 adapter so the cache read path is adapter-agnostic
+         * @param {string} key
+         * @returns {Promise<{ body: Buffer, contentType: string|undefined, etag: string|undefined } | null>}
+         */
+		async get (key) {
+			const filePath = path.join(basePath, key)
+			try {
+				const buffer = await fs.readFile(filePath)
+				let contentType
+				try {
+					const meta = JSON.parse(await fs.readFile(`${filePath}.meta.json`, 'utf-8'))
+					contentType = meta.contentType
+				} catch {
+					// No metadata sidecar, leave the type to the caller
+				}
+				const stats = await fs.stat(filePath)
+				return { body: buffer, contentType, etag: stats.mtime.getTime().toString() }
+			} catch {
+				return null
+			}
+		},
+
+		/**
          * Download file from local filesystem
          */
 		async download (key) {

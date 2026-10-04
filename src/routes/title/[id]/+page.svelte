@@ -1,4 +1,9 @@
 <script>
+	import SeasonProp from '$lib/components/SeasonProp.svelte'
+	import NintendoEgg from '$lib/components/NintendoEgg.svelte'
+	import ListPicker from '$lib/components/ListPicker.svelte'
+	import { isSwitch2Id } from '$lib/platform'
+	import { eggFor } from '$lib/franchise'
 	import { fade } from 'svelte/transition'
 	import { browser } from '$app/environment'
 	import { onMount } from 'svelte'
@@ -18,8 +23,14 @@
 	import PerformanceDetail from './PerformanceDetail.svelte'
 	import PerformanceComparisonModal from './PerformanceComparisonModal.svelte'
 	import RegionPopover from './RegionPopover.svelte'
+	import BackToTop from './BackToTop.svelte'
+	import CartridgeFocus from './CartridgeFocus.svelte'
+	import { reveal } from '$lib/actions/reveal'
+	import { parallax } from '$lib/actions/parallax'
+	import CartridgeItem from '../../CartridgeItem.svelte'
 	import Breadcrumbs from '$lib/components/Breadcrumbs.svelte'
 	import { toggleDataRequest } from '$lib/remote/game-requests.remote.js'
+	import { serializeJsonLd } from '$lib/jsonLd'
 
 	let { data } = $props()
 
@@ -151,6 +162,17 @@
 			: false,
 	)
 
+	// A profile that says something, as opposed to a placeholder that only names
+	// a contributor
+	let hasRealProfile = $derived(
+		performanceHistory.some(
+			(p) => hasPerformanceData(p.profiles?.docked) || hasPerformanceData(p.profiles?.handheld),
+		),
+	)
+	// With no measured profile, the targets from the graphics settings still
+	// answer "what does it run at"
+	let graphicsTargets = $derived(graphicsAsTargets(game.graphics?.settings))
+
 	let allContributors = $derived(game.allContributors)
 
 	let id = $derived(game?.id)
@@ -159,6 +181,17 @@
 	)
 
 	let isFavorited = $state(false)
+	/** Set for a moment after something is favorited, for the pop */
+	let popped = $state(false)
+
+	function toggleFavorite () {
+		const adding = !isFavorited
+		favorites.toggle(id)
+		if (adding) {
+			popped = true
+			setTimeout(() => { popped = false }, 700)
+		}
+	}
 	$effect(() => {
 		if (id) {
 			favorites.subscribe((favs) => {
@@ -175,13 +208,18 @@
 	})
 
 	let name = $derived(getLocalizedName(game.names, preferredRegion))
+	// An easter egg for Nintendo games, from the franchise it belongs to
+	let egg = $derived(eggFor(game.names, game.publisher))
 	let altNames = $derived(
 		game.names ? game.names.filter((n) => n !== name) : [],
 	)
 
 	let isDetailsCollapsed = $state(true)
 	let breadcrumbItems = $derived.by(() => {
-		const items = [{ label: 'Home', href: '/' }]
+		// Breadcrumbs renders Home itself, as the root with position 1. Adding
+		// it here too produced "Home > Home" on every title page, in the visible
+		// trail and in the BreadcrumbList structured data with it
+		const items = []
 
 		if (browser) {
 			const referrer = document.referrer
@@ -266,13 +304,6 @@
 			bannerWidth: 800,
 		}),
 	)
-	let iconImages = $derived(
-		createImageSet(game.iconUrl || game.bannerUrl, {
-			highRes: $preferences.highResImages,
-			thumbnailWidth: 200,
-		}),
-	)
-
 	let isUnreleased = $derived(game.isUnreleased)
 
 	let hasRequested = $state(data.hasRequested)
@@ -295,9 +326,9 @@
 		}
 	}
 
+	import { graphicsAsTargets } from '$lib/graphicsPerformance'
 	import { themeStore } from '$lib/stores/theme.svelte'
 	$effect(() => {
-		console.log('[TitlePage] Theme trigger effect running for ID:', id)
 		if (id) {
 			themeStore.setTheme(
 				game.iconUrl || game.bannerUrl,
@@ -305,10 +336,86 @@
 			)
 		}
 		return () => {
-			console.log('[TitlePage] Theme trigger cleanup')
 			themeStore.clearTheme()
 		}
 	})
+
+	let gameJsonLd = $derived.by(() => {
+		if (!game) return null
+
+		/** @type {Record<string, any>} */
+		const data = {
+			'@context': 'https://schema.org',
+			'@type': 'VideoGame',
+			name,
+			gamePlatform: 'Nintendo Switch',
+			applicationCategory: 'Game',
+			operatingSystem: 'Nintendo Switch OS',
+			// The rendered OG card, not a 300px icon: Google wants a rich-result
+			// image around 1200px wide, and this one is already generated,
+			// cached and exactly that size
+			image: `${url.origin}/api/og/${id}.jpg`,
+			url: `${url.origin}/title/${canonicalTitleId}`,
+			description: `View performance profiles and graphics settings for ${name} on Switch Performance`,
+		}
+
+		if (game.publisher && game.publisher !== 'N/A') {
+			data.publisher = { '@type': 'Organization', name: game.publisher }
+		}
+
+		if (game.releaseDate) {
+			const raw = game.releaseDate.toString()
+			data.datePublished = `${raw.substring(0, 4)}-${raw.substring(4, 6)}-${raw.substring(6, 8)}`
+		}
+
+		return data
+	})
+
+	/** The hero's own wrapper, which the phone bubble watches */
+	/** @type {HTMLElement | undefined} */
+	let heroElement = $state()
+	/** The phone bubble: whether the hero has flown into it, where it is, and whether the hero is in 3D */
+	let docked = $state(false)
+	/** @type {HTMLElement | undefined} */
+	let dockElement = $state()
+	let heroGl = $state(false)
+	/** Looking at the cartridge up close: it flies to the middle of the screen. Its spot, and its handle on the stage */
+	let focused = $state(false)
+	/** @type {HTMLElement | undefined} */
+	let focusSlot = $state()
+	let heroHandle = $state(null)
+	// Where the hero is headed: the middle of the screen when inspected, the corner when scrolled past
+	const dockTarget = $derived(focused ? focusSlot : dockElement)
+	const dockedNow = $derived(focused || docked)
+
+	// The numbers on the cartridge: the newest real profile, else what the graphics settings target
+	const heroPerformance = $derived.by(() => {
+		const real = performanceHistory.find(
+			(p) => hasPerformanceData(p.profiles?.docked) || hasPerformanceData(p.profiles?.handheld),
+		)
+		const source = real?.profiles ?? graphicsTargets ?? {}
+		return { docked: source.docked ?? {}, handheld: source.handheld ?? {} }
+	})
+	const heroData = $derived({
+		id: game.id,
+		iconUrl: game.iconUrl,
+		bannerUrl: game.bannerUrl,
+		names: game.names,
+		regions: game.regions,
+		publisher: game.publisher,
+		performance: { ...heroPerformance, game_key_card: isKeyCard },
+	})
+
+	// Switch 2 titles are on their own listing; a Game-Key Card is flagged by contributors on a profile
+	const isS2 = $derived(isSwitch2Id(game.id))
+	const isKeyCard = $derived(isS2 && !!(performanceHistory ?? []).find((p) => p.profiles?.game_key_card))
+
+	// The stand-in cartridge's data: nothing in it, as it is not a game
+	const ghostData = { id: 'ghost', names: [''], regions: [], publisher: null, performance: {} }
+
+	// From the server, built from the real group so it is the same on every page of the game
+	const canonicalTitleId = $derived(game.seo?.canonicalTitleId ?? id)
+	const indexable = $derived(game.seo?.indexable ?? true)
 </script>
 
 <svelte:head>
@@ -317,15 +424,23 @@
 		name="description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<link rel="canonical" href="{url.origin}/title/{id}" />
+	<link rel="canonical" href="{url.origin}/title/{canonicalTitleId}" />
+	<!-- A title with no data yet is the artwork and name only, the same on thousands
+	     of pages. Links are still followed; the page is indexed once it has data -->
+	{#if !indexable}
+		<meta name="robots" content="noindex, follow" />
+	{/if}
 	<meta property="og:type" content="product" />
-	<meta property="og:url" content={url.href} />
+	<meta property="og:url" content="{url.origin}/title/{canonicalTitleId}" />
 	<meta property="og:title" content="{name} - Switch Performance" />
 	<meta
 		property="og:description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="og:image" content="{url.origin}/api/og/{id}.png?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
+	<meta property="og:image" content="{url.origin}/api/og/{id}.jpg?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v3'}" />
+	<meta property="og:image:type" content="image/jpeg" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
 	<meta property="og:site_name" content="Switch Performance" />
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={url.href} />
@@ -334,32 +449,13 @@
 		property="twitter:description"
 		content="View performance profiles and graphics settings for {name} on Switch Performance"
 	/>
-	<meta property="twitter:image" content="{url.origin}/api/og/{id}.png?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v2'}" />
+	<meta property="twitter:image" content="{url.origin}/api/og/{id}.jpg?ts={game.lastUpdated ? Math.floor(new Date(game.lastUpdated).getTime() / 1000) : 'v3'}" />
 
-	{#if game}
-		{@html `<script type="application/ld+json">
-		{
-			"@context": "https:
-			"@type": "VideoGame",
-			"name": "${name.replace(/"/g, '\\"')}",
-			"gamePlatform": "Nintendo Switch",
-			"applicationCategory": "Game",
-			"operatingSystem": "Nintendo Switch OS",
-			"image": "${url.origin}${proxyImage(game.iconUrl || game.bannerUrl, 300)}",
-			"url": "${url.href}",
-			${
-				game.publisher && game.publisher !== 'N/A'
-					? `"publisher": {
-				"@type": "Organization",
-				"name": "${game.publisher.replace(/"/g, '\\"')}"
-			},`
-					: ''
-			}
-			${game.releaseDate ? `"datePublished": "${game.releaseDate.toString().substring(0, 4)}-${game.releaseDate.toString().substring(4, 6)}-${game.releaseDate.toString().substring(6, 8)}",` : ''}
-			"genre": "Action, Adventure",
-			"description": "View performance profiles and graphics settings for ${name.replace(/"/g, '\\"')} on Switch Performance"
-		}
-		${'<'}/script>`}
+	{#if gameJsonLd}
+		<!-- JSON-LD must be raw script content. serializeJsonLd escapes `<`, so no
+		     value can close the tag early -->
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html `<script type="application/ld+json">${serializeJsonLd(gameJsonLd)}${'<'}/script>`}
 	{/if}
 </svelte:head>
 
@@ -376,6 +472,7 @@
 						srcset={bannerImages.srcset}
 						alt=""
 						class="banner-image"
+						use:parallax={0.14}
 						role="presentation"
 						loading="lazy"
 						sizes="(max-width: 1200px) 100vw, 1200px"
@@ -386,31 +483,22 @@
 
 			<div class="header-content-wrapper">
 				<div class="header-content">
-					{#if iconImages}
-						<img
-							src={iconImages.src}
-							srcset={iconImages.srcset}
-							alt="{name} icon"
-							class="game-icon"
-							class:fallback-icon={!game.iconUrl &&
-								game.bannerUrl}
-							loading="lazy"
-							sizes="120px"
+					<div class="season-corner"><SeasonProp /></div>
+					<div class="hero-cart" bind:this={heroElement}>
+						{#if egg}<div class="egg-spot"><NintendoEgg kind={egg} /></div>{/if}
+						<CartridgeItem
+							titleData={heroData}
+							hero
+							docked={dockedNow}
+							dockTo={dockTarget}
+							bind:glActive={heroGl}
+							bind:handleRef={heroHandle}
+							onactivate={() => (focused = true)}
 						/>
-					{:else}
-						<div class="game-icon-placeholder"></div>
-					{/if}
-					<div class="title-info">
-						<h1
-							lang={preferredRegion === 'JP'
-								? 'ja'
-								: preferredRegion === 'KR'
-									? 'ko'
-									: 'en'}
-						>
-							{name}
-						</h1>
-						<div class="subtitle-row">
+					</div>
+
+					<div class="hero-info">
+						<div class="eyebrow">
 							{#if game.publisher}
 								<a
 									href="/publisher/{encodeURIComponent(
@@ -425,6 +513,31 @@
 							{#if game.regions && game.regions.length > 0}
 								<RegionPopover regions={game.regions} />
 							{/if}
+						</div>
+
+						<h1
+							lang={preferredRegion === 'JP'
+								? 'ja'
+								: preferredRegion === 'KR'
+									? 'ko'
+									: 'en'}
+						>
+							{name}
+						</h1>
+
+						<div class="facts">
+							{#if game.formattedReleaseDate !== 'N/A'}
+								<span>{game.formattedReleaseDate}</span>
+							{/if}
+							{#if game.formattedSize !== 'N/A'}
+								<span>{game.formattedSize}</span>
+							{/if}
+							{#if isS2}
+								<a class="console-chip" href="/switch-2">Switch 2</a>
+							{/if}
+							{#if isKeyCard}
+								<span class="console-chip key"><Icon icon="mdi:key-variant" width="14" /> Game-Key Card</span>
+							{/if}
 							{#if gameHasPerformanceData}
 								<PlayabilityBadge
 									profile={performance.profiles}
@@ -432,38 +545,51 @@
 								/>
 							{/if}
 						</div>
-					</div>
-					<div class="header-actions">
-						{#if session?.user}
-							<form method="POST" action="?/setFeatured">
-								<button
-									class="action-button featured-btn"
-									type="submit"
-									title="Set as Profile Backdrop"
-								>
-									<Icon
-										icon="mdi:image-marker-outline"
-										width="24"
-										height="24"
-									/>
+
+						<div class="hero-actions">
+							<button
+								class="pill"
+								class:active={isFavorited}
+								class:popped
+								onclick={toggleFavorite}
+								aria-pressed={isFavorited}
+							>
+								<span class="burst" aria-hidden="true">{#each [0, 1, 2, 3, 4, 5] as n (n)}<i style="--a: {n * 60}deg"></i>{/each}</span>
+								<Icon
+									icon={isFavorited
+										? 'mdi:star'
+										: 'mdi:star-outline'}
+									width="20"
+									height="20"
+								/>
+								{isFavorited ? 'Favorited' : 'Favorite'}
+							</button>
+							{#if data.session?.user}
+								<ListPicker gameId={id} gameName={name} onchange={() => { isFavorited = true }} />
+							{/if}
+							{#if heroGl}
+								<button class="pill" onclick={() => (focused = true)}>
+									<Icon icon="mdi:rotate-3d-variant" width="20" height="20" />
+									<span>Inspect<span class="long">&nbsp;cartridge</span></span>
 								</button>
-							</form>
-						{/if}
-						<button
-							class="favorite-button"
-							onclick={() => favorites.toggle(id)}
-							title={isFavorited
-								? 'Remove from favorites'
-								: 'Add to favorites'}
-						>
-							<Icon
-								icon={isFavorited
-									? 'mdi:star'
-									: 'mdi:star-outline'}
-								width="24"
-								height="24"
-							/>
-						</button>
+							{/if}
+							{#if session?.user}
+								<form method="POST" action="?/setFeatured">
+									<button
+										class="pill icon-only"
+										type="submit"
+										title="Set as Profile Backdrop"
+										aria-label="Set as Profile Backdrop"
+									>
+										<Icon
+											icon="mdi:image-marker-outline"
+											width="20"
+											height="20"
+										/>
+									</button>
+								</form>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -481,7 +607,7 @@
 								: 'Add Performance Data'}</span
 						>
 					</a>
-					<div class="info-card">
+					<div class="info-card" use:reveal>
 						<button
 							class="info-card-title collapsible"
 							onclick={() =>
@@ -558,8 +684,16 @@
 					</div>
 				{/if}
 
-				{#if performanceHistory.length === 0}
+				{#if !hasRealProfile && !graphicsTargets}
 					<div class="notice-card no-data-cta">
+						<!-- A see-through cartridge over an empty slot: the place the data goes -->
+						<div class="ghost" aria-hidden="true">
+							<div class="ghost-cart">
+								<CartridgeItem titleData={ghostData} hero ghost />
+							</div>
+							<div class="ghost-slot"></div>
+						</div>
+						<div class="ghost-text">
 						<h3>No Performance Data Yet</h3>
 						<p>
 							This title is in our database, but no community
@@ -597,9 +731,10 @@
 									: 'Request Data'}
 							</button>
 						</div>
+						</div>
 					</div>
-				{:else}
-					<section>
+				{:else if hasRealProfile}
+					<section use:reveal>
 						<div class="section-header">
 							<h2 class="section-title">Performance Profile</h2>
 							<div class="header-controls">
@@ -646,10 +781,15 @@
 						</div>
 
 						{#if currentProfileHasData}
-							<PerformanceDetail
-								performance={performance?.profiles}
-								gameId={id}
-							/>
+							<!-- Keyed on the version, so choosing another settles in rather than snapping -->
+							{#key selectedVersionIndex}
+								<div class="version-swap">
+									<PerformanceDetail
+										performance={performance?.profiles}
+										gameId={id}
+									/>
+								</div>
+							{/key}
 						{:else}
 							<div class="notice-card">
 								<p>
@@ -659,9 +799,40 @@
 							</div>
 						{/if}
 					</section>
+				{:else}
+					<section use:reveal>
+						<div class="section-header">
+							<h2 class="section-title">Performance Targets</h2>
+						</div>
+						<PerformanceDetail performance={graphicsTargets} gameId={id} />
+						<div class="notice-card targets-note">
+							<p>
+								These are the frame rate and resolution the game is set to
+								target, taken from its graphics settings. No one has measured
+								how well it holds them yet.
+							</p>
+							<div class="cta-group">
+								{#if session?.user}
+									<a href="/contribute/{id}" class="cta-button">Add a measured profile</a>
+								{:else}
+									<a href="/auth/signin?callbackUrl=/contribute/{id}" class="cta-button">Sign in to add one</a>
+								{/if}
+								<button
+									class="request-button"
+									class:active={hasRequested}
+									onclick={toggleRequest}
+									disabled={isRequesting}
+								>
+									<Icon icon={hasRequested ? 'mdi:check' : 'mdi:hand-back-right'} />
+									{hasRequested ? 'Data Requested' : 'Request Data'}
+								</button>
+							</div>
+						</div>
+					</section>
+				{/if}
 
-					{#if gameGraphicsHasData}
-						<section>
+				{#if gameGraphicsHasData}
+						<section use:reveal>
 							<div class="section-header">
 								<h2 class="section-title">Graphics Settings</h2>
 							</div>
@@ -670,19 +841,18 @@
 					{/if}
 
 					{#if youtubeLinks.length > 0}
-						<section>
+						<section use:reveal>
 							<div class="section-header">
 								<h2 class="section-title">Gameplay Videos</h2>
 							</div>
 							<YoutubeEmbeds links={youtubeLinks} />
 						</section>
 					{/if}
-				{/if}
 
 				<!-- Mobile-only secondary sidebar content -->
 				<div class="mobile-sidebar">
 					{#if otherTitlesInGroup.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
@@ -710,7 +880,7 @@
 					{/if}
 
 					{#if allContributors.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Contributors</h3>
 							<ul class="contributor-list">
 								{#each allContributors as c}
@@ -722,7 +892,7 @@
 				</div>
 
 				{#if game.screenshots && game.screenshots.length > 0}
-					<section>
+					<section use:reveal>
 						<h2 class="section-title">Screenshots</h2>
 						<div class="screenshots-grid">
 							{#each game.screenshots as screenshot}
@@ -752,7 +922,7 @@
 								: 'Add Performance Data'}</span
 						>
 					</a>
-					<div class="info-card">
+					<div class="info-card" use:reveal>
 						<button
 							class="info-card-title collapsible"
 							onclick={() =>
@@ -819,7 +989,7 @@
 					</div>
 
 					{#if otherTitlesInGroup.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Other Regions</h3>
 							<ul class="other-versions-list">
 								{#each otherTitlesInGroup as title}
@@ -847,7 +1017,7 @@
 					{/if}
 
 					{#if allContributors.length > 0}
-						<div class="info-card">
+						<div class="info-card" use:reveal>
 							<h3 class="info-card-title">Contributors</h3>
 							<ul class="contributor-list">
 								{#each allContributors as c}
@@ -859,6 +1029,17 @@
 				</div>
 			</aside>
 		</div>
+
+		<CartridgeFocus open={focused} onclose={() => (focused = false)} handle={heroHandle} {name} bind:slot={focusSlot} />
+
+		<BackToTop
+			target={heroElement}
+			iconUrl={game.iconUrl || game.bannerUrl}
+			{name}
+			fallback={!heroGl}
+			bind:docked
+			bind:dock={dockElement}
+		/>
 	</div>
 	{/key}
 {:else}
@@ -884,6 +1065,7 @@
 
 {#if performanceHistory.length > 1}
 	<PerformanceComparisonModal
+		game={heroData}
 		bind:show={showComparisonModal}
 		{performanceHistory}
 	/>
@@ -896,21 +1078,30 @@
 		padding: 0 1.5rem 2rem;
 	}
 
+	/* The header: a panel of the game's own colours, with the cartridge standing on
+	   its lower edge and reaching out of it. The room it needs below is the
+	   margin; the cartridge's depth is drawn by the page's WebGL canvas, so it
+	   can overlap the page without being clipped by the panel */
 	.banner-header {
 		position: relative;
-		
 		color: white;
-		margin: 1.5rem 0;
-		z-index: 10; 
+		margin: 1.5rem 0 1.5rem;
+		z-index: 10;
 	}
 
-	
+	@media (min-width: 640px) {
+		.banner-header {
+			margin-bottom: 4.25rem;
+		}
+	}
+
 	.banner-bg-wrapper {
 		position: absolute;
 		inset: 0;
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		z-index: -1;
+		background: color-mix(in srgb, var(--primary-color) 30%, #0c0d10);
 	}
 
 	.banner-image {
@@ -920,162 +1111,271 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		transform: scale(1.1);
-		filter: blur(12px) brightness(0.6);
+		scale: 1.3;
+		filter: blur(26px) saturate(1.4) brightness(0.72);
 	}
+
+	/* Darker toward the bottom, and a pool of the theme's colour where the cartridge stands */
 	.banner-overlay {
 		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(
-			to top,
-			rgba(0, 0, 0, 0.7),
-			rgba(0, 0, 0, 0.1)
-		);
+		inset: 0;
+		background:
+			radial-gradient(
+				55% 95% at 17% 78%,
+				color-mix(in srgb, var(--accent-color, var(--primary-color)) 45%, transparent),
+				transparent 72%
+			),
+			linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.06) 62%);
 	}
 
 	.header-content-wrapper {
 		position: relative;
-		padding: 1.5rem;
+		padding: 1.5rem 1.25rem 1.75rem;
 	}
+
 	@media (min-width: 768px) {
 		.header-content-wrapper {
-			padding: 2rem;
+			padding: 2.25rem 2.5rem 2.25rem;
 		}
 	}
 
 	.header-content {
+		position: relative;
 		display: grid;
-		grid-template-areas: "icon title actions";
-		grid-template-columns: auto 1fr auto;
-		align-items: center;
-		align-items: center;
-		gap: 1rem 1.5rem;
-	}
-
-	.subtitle-row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-		margin-top: 0.5rem;
-	}
-
-	@media (max-width: 639px) {
-		.header-content {
-			grid-template-areas:
-				"icon actions"
-				"title title";
-			grid-template-columns: 1fr auto;
-			align-items: flex-start;
-		}
-		.title-info {
-			margin-top: 1rem;
-		}
+		grid-template-columns: 1fr;
+		justify-items: center;
+		gap: 1.5rem;
 	}
 
 	@media (min-width: 640px) {
 		.header-content {
-			grid-template-areas: "icon title actions";
-			grid-template-columns: auto 1fr auto;
+			grid-template-columns: auto 1fr;
+			justify-items: stretch;
+			align-items: center;
+			gap: 2.5rem;
 		}
 	}
 
-	.game-icon,
-	.game-icon-placeholder {
-		grid-area: icon;
-		width: 100px;
-		height: 100px;
-		border-radius: var(--radius-lg);
-		box-shadow: var(--shadow-lg);
-		object-fit: cover;
+	/* The ? block beside the cartridge, where there is room for it */
+	.egg-spot { display: none; }
+
+	@media (min-width: 900px) {
+		.egg-spot { display: block; position: absolute; top: 0.5rem; right: -2.9rem; z-index: 3; }
 	}
 
-	.game-icon.fallback-icon {
-		object-position: center;
-	}
-	@media (min-width: 768px) {
-		.game-icon,
-		.game-icon-placeholder {
-			width: 120px;
-			height: 120px;
-		}
-	}
-	.game-icon-placeholder {
-		background-color: var(--surface-dark);
+	/* A pumpkin in the panel's lower right, on wide screens where there is room */
+	.season-corner {
+		display: none;
+		--prop-right: 0;
+		--prop-width: 100%;
+		position: absolute;
+		right: 1.5rem;
+		bottom: -1.75rem;
+		width: 6.5rem;
 	}
 
-	.title-info {
-		grid-area: title;
+	@media (min-width: 900px) {
+		.season-corner { display: block; }
 	}
-	.title-info h1 {
-		margin: 0;
-		font-size: 2rem;
-		font-weight: 700;
-		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-		color: white;
+
+	.hero-cart {
+		position: relative;
+		width: clamp(140px, 46vw, 190px);
+		--cart-max: 100%;
 	}
-	@media (min-width: 768px) {
-		.title-info h1 {
-			font-size: 2.5rem;
+
+	@media (min-width: 640px) {
+		.hero-cart {
+			width: clamp(170px, 20vw, 210px);
+			/* Reaches out of the bottom of the panel */
+			align-self: end;
+			margin-bottom: -3.25rem;
 		}
 	}
 
-	.subtitle-row {
+	.hero-info {
+		min-width: 0;
+		width: 100%;
+	}
+
+	/* 'backwards', not 'both': holding the finished animation's state would keep every
+	   line in its own stacking layer, with each later line painting over the one
+	   before it, including a dropdown that opens from the first */
+	.hero-info > * {
+		animation: hero-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+	}
+
+	.hero-info > :nth-child(2) { animation-delay: 0.06s; }
+	.hero-info > :nth-child(3) { animation-delay: 0.12s; }
+	.hero-info > :nth-child(4) { animation-delay: 0.18s; }
+
+	@keyframes hero-rise {
+		from { opacity: 0; transform: translateY(12px); }
+		to { opacity: 1; transform: none; }
+	}
+
+	/* Above the lines after it, so the region list opens over the title and not behind it */
+	.eyebrow {
+		position: relative;
+		z-index: 5;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		margin-top: 0.5rem;
 		flex-wrap: wrap;
+		gap: 0.5rem 0.9rem;
+		margin-bottom: 0.5rem;
 	}
 
 	.publisher-link {
-		font-size: 1.1rem;
-		opacity: 0.8;
-		color: white;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.82);
 		text-decoration: none;
-		border-bottom: 1px dotted rgba(255, 255, 255, 0.5);
-		transition: opacity 0.2s;
+		transition: color 0.2s;
 	}
+
 	.publisher-link:hover {
-		opacity: 1;
-		border-bottom-style: solid;
+		color: #fff;
+		text-decoration: underline;
+		text-underline-offset: 0.25em;
 	}
 
-	.header-actions {
-		grid-area: actions;
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-	}
-
-	.favorite-button,
-	.action-button {
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
+	.hero-info h1 {
+		margin: 0;
+		font-size: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		line-height: 1.08;
+		text-wrap: balance;
+		text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 		color: white;
-		width: 44px;
-		height: 44px;
-		border-radius: 12px;
+	}
+
+	.facts {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		cursor: pointer;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		margin-top: 0.85rem;
+		font-size: 0.95rem;
+		color: rgba(255, 255, 255, 0.78);
+	}
+
+	/* A dot between the facts */
+	.facts > span + span::before {
+		content: '';
+		display: inline-block;
+		width: 0.25rem;
+		height: 0.25rem;
+		margin-right: 1rem;
+		vertical-align: middle;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.45);
+	}
+
+	.hero-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.6rem;
+		margin-top: 1.25rem;
+	}
+
+	.hero-actions form {
+		display: contents;
+	}
+
+	.pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		height: 2.5rem;
+		padding: 0 1.05rem;
+		font: inherit;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: #fff;
+		background: rgba(255, 255, 255, 0.12);
+		border: 1px solid rgba(255, 255, 255, 0.22);
+		border-radius: 999px;
+		-webkit-backdrop-filter: blur(8px);
 		backdrop-filter: blur(8px);
-		transition: all 0.2s;
+		cursor: pointer;
+		transition: background 0.2s, transform 0.2s, border-color 0.2s;
 	}
 
-	.favorite-button:hover,
-	.action-button:hover {
+	.pill:hover {
 		background: rgba(255, 255, 255, 0.2);
-		transform: translateY(-2px);
+		transform: translateY(-1px);
 	}
 
-	.featured-btn:hover {
-		color: var(--primary-color);
-		border-color: var(--primary-color);
+	.pill:active { transform: scale(0.97); }
+
+	.pill { position: relative; }
+
+	/* A pop of the star, and six small points that fly out and fade */
+	.pill.popped :global(svg) {
+		animation: star-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	@keyframes star-pop {
+		0% { transform: scale(1) rotate(0); }
+		45% { transform: scale(1.55) rotate(-14deg); }
+		100% { transform: scale(1) rotate(0); }
+	}
+
+	.burst {
+		position: absolute;
+		left: 1.55rem;
+		top: 50%;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+	}
+
+	.burst i {
+		position: absolute;
+		width: 0.28rem;
+		height: 0.28rem;
+		margin: -0.14rem;
+		border-radius: 50%;
+		background: #fde68a;
+		opacity: 0;
+	}
+
+	.pill.popped .burst i {
+		animation: burst-out 0.6s ease-out;
+	}
+
+	@keyframes burst-out {
+		0% { opacity: 1; transform: rotate(var(--a)) translateY(0); }
+		100% { opacity: 0; transform: rotate(var(--a)) translateY(-1.5rem); }
+	}
+
+	.pill.active {
+		background: rgba(250, 204, 21, 0.18);
+		border-color: rgba(250, 204, 21, 0.55);
+		color: #fde68a;
+	}
+
+	@media (max-width: 440px) {
+		.pill .long { display: none; }
+	}
+
+	.version-swap {
+		animation: version-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	@keyframes version-in {
+		from { opacity: 0; transform: translateY(8px); }
+		to { opacity: 1; transform: none; }
+	}
+
+	.pill.icon-only {
+		width: 2.5rem;
+		padding: 0;
+		justify-content: center;
 	}
 
 	.main-layout {
@@ -1341,6 +1641,21 @@
 		border-radius: var(--radius-md);
 		border: 1px solid;
 	}
+	.targets-note {
+		margin-top: 1rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.targets-note p {
+		flex: 1 1 18rem;
+		margin: 0;
+	}
+	.targets-note .cta-group {
+		margin: 0;
+	}
 	.notice-card.unreleased {
 		background-color: #fffbeb;
 		color: #b45309;
@@ -1356,11 +1671,52 @@
 		flex-direction: column;
 		align-items: center;
 		text-align: center;
+		gap: 1.25rem;
 		border-style: dashed;
 		padding: 2rem;
 		background-color: var(--surface-color);
 		border-color: var(--border-color);
 	}
+	.ghost {
+		position: relative;
+		width: 6.5rem;
+		flex: none;
+		padding-bottom: 1.5rem;
+	}
+
+	.ghost-cart {
+		position: relative;
+		z-index: 1;
+		--cart-max: 100%;
+	}
+
+	/* The empty slot beneath it: a dashed outline the cartridge hovers over */
+	.ghost-slot {
+		position: absolute;
+		left: -0.75rem;
+		right: -0.75rem;
+		bottom: 0;
+		height: 0.9rem;
+		border: 2px dashed color-mix(in srgb, var(--text-secondary) 55%, transparent);
+		border-radius: 999px;
+	}
+
+	.ghost-text {
+		min-width: 0;
+	}
+
+	@media (min-width: 640px) {
+		.no-data-cta {
+			flex-direction: row;
+			text-align: left;
+			gap: 2rem;
+		}
+
+		.no-data-cta .cta-group {
+			justify-content: flex-start;
+		}
+	}
+
 	.no-data-cta h3 {
 		margin: 0 0 0.5rem;
 	}
@@ -1507,4 +1863,9 @@
 		border-color: #f59e0b;
 		color: #d97706;
 	}
+
+	/* Which console it is for, and whether it is a Game-Key Card */
+	.console-chip { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.6rem; border-radius: 999px; background: #e60012; color: #fff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; }
+	.console-chip.key { background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3); }
+	.facts > .console-chip::before { display: none; }
 </style>

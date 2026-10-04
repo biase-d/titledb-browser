@@ -1,4 +1,5 @@
 <script>
+	import CartridgeItem from '../../CartridgeItem.svelte'
 	import { onMount, untrack } from 'svelte'
 	import { enhance } from '$app/forms'
 	import { browser } from '$app/environment'
@@ -6,23 +7,28 @@
 	import { getDraft, deleteDraft } from '$lib/indexedDB'
 	import {
 		generateChangeSummary,
+		EMPTY_ROW_NOTE,
 		pruneEmptyValues,
 		isProfileEmpty,
 		isGraphicsEmpty,
 	} from '$lib/utils.js'
 
-	import { preferences } from '$lib/stores/preferences'
 	import Icon from '@iconify/svelte'
+	import { isSwitch2Id } from '$lib/platform'
+	import Celebrate from '$lib/components/Celebrate.svelte'
 	import PerformanceTab from './components/PerformanceTab.svelte'
 	import GraphicsTab from './components/GraphicsTab.svelte'
 	import YoutubeTab from './components/YoutubeTab.svelte'
 	import GroupingTab from './components/GroupingTab.svelte'
 
 	let { data, form } = $props()
+	let celebrating = $state(true)
+	const isSwitch2 = $derived(isSwitch2Id(data.id))
 
 	const {
 		id,
 		name,
+		preview,
 		groupId,
 		allTitlesInGroup,
 		existingPerformance,
@@ -32,6 +38,50 @@
 	} = $derived(data)
 
 	let performanceProfiles = $state([])
+
+	/**
+	 * The frame rates the preview cartridge shows: from the newest version that has
+	 * any filled in, else the first. Read through a short delay, so typing a number
+	 * repaints the cartridge once the typing pauses and not on every key
+	 */
+	const previewNumbers = $derived.by(() => {
+		const withData = performanceProfiles.filter(
+			(p) => Number(p.profiles?.docked?.target_fps) > 0 || Number(p.profiles?.handheld?.target_fps) > 0,
+		)
+		// Highest version first, comparing each dotted part as a number
+		const newest = [...(withData.length ? withData : performanceProfiles)].sort((a, b) => {
+			const pa = String(a.gameVersion).split('.').map((n) => parseInt(n, 10) || 0)
+			const pb = String(b.gameVersion).split('.').map((n) => parseInt(n, 10) || 0)
+			for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+				if ((pb[i] || 0) !== (pa[i] || 0)) return (pb[i] || 0) - (pa[i] || 0)
+			}
+			return 0
+		})[0]
+		const fps = (/** @type {any} */ v) => (Number(v) > 0 ? Number(v) : null)
+		return {
+			docked: fps(newest?.profiles?.docked?.target_fps),
+			handheld: fps(newest?.profiles?.handheld?.target_fps),
+		}
+	})
+	let shownNumbers = $state({ docked: null, handheld: null })
+	$effect(() => {
+		const next = previewNumbers
+		const timer = setTimeout(() => { shownNumbers = next }, 250)
+		return () => clearTimeout(timer)
+	})
+
+	const previewData = $derived({
+		id,
+		names: preview?.names ?? [name],
+		iconUrl: preview?.iconUrl ?? null,
+		bannerUrl: preview?.bannerUrl ?? null,
+		regions: preview?.regions ?? [],
+		publisher: preview?.publisher ?? null,
+		performance: {
+			docked: { target_fps: shownNumbers.docked },
+			handheld: { target_fps: shownNumbers.handheld },
+		},
+	})
 	let graphicsData = $state(/** @type {any} */ ({}))
 	let youtubeLinks = $state([])
 	let updatedGroup = $state([])
@@ -181,7 +231,7 @@
 					...defaultMode,
 					...(p.profiles?.handheld || {}),
 				}
-				return { ...p, profiles: { docked, handheld } }
+				return { ...p, profiles: { docked, handheld, ...(p.profiles?.game_key_card ? { game_key_card: true } : {}) } }
 			},
 		)
 
@@ -209,7 +259,7 @@
 	)
 	const hasMeaningfulChanges = $derived(
 		changeSummary.length > 0 &&
-			!changeSummary.every((s) => s.includes('Added empty placeholder')),
+			!changeSummary.every((s) => s.includes(EMPTY_ROW_NOTE)),
 	)
 
 	onMount(async () => {
@@ -239,6 +289,7 @@
 							...defaultMode,
 							...(p.profiles?.handheld || {}),
 						},
+						...(p.profiles?.game_key_card ? { game_key_card: true } : {}),
 					},
 				}
 			})
@@ -435,20 +486,27 @@
 		Suggesting edits for <strong class="game-name">{name}</strong> ({id})
 	</p>
 
-	{#if $preferences.betaFlow}
-		<div class="beta-banner">
-			<div class="beta-icon">
-				<Icon icon="mdi:flask-outline" width="24" />
-			</div>
-			<div class="beta-content">
-				<h3>Beta Contribution Flow Active</h3>
-				<p>
-					Your contribution will be saved to our database immediately
-					and appear as <strong>"Pending"</strong> on the site while the
-					GitHub Pull Request is reviewed.
-				</p>
-			</div>
+	<div class="flow-note">
+		<div class="flow-icon">
+			<Icon icon="mdi:clock-outline" width="24" />
 		</div>
+		<div class="flow-content">
+			<h3>What happens when you submit</h3>
+			<p>
+				Your contribution appears on the site straight away, marked
+				<strong>"Pending"</strong>, and a pull request opens for review.
+			</p>
+		</div>
+	</div>
+
+	{#if form?.success && celebrating}
+		<Celebrate
+			title={form.progress?.unlocks ? 'A new badge is on its way' : 'Submitted!'}
+			subtitle={form.progress?.unlocks ? 'It is yours the moment your pull request is merged.' : 'Your pull request is open. Thank you for adding what you know.'}
+			badge={form.progress?.unlocks ?? null}
+			big={!!form.progress?.unlocks}
+			onclose={() => (celebrating = false)}
+		/>
 	{/if}
 
 	{#if form?.success}
@@ -459,6 +517,19 @@
 				<p>
 					Your contribution has been submitted for review. Thank you!
 				</p>
+				{#if form.progress}
+					<div class="progress" aria-label="Progress toward your next badge">
+						{#if form.progress.next}
+							<p class="progress-line">
+								Once it is merged you will have <strong>{form.progress.after}</strong> contributions.
+								<strong>{form.progress.remaining}</strong> more for <strong>{form.progress.next.name}</strong>.
+							</p>
+							<div class="bar"><span style="width: {Math.round(form.progress.fraction * 100)}%"></span></div>
+						{:else}
+							<p class="progress-line">Every badge is yours already. Thank you!</p>
+						{/if}
+					</div>
+				{/if}
 				<div class="success-actions">
 					<a
 						href={form.prUrl}
@@ -471,6 +542,7 @@
 			</div>
 		</div>
 	{:else}
+		<div class="with-preview">
 		<form
 			bind:this={formElement}
 			method="POST"
@@ -562,6 +634,7 @@
 						bind:performanceProfiles
 						{addNewVersion}
 						{removeVersion}
+						{isSwitch2}
 					/>
 				{/if}
 				{#if activeTab === 'graphics'}
@@ -620,6 +693,22 @@
 				</button>
 			</div>
 		</form>
+
+		<!-- What the data will look like on its cartridge, as it is typed -->
+		<aside class="preview" aria-label="Cartridge preview">
+			<div class="preview-cart">
+				<CartridgeItem titleData={previewData} hero />
+			</div>
+			<p class="preview-note">
+				{#if shownNumbers.docked || shownNumbers.handheld}
+					This is how the frame rates will look on the cartridge.
+				{:else}
+					Fill in a target frame rate and it appears here, on the
+					cartridge, as you type.
+				{/if}
+			</p>
+		</aside>
+		</div>
 	{/if}
 </main>
 
@@ -820,13 +909,69 @@
 <style>
 	/* --- Main Layout & Common --- */
 	.page-container {
-		max-width: 900px;
+		max-width: 1120px;
 		margin: 0 auto;
 		padding: 1.5rem 1.5rem 8rem;
 	}
 
+	/* Everything except the form and its preview keeps the width it always had */
+	.page-container > :not(.with-preview) {
+		max-width: 852px;
+	}
+
+	.with-preview {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	/* On a narrow screen the preview comes first, above the tabs */
+	.preview {
+		order: -1;
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1rem 1.25rem;
+		background: var(--surface-color);
+		border: 1px solid var(--border-color);
+		border-radius: var(--radius-lg);
+	}
+
+	.preview-cart {
+		flex: none;
+		width: 7.5rem;
+		--cart-max: 100%;
+	}
+
+	.preview-note {
+		margin: 0;
+		font-size: 0.9rem;
+		line-height: 1.5;
+		color: var(--text-secondary);
+	}
+
+	@media (min-width: 1100px) {
+		.with-preview {
+			display: grid;
+			grid-template-columns: minmax(0, 852px) 1fr;
+			align-items: start;
+			gap: 2rem;
+		}
+
+		.preview {
+			order: 0;
+			position: sticky;
+			top: 5.5rem;
+			flex-direction: column;
+			text-align: center;
+			padding: 1.5rem 1rem;
+		}
+
+		.preview-cart { width: min(100%, 11rem); }
+	}
+
 	/* --- Beta Banner --- */
-	.beta-banner {
+	.flow-note {
 		display: flex;
 		gap: 1rem;
 		background: color-mix(
@@ -842,7 +987,7 @@
 		align-items: center;
 	}
 
-	.beta-icon {
+	.flow-icon {
 		color: var(--primary-color);
 		background: color-mix(in srgb, var(--primary-color) 15%, transparent);
 		padding: 0.75rem;
@@ -852,20 +997,20 @@
 		justify-content: center;
 	}
 
-	.beta-content h3 {
+	.flow-content h3 {
 		margin: 0 0 0.25rem 0;
 		font-size: 1.1rem;
 		color: var(--text-primary);
 	}
 
-	.beta-content p {
+	.flow-content p {
 		margin: 0;
 		font-size: 0.95rem;
 		color: var(--text-secondary);
 		line-height: 1.4;
 	}
 
-	.beta-content strong {
+	.flow-content strong {
 		color: var(--primary-color);
 	}
 
@@ -1132,4 +1277,11 @@
 		color: var(--text-primary);
 		border: 1px solid var(--border-color);
 	}
+
+	.progress { margin: 0.5rem 0 1rem; }
+	.progress-line { margin: 0 0 0.5rem; font-size: 0.92rem; color: var(--text-secondary); }
+	.progress-line strong { color: var(--text-primary); }
+	.bar { height: 8px; border-radius: 99px; background: var(--input-bg); overflow: hidden; max-width: 22rem; }
+	.bar span { display: block; height: 100%; border-radius: inherit; background: var(--primary-color); animation: fill 1.2s 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+	@keyframes fill { from { width: 0 !important; } }
 </style>

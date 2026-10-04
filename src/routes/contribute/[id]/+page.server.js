@@ -2,8 +2,10 @@ import { getGameDetails } from '$lib/games/getGameDetails'
 import { GitHubService, GitConflictError } from '$lib/services/GitHubService'
 import { prepareFileUpdate, prepareGroupUpdate, submitContribution } from '$lib/services/ContributionService'
 import { error, redirect, fail } from '@sveltejs/kit'
+import * as contributeService from '$lib/services/contributeService'
+import { badgeProgress } from '$lib/badges'
 import stringify from 'json-stable-stringify'
-import { pruneEmptyValues, generateChangeSummary, isProfileEmpty } from '$lib/utils.js'
+import { pruneEmptyValues, generateChangeSummary, isProfileEmpty, EMPTY_ROW_NOTE } from '$lib/utils.js'
 
 /** @type {import('./$types').PageServerLoad} */
 export const load = async ({ params, parent }) => {
@@ -39,6 +41,14 @@ export const load = async ({ params, parent }) => {
 	return {
 		id: titleId,
 		name: names[0],
+		// For the cartridge preview
+		preview: {
+			names,
+			iconUrl: game.iconUrl ?? null,
+			bannerUrl: game.bannerUrl ?? null,
+			regions: game.regions ?? [],
+			publisher: game.publisher ?? null
+		},
 		groupId,
 		allTitlesInGroup,
 		existingPerformance: performanceHistory,
@@ -50,7 +60,7 @@ export const load = async ({ params, parent }) => {
 
 /** @type {import('./$types').Actions} */
 export const actions = {
-	default: async ({ request, locals, cookies }) => {
+	default: async ({ request, locals }) => {
 		try {
 			const session = await locals.getSession()
 			const user = session?.user
@@ -83,7 +93,20 @@ export const actions = {
 					formatted.framerate.apiBuffering = 'Triple'
 					delete formatted.triple_buffer
 				}
-				
+
+				// An unlocked framerate has no target. Leaving a stale one in
+				// place is not harmless: readers that check targetFps before
+				// lockType report it as the target, so a game switched from 30
+				// to Unlocked keeps being listed at 30
+				if (formatted.framerate?.lockType === 'Unlocked') {
+					delete formatted.framerate.targetFps
+				}
+				if (Array.isArray(formatted.framerate?.additionalLocks)) {
+					for (const lock of formatted.framerate.additionalLocks) {
+						if (lock?.lockType === 'Unlocked') delete lock.targetFps
+					}
+				}
+
 				return formatted
 			}
 			
@@ -144,8 +167,10 @@ export const actions = {
 			for (const [key, submittedProfile] of submittedProfilesMap.entries()) {
 				const originalProfile = originalProfilesMap.get(key)
 				const contentChanged = stringify(pruneEmptyValues(submittedProfile.profiles)) !== stringify(pruneEmptyValues(originalProfile?.profiles))
-				const isNewEmptyPlaceholder = !originalProfile && isProfileEmpty(submittedProfile)
-				const needsWrite = contentChanged || isNewEmptyPlaceholder || isGroupMove
+				// A new version row with nothing in it is not saved. It used to be written
+				// as a file holding only the contributor's name, which the site does not
+				// count as data and which about 1,300 files in the data repository now are
+				const needsWrite = contentChanged || isGroupMove
 
 				if (needsWrite) {
 					const profiles = pruneEmptyValues(submittedProfile.profiles)
@@ -160,11 +185,9 @@ export const actions = {
 						finalSha = shas.performance[key]
 					}
 
-					if (!isProfileEmpty(submittedProfile) || isNewEmptyPlaceholder) {
+					if (!isProfileEmpty(submittedProfile)) {
 						filesToCommit.push({ path: filePath, content: update.content, sha: finalSha })
-						if (!isProfileEmpty(submittedProfile)) {
-							changedPerformanceData.push(submittedProfile)
-						}
+						changedPerformanceData.push(submittedProfile)
 					} else if (originalProfile && !isProfileEmpty(originalProfile) && !isGroupMove) {
 						filesToCommit.push({ path: filePath, content: null, sha: finalSha })
 					}
@@ -265,7 +288,7 @@ export const actions = {
 				return fail(400, { error: 'No changes were detected.' })
 			}
 
-			if (changeSummary.every(s => s.includes('Added empty placeholder'))) {
+			if (changeSummary.every(s => s.includes(EMPTY_ROW_NOTE))) {
 				return fail(400, { error: 'No new information was provided.' })
 			}
 
@@ -288,11 +311,20 @@ export const actions = {
 				rawYoutube: changedYoutubeLinks.length > 0 ? changedYoutubeLinks : null
 			}
 
-			const isBetaEnabled = cookies.get('beta_flow') === 'true'
-			const result = await submitContribution(prDetails, user, locals.db, isBetaEnabled)
+			const result = await submitContribution(prDetails, user, locals.db)
 
 			if (result.success) {
-				return { success: true, prUrl: result.url }
+				// Where this leaves them with the badges, for the celebration. It counts once
+				// the pull request is merged, so it says "will", and a failure here is no failure to submit
+				/** @type {any} */
+				let progress = null
+				try {
+					const before = await contributeService.getMyProgress(locals.db, user.login)
+					const after = badgeProgress(before.total + 1)
+					const unlocks = after.current && after.current.threshold !== before.current?.threshold ? after.current : null
+					progress = { total: before.total, after: after.total, next: after.next, remaining: after.remaining, fraction: after.fraction, unlocks }
+				} catch { /* no celebration of the badge, only of the submission */ }
+				return { success: true, prUrl: result.url, progress }
 			}
 			return fail(500, { error: result.error || 'An unexpected error occurred.' })
 		} catch (err) {

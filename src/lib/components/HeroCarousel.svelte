@@ -1,19 +1,51 @@
 <script>
+    import SeasonHeroScene from '$lib/components/SeasonHeroScene.svelte'
+    import SeasonBats from '$lib/components/SeasonBats.svelte'
+    import { get } from 'svelte/store'
     import { browser } from '$app/environment'
     import { onMount, onDestroy } from 'svelte'
     import { fade } from 'svelte/transition'
     import Icon from '@iconify/svelte'
     import { createImageSet } from '$lib/image'
     import { getLocalizedName } from '$lib/i18n'
-    import { preferences } from '$lib/stores/preferences'
+    import { preferences, isReducedMotion } from '$lib/stores/preferences'
     import { extractTheme } from '$lib/utils/theme' // Your new theme engine
+    import CartridgeItem from '../../routes/CartridgeItem.svelte'
 
     let { recentUpdates = [], preferredRegion = 'US' } = $props()
 
     /** @type {HTMLElement | undefined} */
     let container = $state()
+    /** The whole carousel: what each slide's cartridge is clipped to */
+    /** @type {HTMLElement | undefined} */
+    let carousel = $state()
+    /**
+     * What the cartridges are clipped to: the carousel, and a little below it, so a
+     * cartridge can stand on the lower edge and reach out of the panel
+     * @type {HTMLElement | undefined}
+     */
+    let clipZone = $state()
+    /** Which slides' cartridges are being drawn in 3D (the overhang only suits those) */
+    let slideGl = $state(/** @type {boolean[]} */ ([]))
+    let anyGl = $derived(slideGl.some(Boolean))
     let heroIndex = $state(0)
     let isPaused = $state(false)
+    /** Slides whose banner did not load: no img at all, so no broken-picture icon */
+    let bannerFailed = $state(/** @type {Record<number, boolean>} */ ({}))
+
+    /**
+     * Stopped by the reader, as opposed to paused while a pointer rests on it
+     *
+     * Hover was the only way to stop this, which is no way at all on a phone or
+     * from a keyboard - and it advances every 6 seconds through fourteen slides
+     * while someone is trying to read one. WCAG 2.2.2 asks for a way to stop
+     * anything that moves on its own for longer than five seconds
+     */
+    let isStopped = $state(false)
+
+    // Someone who has asked their system for less motion has already answered
+    // the question, so it never starts
+    let prefersReducedMotion = $state(false)
     let dynamicTheme = $state(null)
     
     /** @type {ReturnType<typeof setInterval>} */
@@ -34,7 +66,7 @@
         if (!browser) return
         clearInterval(carouselTimer)
         carouselTimer = setInterval(() => {
-            if (!isPaused && recentUpdates.length > 0) {
+            if (!isPaused && !isStopped && !prefersReducedMotion && recentUpdates.length > 0) {
                 nextHero()
             }
         }, 6000) // 6 seconds per slide
@@ -83,7 +115,21 @@
     }
 
     onMount(() => {
+        // Followed live, not read once: someone can turn it on while the page
+        // is open, and the slideshow should stop when they do. It is the device's
+        // setting unless the visitor chose otherwise in Settings
+        const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+        const update = () => (prefersReducedMotion = isReducedMotion(get(preferences)))
+        update()
+        motion.addEventListener('change', update)
+        const unsubscribe = preferences.subscribe(update)
+
         if (recentUpdates.length > 0) startCarousel()
+
+        return () => {
+            motion.removeEventListener('change', update)
+            unsubscribe()
+        }
     })
 
     onDestroy(() => {
@@ -92,16 +138,41 @@
 </script>
 
 {#if recentUpdates.length > 0}
+    <!-- Wrapped so the bats can fly over the whole panel, which clips its own contents -->
+    <div class="hero-wrap">
     <section
+        bind:this={carousel}
         class="hero-carousel"
+        class:overhang={anyGl}
         style:--dynamic-primary={dynamicTheme?.primary || 'var(--primary-color)'}
         style:--dynamic-accent={dynamicTheme?.accent || 'rgba(255,255,255,0.1)'}
         style:--dynamic-overlay={dynamicTheme?.overlay || 'rgba(0,0,0,0.8)'}
         onmouseenter={() => (isPaused = true)}
         onmouseleave={() => (isPaused = false)}
+        onfocusin={() => (isPaused = true)}
+        onfocusout={() => (isPaused = false)}
         aria-label="Featured recently updated games"
         in:fade
     >
+        <span class="clip-zone" bind:this={clipZone} aria-hidden="true"></span>
+        <!-- The progress bars are the top border of the hero: one segment per slide,
+             the current one filling as it plays -->
+        <div class="indicators">
+            {#each recentUpdates as _, i}
+                <button
+                    class="indicator-bar"
+                    class:active={i === heroIndex}
+                    class:done={i < heroIndex}
+                    class:paused={isPaused || isStopped || prefersReducedMotion}
+                    onclick={() => setHero(i)}
+                    aria-label="Go to slide {i + 1}"
+                    aria-current={i === heroIndex}
+                >
+                    <span class="bar-track"><span class="progress-fill"></span></span>
+                </button>
+            {/each}
+        </div>
+
         <div class="carousel-track" bind:this={container} onscroll={handleScroll}>
             {#each recentUpdates as game, i}
                 {@const bannerSet = createImageSet(game.bannerUrl, {
@@ -114,35 +185,56 @@
 
                 <div class="carousel-slide" class:is-active={isActive}>
                     <div class="hero-bg">
-                        {#if bannerSet}
+                        {#if bannerSet && !bannerFailed[i]}
                             <img
+                                onerror={() => (bannerFailed[i] = true)}
+                                class:lqip={!!game.bannerLqip}
+                                style:--lqip={game.bannerLqip
+                                    ? `url("${game.bannerLqip}")`
+                                    : null}
                                 src={bannerSet.src}
                                 srcset={bannerSet.srcset}
                                 alt=""
                                 loading={i === 0 ? 'eager' : 'lazy'}
+                                fetchpriority={i === 0 ? 'high' : 'auto'}
                             />
                         {/if}
                         <div class="hero-overlay"></div>
                     </div>
 
+                    <!-- The season's scene, in layers over the banner and under the text and
+                         the cartridge. One at a time: the slide that is showing -->
+                    {#if isActive}<SeasonHeroScene />{/if}
+
                     <div class="hero-content">
-                        <div class="hero-badge">
-                            <Icon icon="mdi:clock-outline" /> Latest Update
+                        <div class="hero-eyebrow">
+                            <span class="hero-badge">
+                                <Icon icon="mdi:clock-outline" /> Latest Update
+                            </span>
+                            {#if game.publisher}
+                                <a class="hero-publisher" href="/publisher/{encodeURIComponent(game.publisher)}" tabindex={isActive ? 0 : -1}>{game.publisher}</a>
+                            {/if}
                         </div>
 
-                        <h1>{name}</h1>
+                        <h2>{name}</h2>
 
                         {#if perf.docked?.target_fps || perf.handheld?.target_fps}
                             <div class="hero-performance">
+                                <!-- Named, not left to the icon. These two read
+                                     identically - "30 FPS" beside "30 FPS" - and
+                                     which is which was carried entirely by a 16px
+                                     television against a 16px console -->
                                 {#if perf.docked?.target_fps}
-                                    <span class="perf-glass-badge">
+                                    <span class="perf-glass-badge" title="Docked mode">
                                         <Icon icon="mdi:television" width="16" />
+                                        <span class="perf-mode">Docked</span>
                                         {perf.docked.target_fps === 'Unlocked' ? '60' : perf.docked.target_fps} FPS
                                     </span>
                                 {/if}
                                 {#if perf.handheld?.target_fps}
-                                    <span class="perf-glass-badge">
+                                    <span class="perf-glass-badge" title="Handheld mode">
                                         <Icon icon="mdi:nintendo-switch" width="16" />
+                                        <span class="perf-mode">Handheld</span>
                                         {perf.handheld.target_fps === 'Unlocked' ? '60' : perf.handheld.target_fps} FPS
                                     </span>
                                 {/if}
@@ -161,26 +253,38 @@
                             </a>
                         </div>
                     </div>
+
+                    <!-- The game's cartridge, on the right. Only the slide that is showing
+                         has one drawn, and it never leaves the carousel while the slides
+                         move. It is a link like the cards below, so opening it slides it in -->
+                    <div class="hero-cart" aria-hidden={!isActive}>
+                        <CartridgeItem
+                            titleData={game}
+                            pose="hero"
+                            layout="snap"
+                            shown={isActive}
+                            clipTo={clipZone}
+                            onglactive={(on) => { slideGl[i] = on }}
+                        />
+                    </div>
                 </div>
             {/each}
         </div>
 
         <div class="hero-controls">
-            <div class="indicators">
-                {#each recentUpdates as _, i}
-                    <button
-                        class="indicator-bar"
-                        class:active={i === heroIndex}
-                        class:paused={isPaused}
-                        onclick={() => setHero(i)}
-                        aria-label="Go to slide {i + 1}"
-                    >
-                        <div class="progress-fill"></div>
-                    </button>
-                {/each}
-            </div>
-            
+            <span class="slide-count" aria-hidden="true">
+                {heroIndex + 1} / {recentUpdates.length}
+            </span>
+
             <div class="nav-buttons">
+                <button
+                    class="control-btn"
+                    onclick={() => (isStopped = !isStopped)}
+                    aria-label={isStopped ? 'Resume automatic slideshow' : 'Pause automatic slideshow'}
+                    aria-pressed={isStopped}
+                >
+                    <Icon icon={isStopped ? 'mdi:play' : 'mdi:pause'} width="20" />
+                </button>
                 <button class="control-btn" onclick={prevHero} aria-label="Previous">
                     <Icon icon="mdi:chevron-left" width="24" />
                 </button>
@@ -190,9 +294,15 @@
             </div>
         </div>
     </section>
+    <SeasonBats />
+    </div>
 {/if}
 
 <style>
+    .hero-wrap {
+        position: relative;
+    }
+
     .hero-carousel {
         position: relative;
         display: flex;           /* Add this */
@@ -200,16 +310,33 @@
         border-radius: 20px;
         overflow: hidden;
         color: white;
-        height: 440px; 
+        /* Grows with a long title instead of cutting it off at the top */
+        min-height: 440px;
+        margin-bottom: 0;
         box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
         background-color: var(--surface-color);
         transition: --dynamic-primary 0.5s ease, --dynamic-overlay 0.5s ease;
+    }
+
+    /* Invisible: only its box matters, as the area a cartridge may be drawn in */
+    .clip-zone {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        pointer-events: none;
+        visibility: hidden;
     }
 
     .carousel-track {
         display: flex;
         flex: 1; /* Changed from height: 100% to fix mobile collapsing */
         overflow-x: auto;
+        /* Only sideways: with overflow-x set, the other axis would otherwise scroll too,
+           and the cartridge standing below the panel makes the content taller than it */
+        overflow-y: hidden;
+        overscroll-behavior-y: auto;
         scroll-snap-type: x mandatory;
         scrollbar-width: none;
         scroll-behavior: smooth;
@@ -223,7 +350,7 @@
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 3rem;
+        padding: 2.75rem 3rem 5rem;
     }
 
     .hero-bg {
@@ -254,19 +381,66 @@
         position: absolute;
         inset: 0;
         /* Rich, themed gradient: Blends 20% game color with 80% deep black */
-        background: linear-gradient(
-            to top, 
-            color-mix(in srgb, var(--dynamic-primary) 20%, #050505 80%) 0%,
-            color-mix(in srgb, var(--dynamic-primary) 10%, rgba(5, 5, 5, 0.8) 90%) 50%,
-            transparent 100%
-        );
+        background:
+            radial-gradient(
+                46% 85% at 79% 78%,
+                color-mix(in srgb, var(--dynamic-primary) 46%, transparent),
+                transparent 72%
+            ),
+            linear-gradient(to right, rgba(5, 5, 5, 0.78) 0%, rgba(5, 5, 5, 0.38) 50%, transparent 82%),
+            linear-gradient(
+                to top,
+                color-mix(in srgb, var(--dynamic-primary) 20%, #050505 80%) 0%,
+                color-mix(in srgb, var(--dynamic-primary) 10%, rgba(5, 5, 5, 0.8) 90%) 50%,
+                transparent 100%
+            );
+    }
+
+    /* The cartridge: on the right, standing on the lower edge of the panel. Where it
+       is drawn in 3D it reaches out of the panel; otherwise (a drawn card) it stays
+       inside, where nothing is cut off */
+    .hero-cart {
+        position: absolute;
+        z-index: 1;
+        right: clamp(3rem, 9%, 7.5rem);
+        bottom: 1.75rem;
+        /* A real cartridge: 21 mm wide (31 tall, 3 thick), at this screen's own
+           millimetre (a guess, or what the visitor calibrated in Settings) */
+        width: calc(21 * var(--real-mm, 3.7795px));
+        --cart-max: 100%;
+        opacity: 0;
+        transition: opacity 0.5s ease 0.15s;
+    }
+
+    @media (min-width: 769px) {
+        /* The progress bars stay at the bottom left under the text; the buttons go to
+           the top right, so the bottom right is the cartridge's */
+        .hero-controls {
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .hero-controls > * {
+            pointer-events: auto;
+        }
+
+        .nav-buttons {
+            position: absolute;
+            top: 1.25rem;
+            right: 1.25rem;
+        }
+    }
+
+    .carousel-slide.is-active .hero-cart {
+        opacity: 1;
     }
 
     .hero-content {
         position: relative;
         z-index: 1;
         width: 100%;
-        max-width: 600px; /* Tighter max-width for better typography reading lines */
+        /* The cartridge is small now, so the title gets the room it left */
+        max-width: min(46rem, calc(100% - 9rem));
         display: flex;
         flex-direction: column;
         gap: 1rem;
@@ -279,6 +453,30 @@
     .carousel-slide.is-active .hero-content {
         transform: translateY(0);
         opacity: 1;
+    }
+
+    .hero-eyebrow {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem 0.9rem;
+    }
+
+    .hero-publisher {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    /* As on the game page: the publisher is a link to its titles */
+    .hero-publisher:hover {
+        color: #fff;
+        text-decoration: underline;
+        text-underline-offset: 0.25em;
     }
 
     .hero-badge {
@@ -296,14 +494,23 @@
         letter-spacing: 0.5px;
     }
 
-    .hero-carousel h1 {
-        font-size: clamp(2rem, 5vw, 3rem);
+    .hero-carousel h2 {
+        font-size: clamp(2rem, 1.2rem + 3vw, 3.5rem);
         font-weight: 900;
+        letter-spacing: -0.03em;
+        text-wrap: balance;
         margin: 0;
-        line-height: 1.1;
+        line-height: 1.05;
         color: #ffffff;
         /* Replaced generic black shadow with a heavily themed deep shadow */
         text-shadow: 0 4px 24px color-mix(in srgb, var(--dynamic-primary) 60%, rgba(0, 0, 0, 0.9));
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        /* Room for descenders and the glyphs' tops, which a clamp would shave off */
+        padding-block: 0.08em;
     }
 
     .hero-performance {
@@ -314,6 +521,11 @@
     }
 
     /* Modern Themed Glassmorphism Badges */
+    .perf-mode {
+        opacity: 0.75;
+        font-weight: 500;
+    }
+
     .perf-glass-badge {
         display: inline-flex;
         align-items: center;
@@ -325,8 +537,8 @@
         border-radius: 12px;
         font-size: 0.85rem;
         font-weight: 600;
-        backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
         /* Subtle themed border */
         border: 1px solid color-mix(in srgb, var(--dynamic-primary) 40%, rgba(255, 255, 255, 0.15));
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -363,8 +575,8 @@
 
     .hero-controls {
         position: absolute;
-        bottom: 1.5rem;
-        right: 2rem;
+        bottom: 1.25rem;
+        left: 3rem;
         z-index: 2;
         display: flex;
         align-items: center;
@@ -398,22 +610,50 @@
         box-shadow: 0 4px 12px color-mix(in srgb, var(--dynamic-primary) 50%, transparent);
     }
 
+    /* The top border of the hero */
     .indicators {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 3;
         display: flex;
-        gap: 6px;
+        gap: 3px;
     }
 
-    /* Animated Progress Bars instead of dots */
+    .slide-count {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+        font-variant-numeric: tabular-nums;
+        margin-right: 0.75rem;
+        display: none;
+    }
+
+    /* A tall target around a thin bar: four pixels is too little to click */
     .indicator-bar {
-        width: 30px;
-        height: 6px;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.2);
+        flex: 1;
+        height: 14px;
+        background: none;
         border: none;
         padding: 0;
         cursor: pointer;
-        overflow: hidden;
+        display: flex;
+        align-items: flex-start;
+    }
+
+    .bar-track {
         position: relative;
+        display: block;
+        width: 100%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.22);
+        overflow: hidden;
+        transition: height 0.15s;
+    }
+
+    .indicator-bar:hover .bar-track {
+        height: 6px;
     }
 
     .progress-fill {
@@ -422,7 +662,11 @@
         left: 0;
         height: 100%;
         width: 0%;
-        background-color: var(--dynamic-primary);
+        background-color: #fff;
+    }
+
+    .indicator-bar.done .progress-fill {
+        width: 100%;
     }
 
     .indicator-bar.active .progress-fill {
@@ -452,15 +696,30 @@
         }
         
         .carousel-slide {
-            padding: 2rem 1.25rem 4.5rem; /* Tighter side padding, room for controls at bottom */
+            /* Tighter side padding, room for controls at the bottom and the cartridge above the text */
+            padding: 10.25rem 1.25rem 4.5rem;
+        }
+
+        /* Above the text, in the middle, rather than beside it, and inside the panel */
+        .hero-cart {
+            top: 1.5rem;
+            bottom: auto;
+            right: 50%;
+            translate: 50% 0;
+            width: calc(21 * var(--real-mm, 3.7795px));
+        }
+
+        .hero-eyebrow {
+            justify-content: center;
         }
 
         .hero-content {
+            max-width: 100%;
             align-items: center; /* Forces all flex children to the center */
             text-align: center;
         }
 
-        .hero-carousel h1 {
+        .hero-carousel h2 {
             /* Rescales better on small screens */
             font-size: clamp(1.75rem, 8vw, 2.25rem); 
             /* MAGIC CSS: Prevents awkward widows (e.g., "The Legend of / Zelda" becomes stacked evenly) */
@@ -472,7 +731,12 @@
             gap: 0.4rem; /* Tighter spacing so badges don't wrap to 3 lines */
         }
         
-        .perf-glass-badge {
+        .perf-mode {
+        opacity: 0.75;
+        font-weight: 500;
+    }
+
+    .perf-glass-badge {
             font-size: 0.75rem; /* Slightly smaller to fit on narrow screens */
             padding: 4px 10px;
         }
@@ -499,16 +763,17 @@
             display: none; /* Hide arrows, mobile users intuitively swipe */
         }
         
-        .indicators {
-            width: 100%;
-            justify-content: center;
+        .slide-count {
+            display: inline-block;
+            margin-right: 0;
         }
         
-        .indicator-bar {
-            /* Flex shrinking ensures bars squish down instead of overflowing if there are lots of games */
-            flex: 1;
-            max-width: 30px; 
-            height: 4px; /* Thinner bars look more elegant on mobile */
+        .indicators {
+            gap: 2px;
+        }
+
+        .bar-track {
+            height: 3px;
         }
     }
 </style>

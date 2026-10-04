@@ -123,3 +123,41 @@ export const submissions = pgTable('submissions', {
 	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow()
 })
+
+/**
+ * Tokens for the public API, one row per token a signed-in person has made. Only
+ * the SHA-256 of the token is kept (see $lib/server/apiAuth). Shared by every
+ * layer, like users and favourites: it is people's data, not content
+ */
+export const apiTokens = pgTable('api_tokens', {
+	id: text('id').primaryKey(),
+	userId: text('user_id').notNull(),
+	login: text('login').notNull(),
+	name: text('name').notNull().default(''),
+	tokenHash: text('token_hash').notNull().unique(),
+	display: text('display').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+	lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+	revokedAt: timestamp('revoked_at', { withTimezone: true })
+})
+
+/**
+ * A person's lists of favourites ("Playing now", "Co-op"…). They belong to the
+ * account, in public, and are never swapped with a layer
+ */
+export const favoriteLists = pgTable('favorite_lists', {
+	id: text('id').primaryKey(),
+	userId: text('user_id').notNull(),
+	name: text('name').notNull(),
+	position: integer('position').notNull().default(0),
+	createdAt: timestamp('created_at', { withTimezone: true }).defaultNow()
+})
+
+export const favoriteListItems = pgTable('favorite_list_items', {
+	listId: text('list_id').notNull(),
+	gameId: text('game_id').notNull(),
+	addedAt: timestamp('added_at', { withTimezone: true }).defaultNow()
+}, (table) => ({
+	pk: primaryKey({ columns: [table.listId, table.gameId] })
+}))
+

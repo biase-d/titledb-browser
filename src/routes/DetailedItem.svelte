@@ -85,6 +85,8 @@
     <div class="main-layout">
         <div class="icon-column">
             <img
+                class:lqip={!!titleData.iconLqip}
+                style:--lqip={titleData.iconLqip ? `url("${titleData.iconLqip}")` : null}
                 src={imageSet?.src || iconUrl}
                 srcset={imageSet?.srcset}
                 alt={titleName}
@@ -99,7 +101,9 @@
                 <h3 class="title-text">
                     <TextHighlight text={titleName} {query} />
                 </h3>
+                {#if $preferences.showTitleIds}
                 <span class="title-id-badge">{id}</span>
+                {/if}
             </div>
 
             <div class="meta-grid">

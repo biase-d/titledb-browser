@@ -1,53 +1,68 @@
 <script>
 	import '@fontsource-variable/caveat'
-	import { onMount } from 'svelte'
-	import { browser } from '$app/environment'
-	import { getSystemStatus } from '$lib/remote/status.remote.js'
+	import Icon from '@iconify/svelte'
+	import Logo from '$lib/components/Logo.svelte'
+	import { get } from 'svelte/store'
+	import { preferences, isReducedMotion } from '$lib/stores/preferences'
 
+	// The "updating game data" notice used to live here. It now renders in
+	// AnnouncementBanner at the top of the page, because a notice about data
+	// being incomplete is worth nothing below the fold
 	const currentYear = new Date().getFullYear()
 
-	// Browser-only on purpose: the footer renders on every page, so querying
-	// during SSR would put a database round trip in front of every response
-	const status = browser ? getSystemStatus() : null
+	/**
+	 * The footer is the base the cartridges stand on: a lit ledge along its top
+	 * edge and a row of small ones standing on it. Only a decoration, so it is
+	 * hidden from assistive technology and costs nothing but a few boxes
+	 */
+	const row = [
+		{ c: '#e8412c', h: 2.1, r: -2 },
+		{ c: '#2f7be8', h: 2.5, r: 1 },
+		{ c: '#f4b73a', h: 2.2, r: -1 },
+		{ c: '#35b46a', h: 2.6, r: 2 },
+		{ c: '#9456e0', h: 2.3, r: -2 },
+		{ c: '#e8412c', h: 2.0, r: 1 }
+	]
 
-	let isBuilding = $derived(status?.current?.isBuilding ?? false)
-	let buildPhase = $derived(status?.current?.buildPhase ?? '')
-
-	onMount(() => {
-		const interval = setInterval(() => status?.refresh(), 30_000)
-		return () => clearInterval(interval)
-	})
+	function toTop () {
+		window.scrollTo({ top: 0, behavior: isReducedMotion(get(preferences)) ? 'auto' : 'smooth' })
+	}
 </script>
 
-{#if isBuilding}
-	<div class="build-banner">
-		<div class="build-banner-inner">
-			<span class="build-dot"></span>
-			<span
-				>Updating game data{buildPhase
-					? ` (${buildPhase})`
-					: ''}. Some titles may be missing for a few minutes.</span
-			>
+<footer class="site-footer">
+	<!-- The ledge: a lit lip along the top, with cartridges standing on it -->
+	<div class="ledge" aria-hidden="true">
+		<div class="standing">
+			{#each row as cart, n (n)}
+				<i class="mini" style="--c: {cart.c}; --h: {cart.h}rem; --r: {cart.r}deg"></i>
+			{/each}
+			<i class="mini ghost" style="--h: 2.3rem"></i>
 		</div>
 	</div>
-{/if}
 
-<footer class="site-footer">
 	<div class="footer-inner">
 		<div class="footer-sections">
 			<div class="footer-brand">
-				<div class="logo">Switch Performance</div>
+				<div class="logo">
+					<Logo size="1.9rem" />
+					Switch Performance
+				</div>
 				<p>
 					The community-powered database for Nintendo Switch technical
 					performance. Track FPS, resolutions, and graphics settings
 					for thousands of titles.
 				</p>
+				<a class="cta" href="/contribute">
+					<span>Add what you know</span>
+					<Icon icon="mdi:arrow-right" width="18" />
+				</a>
 			</div>
 
 			<div class="footer-group">
 				<h4>Navigate</h4>
 				<nav>
 					<a href="/">Home</a>
+					<a href="/switch-2">Switch 2</a>
 					<a href="/favorites">Favorites</a>
 					<a href="/contribute">Contribute</a>
 					<a href="/stats">Insights</a>
@@ -72,6 +87,7 @@
 						target="_blank"
 						rel="noopener noreferrer">NX Performance</a
 					>
+					<a href="/docs/api">API Documentation</a>
 				</nav>
 			</div>
 
@@ -90,21 +106,35 @@
 			</div>
 		</div>
 
+		<!-- The maker, in a section of its own -->
+		<section class="made-by" aria-label="About the maker">
+			<a
+				class="self-plug"
+				href="https://github.com/biase-d"
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				a biase-d project
+			</a>
+			<span class="made-note"
+				>Built in the open and free to use, under the AGPL v3.</span
+			>
+		</section>
+
 		<div class="footer-bottom">
 			<div class="copyright">
 				&copy; {currentYear} Switch Performance
 			</div>
 
-			<div class="footer-actions">
-				<a
-					class="self-plug"
-					href="https://github.com/biase-d"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					a biase-d project
-				</a>
-			</div>
+			<!-- A cartridge in its slot; hovering lifts it out, pressing takes you to the top -->
+			<button class="to-top" onclick={toTop} aria-label="Back to the top of the page">
+				<span class="slot" aria-hidden="true"></span>
+				<span class="plug" aria-hidden="true">
+					<i class="band"></i>
+					<Icon icon="mdi:chevron-up" width="16" />
+				</span>
+				<span class="to-top-text">Top</span>
+			</button>
 		</div>
 
 		<div class="footer-disclaimer">
@@ -116,23 +146,99 @@
 
 <style>
 	.site-footer {
-		margin-top: 6rem;
-		background: var(--surface-color);
-		border-top: 1px solid var(--border-color);
-		padding: 4rem 1.5rem 2rem;
+		position: relative;
+		margin-top: 6.5rem;
+		/* A shade darker than the page, like a base the page stands on */
+		background: color-mix(in srgb, var(--surface-color) 92%, #000);
+		padding: 0 1.5rem 2rem;
+		--lip: color-mix(in srgb, var(--text-secondary) 30%, var(--surface-color));
 	}
 
+	/* ---- The ledge ---- */
+	.ledge {
+		position: relative;
+		height: 0.8rem;
+		margin: 0 -1.5rem;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--lip) 70%, #fff) 0 12%,
+			var(--lip) 12% 100%
+		);
+		box-shadow:
+			0 8px 14px -6px rgba(0, 0, 0, 0.35),
+			inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+	}
+
+	.standing {
+		position: absolute;
+		right: max(1.5rem, calc((100vw - 1400px) / 2 + 1.5rem));
+		bottom: 100%;
+		display: none;
+		align-items: flex-end;
+		gap: 0.5rem;
+	}
+
+	@media (min-width: 720px) {
+		.standing { display: flex; }
+	}
+
+	/* A small cartridge: dark shell, a label with a coloured band, the notch at its foot */
+	.mini {
+		position: relative;
+		display: block;
+		width: 1.6rem;
+		height: var(--h);
+		border-radius: 0.22rem 0.22rem 0.1rem 0.1rem;
+		background: linear-gradient(90deg, #26262b, #161619 40%, #0d0d10);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 3px rgba(0, 0, 0, 0.35);
+		transform: rotate(var(--r, 0deg));
+		transform-origin: 50% 100%;
+		margin-bottom: 0.05rem;
+	}
+
+	.mini::before {
+		content: '';
+		position: absolute;
+		left: 0.2rem;
+		right: 0.2rem;
+		top: 0.3rem;
+		bottom: 0.6rem;
+		border-radius: 0.12rem;
+		background:
+			linear-gradient(180deg, var(--c) 0 30%, rgba(255, 255, 255, 0.82) 30% 100%);
+	}
+
+	.mini::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		bottom: 0.18rem;
+		translate: -50% 0;
+		border-inline: 0.26rem solid transparent;
+		border-top: 0.2rem solid rgba(255, 255, 255, 0.18);
+	}
+
+	/* The empty place in the row, to be filled with yours */
+	.mini.ghost {
+		background: none;
+		box-shadow: none;
+		border: 1.5px dashed color-mix(in srgb, var(--text-secondary) 55%, transparent);
+	}
+	.mini.ghost::before, .mini.ghost::after { display: none; }
+
+	/* ---- Body ---- */
 	.footer-inner {
 		max-width: 1400px;
 		margin: 0 auto;
+		padding-top: 3.25rem;
 	}
 
 	.footer-sections {
 		display: grid;
 		grid-template-columns: 1fr;
-		gap: 3rem;
+		gap: 2.75rem;
 		padding-bottom: 3rem;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+		border-bottom: 1px solid var(--border-color);
 	}
 
 	@media (min-width: 1024px) {
@@ -142,131 +248,230 @@
 		}
 	}
 
-	.footer-brand {
-		max-width: 400px;
-	}
+	.footer-brand { max-width: 420px; }
 
 	.logo {
+		display: flex;
+		align-items: center;
+		gap: 0.65rem;
 		font-size: 1.25rem;
 		font-weight: 900;
 		letter-spacing: -0.02em;
 		color: var(--text-primary);
-		margin-bottom: 1.25rem;
+		margin-bottom: 1.1rem;
 	}
 
 	.footer-brand p {
 		color: var(--text-secondary);
 		line-height: 1.6;
 		font-size: 0.95rem;
-		margin: 0;
+		margin: 0 0 1.4rem;
 	}
 
+	.cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		height: 2.5rem;
+		padding: 0 1.1rem;
+		border-radius: 999px;
+		font-size: 0.9rem;
+		font-weight: 700;
+		text-decoration: none;
+		color: var(--primary-action-text, #fff);
+		background: var(--primary-color);
+		transition: transform 0.2s, background 0.2s;
+	}
+	.cta:hover { transform: translateY(-2px); background: var(--primary-color-hover, var(--primary-color)); }
+	.cta :global(svg) { transition: transform 0.2s; }
+	.cta:hover :global(svg) { transform: translateX(3px); }
+
+	/* Headings engraved like labels on a console, with a short rule under them */
 	.footer-group h4 {
-		font-size: 0.85rem;
+		position: relative;
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.72rem;
 		font-weight: 800;
 		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		color: var(--text-primary);
-		margin-bottom: 1.5rem;
+		letter-spacing: 0.16em;
+		color: var(--text-secondary);
+		margin: 0 0 1.4rem;
+		padding-bottom: 0.7rem;
+	}
+	.footer-group h4::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		width: 1.6rem;
+		height: 2px;
+		border-radius: 2px;
+		background: var(--primary-color);
 	}
 
 	.footer-group nav {
 		display: flex;
 		flex-direction: column;
-		gap: 0.85rem;
+		gap: 0.2rem;
 	}
 
 	.footer-group a {
-		color: var(--text-secondary);
+		position: relative;
+		width: fit-content;
+		padding: 0.3rem 0 0.3rem 0;
+		color: var(--text-primary);
+		opacity: 0.78;
 		text-decoration: none;
 		font-size: 0.95rem;
-		transition: color 0.2s;
+		transition: opacity 0.2s, padding-left 0.2s, color 0.2s;
 	}
 
-	.footer-group a:hover {
+	/* A small notch grows in beside the link, like a cartridge being seated */
+	.footer-group a::before {
+		content: '';
+		position: absolute;
+		left: 0;
+		top: 50%;
+		width: 0;
+		height: 2px;
+		border-radius: 2px;
+		background: var(--primary-color);
+		translate: 0 -50%;
+		transition: width 0.2s;
+	}
+
+	.footer-group a:hover,
+	.footer-group a:focus-visible {
+		opacity: 1;
 		color: var(--primary-color);
+		padding-left: 1.1rem;
 	}
+	.footer-group a:hover::before,
+	.footer-group a:focus-visible::before { width: 0.7rem; }
 
+	/* ---- Bottom ---- */
 	.footer-bottom {
-		padding-top: 2rem;
+		padding-top: 1.5rem;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
+		justify-content: space-between;
 		gap: 1.5rem;
 		color: var(--text-secondary);
 		font-size: 0.85rem;
 	}
 
-	@media (min-width: 768px) {
-		.footer-bottom {
-			flex-direction: row;
-			justify-content: space-between;
-		}
+	/* ---- The maker ---- */
+	.made-by {
+		display: flex;
+		align-items: baseline;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+		padding: 1.75rem 0;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.made-note {
+		margin-left: auto;
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+	}
+
+	@media (max-width: 560px) {
+		.made-note { margin-left: 0; flex-basis: 100%; }
 	}
 
 	.self-plug {
 		font-family: "Caveat Variable", cursive;
-		font-size: 1.25rem;
-		color: var(--text-secondary);
+		font-size: 2rem;
+		line-height: 1;
+		color: var(--text-primary);
 		text-decoration: none;
 		transition: color 0.2s;
 	}
+	.self-plug:hover { color: var(--primary-color); }
 
-	.self-plug:hover {
-		color: var(--text-primary);
+	/* Back to top: a cartridge in a slot. It lifts on hover, so it can be seen to be pressed */
+	.to-top {
+		position: relative;
+		display: inline-flex;
+		align-items: flex-end;
+		gap: 0.75rem;
+		height: 3rem;
+		padding: 0;
+		border: 0;
+		background: none;
+		color: var(--text-secondary);
+		font: inherit;
+		font-size: 0.75rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+
+	.slot {
+		position: absolute;
+		left: -0.35rem;
+		bottom: 0;
+		width: 2.3rem;
+		height: 0.55rem;
+		border-radius: 0.3rem;
+		background: color-mix(in srgb, #000 55%, var(--surface-color));
+		box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.5);
+	}
+
+	.plug {
+		position: relative;
+		display: grid;
+		place-items: end center;
+		width: 1.6rem;
+		height: 2.35rem;
+		margin-bottom: 0.3rem;
+		padding-bottom: 0.28rem;
+		border-radius: 0.22rem 0.22rem 0.1rem 0.1rem;
+		background: linear-gradient(90deg, #26262b, #151518 45%, #0c0c0f);
+		color: rgba(255, 255, 255, 0.75);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 4px rgba(0, 0, 0, 0.35);
+		transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.plug .band {
+		position: absolute;
+		left: 0.2rem;
+		right: 0.2rem;
+		top: 0.28rem;
+		height: 0.55rem;
+		border-radius: 0.1rem;
+		background: var(--primary-color);
+	}
+
+	.to-top-text { padding-bottom: 0.15rem; transition: color 0.2s; }
+
+	.to-top:hover .plug,
+	.to-top:focus-visible .plug { transform: translateY(-0.55rem); }
+	.to-top:hover .to-top-text,
+	.to-top:focus-visible .to-top-text { color: var(--text-primary); }
+	.to-top:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 4px; border-radius: 6px; }
+	.to-top:active .plug { transform: translateY(-0.15rem); }
+
+	@media (max-width: 560px) {
+		.footer-bottom { flex-direction: column-reverse; align-items: flex-start; }
 	}
 
 	.footer-disclaimer {
 		margin-top: 2rem;
 		padding-top: 1.5rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.05);
+		border-top: 1px solid var(--border-color);
 		text-align: center;
 		font-size: 0.75rem;
 		color: var(--text-secondary);
-		opacity: 0.6;
+		opacity: 0.7;
 		letter-spacing: 0.02em;
 		line-height: 1.4;
 	}
 
-	.build-banner {
-		background: rgba(245, 158, 11, 0.08);
-		border: 1px solid rgba(245, 158, 11, 0.2);
-		border-radius: var(--radius-md);
-		margin: 0 1.5rem 1rem;
-		max-width: 1400px;
+	@media (prefers-reduced-motion: reduce) {
+		.plug, .cta, .cta :global(svg), .footer-group a, .footer-group a::before { transition: none; }
 	}
-
-	@media (min-width: 1024px) {
-		.build-banner {
-			margin: 0 auto 1rem;
-		}
-	}
-
-	.build-banner-inner {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		font-size: 0.85rem;
-		color: #f59e0b;
-	}
-
-	.build-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: #f59e0b;
-		animation: build-pulse 1.5s ease-in-out infinite;
-	}
-
-	@keyframes build-pulse {
-		0%,
-		100% {
-			opacity: 1;
-		}
-		50% {
-			opacity: 0.3;
-		}
-	}
+	:global(.reduce-motion) .site-footer .plug, :global(.reduce-motion) .site-footer .cta, :global(.reduce-motion) .site-footer .footer-group a, :global(.reduce-motion) .site-footer .footer-group a::before { transition: none !important; }
 </style>

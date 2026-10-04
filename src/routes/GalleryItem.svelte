@@ -73,6 +73,10 @@
 >
     <div class="banner-container">
         <img
+            class:lqip={!!(titleData.bannerLqip || titleData.iconLqip)}
+            style:--lqip={titleData.bannerLqip || titleData.iconLqip
+                ? `url("${titleData.bannerLqip || titleData.iconLqip}")`
+                : null}
             src={imageSet?.src || bannerUrl || iconUrl}
             srcset={imageSet?.srcset}
             alt={titleName}
@@ -83,7 +87,9 @@
             <div class="card-content">
                 <h3 class="card-title">{titleName}</h3>
                 <div class="card-meta">
+                    {#if $preferences.showTitleIds}
                     <span class="game-id">{id}</span>
+                    {/if}
                     {#if docked.target_fps || handheld.target_fps}
                         <div class="perf-mini">
                             {#if docked.target_fps}
@@ -205,8 +211,8 @@
         background: color-mix(in srgb, var(--card-primary) 15%, rgba(0,0,0,0.4));
         padding: 2px 8px;
         border-radius: 99px;
-        backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
         border: 1px solid color-mix(in srgb, var(--card-primary) 30%, rgba(255,255,255,0.1));
         transition: all 0.4s ease;
         color: #ffffff; /* Force white text */

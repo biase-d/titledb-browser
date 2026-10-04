@@ -60,7 +60,9 @@
         </div>
         <h4 class="activity-title">{titleName}</h4>
         <div class="activity-meta">
+            {#if $preferences.showTitleIds}
             <span class="game-id">{id}</span>
+            {/if}
         </div>
     </div>
 </a>

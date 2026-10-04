@@ -4,10 +4,25 @@
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
     import CountryFlag from '$lib/components/CountryFlag.svelte'
     import { uiStore } from '$lib/stores/ui.svelte'
-    import { tick } from 'svelte'
+    import { tick, onMount } from 'svelte'
     import { getCountryName } from '$lib/flags'
+    import { sensorsPossible, requestPermission } from '$lib/sensors'
+    import { guessPxPerMm, clampPxPerMm, CSS_PX_PER_MM, MIN_PX_PER_MM, MAX_PX_PER_MM, CARD_MM, CARTRIDGE_MM } from '$lib/realSize'
 
     let { show = $bindable() } = $props()
+
+    // The size of a real cartridge on this screen: what was calibrated, or the guess
+    let guessedMm = $state(CSS_PX_PER_MM)
+    onMount(() => {
+        guessedMm = guessPxPerMm({
+            width: screen.width,
+            height: screen.height,
+            dpr: window.devicePixelRatio || 1,
+            ua: navigator.userAgent,
+            touch: navigator.maxTouchPoints > 0
+        })
+    })
+    let pxPerMm = $derived(clampPxPerMm($preferences.pxPerMm ?? guessedMm))
 
     let currentRegion = $state('US')
     let showCountryGrid = $state(false)
@@ -39,6 +54,29 @@
             })
         }
     })
+
+    /** Only offered where there are sensors to read: a touch screen with the event */
+    let canTilt = $state(false)
+    let tiltMessage = $state('')
+    onMount(() => {
+        canTilt = sensorsPossible() && window.matchMedia('(pointer: coarse)').matches
+    })
+
+    /** From a tap, which is what iOS insists on before it will ask */
+    async function toggleGridTilt () {
+        if ($preferences.gridTilt) {
+            preferences.setGridTilt(false)
+            tiltMessage = ''
+            return
+        }
+        const answer = await requestPermission()
+        if (answer === 'granted') {
+            preferences.setGridTilt(true)
+            tiltMessage = ''
+        } else {
+            tiltMessage = 'Motion access was declined, so tilting is off.'
+        }
+    }
 </script>
 
 {#if show}
@@ -235,42 +273,203 @@
 
                 <section>
                     <div class="section-title-row">
-                        <Icon icon="mdi:flask-outline" class="section-icon" />
-                        <h3>Beta Features</h3>
+                        <Icon icon="mdi:animation-play-outline" class="section-icon" />
+                        <h3>Motion</h3>
                     </div>
 
-                    <div class="setting-item">
+                    <div class="setting-item stacked">
                         <div class="setting-info">
-                            <span class="setting-label"
-                                >Beta Contribution Flow</span
-                            >
+                            <span class="setting-label">Animation</span>
                             <span class="setting-desc"
-                                >Enable the new multi-stage database + GitHub
-                                contribution system</span
+                                >Reduced stops the slideshow, the cartridge
+                                effects and most transitions. Follow my device
+                                uses your system's setting.</span
                             >
                         </div>
-                        <label class="switch">
-                            <input
-                                type="checkbox"
-                                checked={$preferences.betaFlow}
-                                onchange={(e) => {
-                                    const target =
-                                        /** @type {HTMLInputElement} */ (
-                                            e.target
-                                        )
-                                    preferences.setBetaFlow(target.checked)
-                                }}
-                            />
-                            <span class="slider"></span>
-                        </label>
+                        <div class="segmented" role="radiogroup" aria-label="Animation">
+                            {#each [['system', 'Follow my device'], ['reduced', 'Reduced'], ['full', 'Full']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.motion === value}
+                                    class:selected={$preferences.motion === value}
+                                    onclick={() => preferences.setMotion(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+
+                    {#if canTilt}
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">Tilt to turn cartridges</span>
+                                <span class="setting-desc"
+                                    >In the cartridge view, tilting your phone turns
+                                    the cartridges a little. Uses the motion
+                                    sensors and some battery.</span
+                                >
+                                {#if tiltMessage}<span class="setting-desc warning">{tiltMessage}</span>{/if}
+                            </div>
+                            <label class="switch">
+                                <input
+                                    type="checkbox"
+                                    checked={$preferences.gridTilt}
+                                    onchange={toggleGridTilt}
+                                />
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    {/if}
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Seasonal effects</span>
+                            <span class="setting-desc"
+                                >Embers, leaves and snow in October, November
+                                and December. They are put up gradually, a few
+                                days early, and never shown when animation is
+                                reduced.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Seasonal effects">
+                            {#each [['auto', 'Automatic'], ['off', 'Off']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.seasonal === value}
+                                    class:selected={$preferences.seasonal === value}
+                                    onclick={() => preferences.setSeasonal(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Opening a game</span>
+                            <span class="setting-desc"
+                                >In the cartridge view: slide the cartridge into a
+                                slot before the page opens; open the page at once
+                                and have its cartridge fly in from where the card
+                                was; or both. Going back after a flight flies the
+                                cartridge home.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Opening a game">
+                            {#each [['slot', 'Slot'], ['fly', 'Fly'], ['both', 'Both']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.openStyle === value}
+                                    class:selected={$preferences.openStyle === value}
+                                    onclick={() => preferences.setOpenStyle(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Cartridge size</span>
+                            <span class="setting-desc"
+                                >Hold a bank card upright against the screen and
+                                drag until the outlined card matches it. The
+                                cartridge on the home page is then drawn the size
+                                of a real one ({CARTRIDGE_MM.width} × {CARTRIDGE_MM.height} mm).
+                                {#if $preferences.pxPerMm === null}Right now it is
+                                    set from a guess about your screen.{/if}</span
+                            >
+                        </div>
+                        <div class="size-preview" aria-hidden="true">
+                            <span
+                                class="ref-card"
+                                style="width: {CARD_MM.height * pxPerMm}px; height: {CARD_MM.width * pxPerMm}px; border-radius: {3.2 * pxPerMm}px"
+                                >bank card</span
+                            >
+                            <span
+                                class="ref-cart"
+                                style="width: {CARTRIDGE_MM.width * pxPerMm}px; height: {CARTRIDGE_MM.height * pxPerMm}px"
+                                >cartridge</span
+                            >
+                        </div>
+                        <input
+                            class="size-slider"
+                            type="range"
+                            min={MIN_PX_PER_MM}
+                            max={MAX_PX_PER_MM}
+                            step="0.05"
+                            value={pxPerMm}
+                            aria-label="Cartridge size"
+                            oninput={(e) => preferences.setPxPerMm(Number(e.currentTarget.value))}
+                        />
+                        <button
+                            class="size-reset"
+                            disabled={$preferences.pxPerMm === null}
+                            onclick={() => preferences.setPxPerMm(null)}
+                        >Use my device's estimate</button>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Cartridge view</span>
+                            <span class="setting-desc"
+                                >How the cartridges sit. Sway and Floating move
+                                continuously, so they use more battery, and are
+                                held still when animation is reduced.</span
+                            >
+                        </div>
+                        <div class="segmented" role="radiogroup" aria-label="Cartridge view">
+                            {#each [['flat', 'Flat'], ['angled', 'Angled'], ['sway', 'Sway'], ['float', 'Floating']] as [value, label] (value)}
+                                <button
+                                    role="radio"
+                                    aria-checked={$preferences.cartridgeStyle === value}
+                                    class:selected={$preferences.cartridgeStyle === value}
+                                    onclick={() => preferences.setCartridgeStyle(/** @type {any} */ (value))}
+                                >{label}</button>
+                            {/each}
+                        </div>
                     </div>
                 </section>
+
             </div>
         </div>
     </div>
 {/if}
 
 <style>
+
+    .setting-item.stacked {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .segmented {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        background: var(--input-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+    }
+
+    .segmented button {
+        flex: 1;
+        padding: 0.5rem 0.5rem;
+        background: transparent;
+        border: 0;
+        border-radius: 9px;
+        color: var(--text-secondary);
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .segmented button:hover { color: var(--text-primary); }
+
+    .segmented button.selected {
+        background: var(--surface-color);
+        color: var(--primary-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
     .modal-overlay {
         position: fixed;
         top: 0;
@@ -598,4 +797,15 @@
         font-weight: 600;
         color: var(--text-primary);
     }
+
+    .size-preview { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem 0; overflow-x: auto; }
+    .ref-card, .ref-cart {
+        flex: none; display: grid; place-items: center; box-sizing: border-box;
+        border: 2px dashed var(--text-secondary); color: var(--text-secondary);
+        font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .ref-cart { border-style: solid; border-color: var(--primary-color); color: var(--primary-color); border-radius: 3px; }
+    .size-slider { width: 100%; accent-color: var(--primary-color); }
+    .size-reset { align-self: flex-start; margin-top: 0.25rem; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-size: 0.8rem; }
+    .size-reset:disabled { opacity: 0.4; cursor: default; }
 </style>

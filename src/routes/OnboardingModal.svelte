@@ -1,11 +1,20 @@
 <script>
-    import { fade, scale } from 'svelte/transition'
+    import { fade, fly, scale } from 'svelte/transition'
     import Icon from '@iconify/svelte'
     import { preferences, COUNTRY_GROUPS } from '$lib/stores/preferences'
     import CountryFlag from '$lib/components/CountryFlag.svelte'
     import { onMount } from 'svelte'
     import { isBot } from '$lib/utils/bot'
 
+    /**
+     * A new visitor is no longer stopped by a modal over the page. A small card
+     * asks once the page has been looked at (after the first scroll, or a pause
+     * if they just read), and the full setup only opens if they ask for it.
+     * Crawlers get neither: they judge the page, not the prompt
+     */
+    let prompt = $state(false)
+    /** The visitor's own country, when their browser language names one we list */
+    let detectedRegion = $state(/** @type {{ id: string, label: string } | null} */ (null))
     let show = $state(false)
     let step = $state(1)
     let selectedRegion = $state('US')
@@ -24,19 +33,48 @@
 
     onMount(() => {
         if (isBot()) {
-            console.log('[Onboarding] Bot detected, skipping modal')
             return
         }
 
         const hasOnboarded = localStorage.getItem('has_onboarded')
-        if (!hasOnboarded) {
-            const current = localStorage.getItem('preferred_region')
-            if (current) selectedRegion = current
-            setTimeout(() => {
-                show = true
-            }, 500)
+        if (hasOnboarded) return
+
+        const current = localStorage.getItem('preferred_region')
+        if (current) selectedRegion = current
+
+        const country = (navigator.language || '').split('-')[1]?.toUpperCase()
+        detectedRegion = COUNTRY_GROUPS.flatMap(g => g.options).find(o => o.id === country) ?? null
+        if (detectedRegion && !current) selectedRegion = detectedRegion.id
+
+        const reveal = () => {
+            prompt = true
+            cleanup()
         }
+        const onScroll = () => { if (window.scrollY > 240) reveal() }
+        const timer = setTimeout(reveal, 12000)
+        const cleanup = () => {
+            clearTimeout(timer)
+            window.removeEventListener('scroll', onScroll)
+        }
+        window.addEventListener('scroll', onScroll, { passive: true })
+        return cleanup
     })
+
+    function openSetup () {
+        prompt = false
+        show = true
+    }
+
+    /** One tap: their country, default colour, and no more asking */
+    function useDetected () {
+        if (detectedRegion) preferences.setRegion(detectedRegion.id)
+        dismiss()
+    }
+
+    function dismiss () {
+        localStorage.setItem('has_onboarded', 'true')
+        prompt = false
+    }
 
     function nextStep () {
         if (step < 3) {
@@ -56,6 +94,31 @@
         show = false
     }
 </script>
+
+{#if prompt}
+    <aside class="welcome-card" transition:fly={{ y: 24, duration: 250 }} aria-label="Welcome">
+        <button class="welcome-close" onclick={dismiss} aria-label="Dismiss">
+            <Icon icon="mdi:close" />
+        </button>
+        <p class="welcome-title">Welcome to Switch Performance</p>
+        <p class="welcome-text">
+            Pick your eShop country and we'll show game names and artwork from
+            that region.
+        </p>
+        <div class="welcome-actions">
+            {#if detectedRegion}
+                <button class="welcome-primary" onclick={useDetected}>
+                    <CountryFlag code={detectedRegion.id} size={18} />
+                    Use {detectedRegion.label}
+                </button>
+                <button class="welcome-secondary" onclick={openSetup}>Choose another</button>
+            {:else}
+                <button class="welcome-primary" onclick={openSetup}>Choose region</button>
+                <button class="welcome-secondary" onclick={dismiss}>Not now</button>
+            {/if}
+        </div>
+    </aside>
+{/if}
 
 {#if show}
     <div class="modal-overlay" transition:fade={{ duration: 300 }}>
@@ -206,6 +269,84 @@
 {/if}
 
 <style>
+    .welcome-card {
+        position: fixed;
+        z-index: 150;
+        right: 1rem;
+        bottom: 1rem;
+        width: min(22rem, calc(100vw - 2rem));
+        padding: 1rem 1.125rem;
+        background: var(--surface-color);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    }
+
+    .welcome-title {
+        margin: 0 1.5rem 0.25rem 0;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .welcome-text {
+        margin: 0 0 0.875rem;
+        font-size: 0.875rem;
+        line-height: 1.45;
+        color: var(--text-secondary);
+    }
+
+    .welcome-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .welcome-primary,
+    .welcome-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.875rem;
+        border-radius: 10px;
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .welcome-primary {
+        background: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        color: var(--primary-action-text, #fff);
+    }
+
+    .welcome-secondary {
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .welcome-close {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        display: grid;
+        place-items: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        background: none;
+        border: 0;
+        border-radius: 8px;
+        color: var(--text-secondary);
+        cursor: pointer;
+    }
+
+    .welcome-close:hover { color: var(--text-primary); background: var(--input-bg); }
+
+    @media (max-width: 560px) {
+        .welcome-card { left: 1rem; right: 1rem; width: auto; }
+    }
+
     .modal-overlay {
         position: fixed;
         top: 0;
