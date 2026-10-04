@@ -130,11 +130,16 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
  * lately. Never waits and never throws: the page that triggered it carries on,
  * and the icon is there the next time the title is opened
  *
+ * With `replacing`, the title has an icon that turned out to be gone, and the store's
+ * current one is looked for in its place
+ *
  * @param {any} db
  * @param {{ id: string, iconUrl?: string | null }} game
+ * @param {{ replacing?: string }} [options]
  */
-export function ensureIcon (db, game) {
-	if (!game?.id || game.iconUrl || pending.has(game.id) || pending.size >= MAX_QUEUED) return
+export function ensureIcon (db, game, options = {}) {
+	const { replacing } = options
+	if (!game?.id || (game.iconUrl && !replacing) || pending.has(game.id) || pending.size >= MAX_QUEUED) return
 	pending.add(game.id)
 
 	chain = chain.then(async () => {
@@ -143,7 +148,7 @@ export function ensureIcon (db, game) {
 			const [row] = await db.execute(sql`
 				SELECT icon_url, attempts, retry_after FROM public.icon_lookups WHERE game_id = ${game.id}
 			`)
-			if (row?.icon_url) return
+			if (row?.icon_url && row.icon_url !== replacing) return
 			if (row?.retry_after && new Date(row.retry_after) > new Date()) return
 
 			const { icon, transient } = await lookup(game.id)
@@ -169,4 +174,32 @@ export function ensureIcon (db, game) {
 			pending.delete(game.id)
 		}
 	})
+}
+
+/** @type {Map<string, number>} */
+const repaired = new Map()
+const REPAIR_INTERVAL_MS = 6 * 60 * 60 * 1000
+
+/**
+ * An icon the proxy found Nintendo no longer has: the titles that point at it get
+ * the store's current one. Never waits and never throws
+ *
+ * @param {any} db
+ * @param {string} deadUrl
+ */
+export async function repairDeadIcon (db, deadUrl) {
+	// Every request for the dead image arrives here: once in a while is enough
+	const last = repaired.get(deadUrl)
+	if (last && Date.now() - last < REPAIR_INTERVAL_MS) return
+	if (repaired.size >= 2000) repaired.clear()
+	repaired.set(deadUrl, Date.now())
+
+	try {
+		const rows = await db.execute(sql`
+			SELECT id FROM public.active_games WHERE icon_url = ${deadUrl} LIMIT 5
+		`)
+		for (const row of rows) ensureIcon(db, { id: row.id, iconUrl: deadUrl }, { replacing: deadUrl })
+	} catch (e) {
+		logger.warn('Dead icon repair failed', { deadUrl, error: e instanceof Error ? e.message : String(e) })
+	}
 }

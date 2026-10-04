@@ -70,7 +70,7 @@
   let regionBadge = $derived(getRegionLabelShort(regions))
 
   let imageSet = $derived(
-    createImageSet(iconUrl || titleData.bannerUrl, {
+    createImageSet((useBanner ? titleData.bannerUrl : iconUrl) || titleData.bannerUrl, {
       highRes: $preferences.highResImages,
       thumbnailWidth: 240
     })
@@ -89,10 +89,17 @@
 
   let imageFailed = $state(false)
   let imageRetries = 0
+  let useBanner = $state(false)
   /** One failed load is often a cold image on the server: try again before giving up */
   function retryImage () {
     if (imageRetries >= 2 || !imageElement) {
-      imageFailed = true
+      // The icon may be gone from Nintendo's side: the banner is still art
+      if (iconUrl && titleData.bannerUrl && !useBanner) {
+        useBanner = true
+        imageRetries = 0
+      } else {
+        imageFailed = true
+      }
       return
     }
     imageRetries++
@@ -138,6 +145,7 @@
     dockedFps: dockedFps || null,
     handheldFps: handheldFps || null,
     // Half the size unless high-resolution images are on in Settings
+    artFallback: ghost || !iconUrl || !titleData.bannerUrl ? null : proxyImage(titleData.bannerUrl, $preferences.highResImages ? 512 : 256),
     artUrl: ghost ? null : (proxyImage(iconUrl || titleData.bannerUrl, $preferences.highResImages ? 512 : 256) || null),
     ghost,
     // Switch 2 cartridges are red, and a Game-Key Card has a key on its label

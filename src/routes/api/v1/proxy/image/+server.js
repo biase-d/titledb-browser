@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit'
 import crypto from 'node:crypto'
 import sharp from 'sharp'
 import { cached, getSourceImage } from '$lib/server/assetCache'
+import { repairDeadIcon } from '$lib/server/iconBackfill'
 import logger from '$lib/services/loggerService'
 
 // Matched against the parsed hostname. The previous check was a substring test
@@ -37,7 +38,7 @@ export async function OPTIONS () {
 }
 
 /** @type {import('./$types').RequestHandler} */
-export async function GET ({ url }) {
+export async function GET ({ url, locals }) {
 	const imageUrl = url.searchParams.get('url')
 	const width = parseInt(url.searchParams.get('w') || '0')
 	const height = parseInt(url.searchParams.get('h') || '0')
@@ -74,6 +75,8 @@ export async function GET ({ url }) {
 	} catch (e) {
 		// A thrown SvelteKit error already carries the right status
 		if (e && typeof e === 'object' && 'status' in e && typeof e.status === 'number') {
+			// Gone from Nintendo: if it was somebody's icon, find the current one
+			if (e.status === 404 || e.status === 410) repairDeadIcon(locals.db, imageUrl)
 			throw error(e.status, e.message || 'Image proxy failed')
 		}
 		const err = e instanceof Error ? e : new Error(String(e))

@@ -43,11 +43,22 @@ function rememberSource (url, entry) {
 }
 
 /**
+ * Sources Nintendo answered 404 or 410 for, and when to ask again. A dead image
+ * is requested by every visitor to every page that shows it, and each of those
+ * would otherwise be a request to Nintendo for something known to be gone
+ * @type {Map<string, { status: number, until: number }>}
+ */
+const deadSources = new Map()
+const DEAD_SOURCE_MS = 6 * 60 * 60 * 1000
+const DEAD_SOURCE_LIMIT = 2000
+
+/**
  * Clears in-memory source cache and in-flight map (primarily for unit tests)
  */
 export function _clearSourceCacheForTesting () {
 	sourceMemoryCache.clear()
 	inFlightSources.clear()
+	deadSources.clear()
 	upstreamActive = 0
 	upstreamWaiting.length = 0
 }
@@ -97,6 +108,14 @@ async function fetchUpstream (url) {
 	}
 }
 
+/** @param {number} status @param {string} message */
+function upstreamError (status, message) {
+	const err = new Error(message)
+	// @ts-ignore
+	err.status = status
+	return err
+}
+
 /**
  * Fetches the upstream image exactly once, caching the original bytes in
  * storage (and memory) so all resized variants and full-res requests reuse it.
@@ -106,6 +125,13 @@ async function fetchUpstream (url) {
  */
 export async function getSourceImage (imageUrl) {
 	const cleanUrl = imageUrl.trim()
+
+	// 0. Known to be gone, so not asked about again for a while
+	const dead = deadSources.get(cleanUrl)
+	if (dead) {
+		if (dead.until > Date.now()) throw upstreamError(dead.status, 'Not found upstream')
+		deadSources.delete(cleanUrl)
+	}
 
 	// 1. In-memory cache hit
 	if (sourceMemoryCache.has(cleanUrl)) {
@@ -142,11 +168,12 @@ export async function getSourceImage (imageUrl) {
 		// 4. Fetch upstream from Nintendo / origin server
 		const response = await fetchUpstream(cleanUrl)
 		if (!response.ok) {
+			if (response.status === 404 || response.status === 410) {
+				if (deadSources.size >= DEAD_SOURCE_LIMIT) deadSources.clear()
+				deadSources.set(cleanUrl, { status: response.status, until: Date.now() + DEAD_SOURCE_MS })
+			}
 			const status = response.status >= 400 && response.status < 500 ? response.status : 502
-			const err = new Error(`Failed to fetch image from upstream: ${response.status} ${response.statusText}`)
-			// @ts-ignore
-			err.status = status
-			throw err
+			throw upstreamError(status, `Failed to fetch image from upstream: ${response.status} ${response.statusText}`)
 		}
 
 		const contentType = response.headers.get('content-type') || 'application/octet-stream'

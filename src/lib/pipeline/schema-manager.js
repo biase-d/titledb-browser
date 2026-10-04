@@ -366,8 +366,9 @@ const PUBLIC_VIEWS = [
 
 /**
  * The SQL of one public view over a layer's table. active_games is the layer's
- * games with icons found at runtime laid over it: titledb's own icon wins when
- * it has one, the looked-up one fills the gaps
+ * games with icons found at runtime laid over it. A looked-up icon is only ever
+ * stored for a title with no icon or a dead one, and it is the store's current
+ * answer, so it wins over titledb's; titledb's fills in where there is none
  * @param {string} view
  * @param {string} table
  * @param {string} schema
@@ -377,7 +378,7 @@ function viewSql (view, table, schema) {
         return `
 			CREATE OR REPLACE VIEW public."active_games" AS
 			SELECT g."id", g."group_id", g."names", g."regions", g."publisher", g."release_date",
-				g."size_in_bytes", COALESCE(NULLIF(g."icon_url", ''), l."icon_url") AS "icon_url",
+				g."size_in_bytes", COALESCE(l."icon_url", NULLIF(g."icon_url", '')) AS "icon_url",
 				g."banner_url", g."screenshots", g."last_updated"
 			FROM "${schema}"."games" g
 			LEFT JOIN public.icon_lookups l ON l."game_id" = g."id"

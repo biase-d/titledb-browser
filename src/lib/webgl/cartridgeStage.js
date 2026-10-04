@@ -89,6 +89,7 @@ const easeOutCubic = (/** @type {number} */ t) => 1 - Math.pow(1 - t, 3)
  * @property {string | null} dockedFps
  * @property {string | null} handheldFps
  * @property {string | null} artUrl
+ * @property {string | null} [artFallback] what to use if artUrl will not load, such as the banner of a title whose icon is gone
  * @property {'switch' | 'switch2'} [platform] Switch 2 cartridges are red, not black
  * @property {boolean} [gameKeyCard] a Game-Key Card (Switch 2): it holds a key to the game, not the game
  * @property {boolean} [ghost] an unlabelled stand-in with an invitation on it, not a real game
@@ -884,7 +885,7 @@ export class CartridgeStage {
 		const paint = async () => {
 			const d = handle.data
 			if ('fonts' in document) await document.fonts.ready
-			const art = d.artUrl ? await loadImage(d.artUrl) : null
+			const art = d.artUrl ? (await loadImage(d.artUrl)) ?? (d.artFallback ? await loadImage(d.artFallback) : null) : null
 			if (!this.handles.has(el)) return
 			drawFront(frontCanvas, d, art)
 			drawBack(backCanvas, d)

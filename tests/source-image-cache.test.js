@@ -54,3 +54,15 @@ describe('getSourceImage retries', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1)
 	})
 })
+
+describe('getSourceImage dead images', () => {
+	it('does not ask Nintendo again for an image that was a 404', async () => {
+		_clearSourceCacheForTesting()
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 404 }))
+		const url = 'https://assets.nintendo.com/image/upload/q_auto/f_auto/store/software/switch2/1/gone.jpg'
+		await expect(getSourceImage(url)).rejects.toMatchObject({ status: 404 })
+		await expect(getSourceImage(url)).rejects.toMatchObject({ status: 404 })
+		await expect(getSourceImage(url)).rejects.toMatchObject({ status: 404 })
+		expect(fetchMock).toHaveBeenCalledTimes(1)
+	})
+})
