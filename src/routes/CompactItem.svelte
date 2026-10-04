@@ -64,7 +64,7 @@
 >
     <div class="compact-icon">
         {#if iconUrl}
-            <img src={iconUrl} alt="" loading="lazy" width="24" height="24" />
+            <img src={proxyImage(iconUrl, 48)} alt="" loading="lazy" width="24" height="24" />
         {:else}
             <div class="no-icon-small">
                 <Icon icon="mdi:image-off" width="14" height="14" />

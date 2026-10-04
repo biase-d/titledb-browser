@@ -1,14 +1,14 @@
 import { error } from '@sveltejs/kit'
 import crypto from 'node:crypto'
 import sharp from 'sharp'
-import { cached } from '$lib/server/assetCache'
+import { cached, getSourceImage } from '$lib/server/assetCache'
 import logger from '$lib/services/loggerService'
 
 // Matched against the parsed hostname. The previous check was a substring test
 // on the whole URL, so `https://evil.com/?x=nintendo.net` passed it and the
 // endpoint would fetch anything an attacker named
-const ALLOWED_HOSTS = new Set(['raw.githubusercontent.com'])
-const ALLOWED_SUFFIXES = ['.nintendo.net', '.nintendo.com']
+const ALLOWED_HOSTS = new Set(['raw.githubusercontent.com', 'githubusercontent.com'])
+const ALLOWED_SUFFIXES = ['.nintendo.net', '.nintendo.com', '.githubusercontent.com']
 
 /** @param {string} value */
 function isAllowedHost (value) {
@@ -20,8 +20,20 @@ function isAllowedHost (value) {
 	}
 	if (parsed.protocol !== 'https:') return false
 	if (ALLOWED_HOSTS.has(parsed.hostname)) return true
-	if (parsed.hostname === 'nintendo.com' || parsed.hostname === 'nintendo.net') return true
+	if (parsed.hostname === 'nintendo.com' || parsed.hostname === 'nintendo.net' || parsed.hostname === 'githubusercontent.com') return true
 	return ALLOWED_SUFFIXES.some(suffix => parsed.hostname.endsWith(suffix))
+}
+
+/** @type {import('./$types').RequestHandler} */
+export async function OPTIONS () {
+	return new Response(null, {
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+			'Access-Control-Allow-Headers': '*',
+			'Cache-Control': 'public, max-age=86400'
+		}
+	})
 }
 
 /** @type {import('./$types').RequestHandler} */
@@ -40,10 +52,9 @@ export async function GET ({ url }) {
 
 	try {
 		const { body } = await cached(key, 'image/webp', async () => {
-			const response = await fetch(imageUrl)
-			if (!response.ok) throw error(response.status, 'Failed to fetch image')
+			const { body: sourceBuffer } = await getSourceImage(imageUrl)
 
-			let pipeline = sharp(Buffer.from(await response.arrayBuffer()))
+			let pipeline = sharp(sourceBuffer)
 			if (width > 0 || height > 0) {
 				pipeline = pipeline.resize(width || null, height || null, {
 					withoutEnlargement: true,
@@ -62,7 +73,9 @@ export async function GET ({ url }) {
 		})
 	} catch (e) {
 		// A thrown SvelteKit error already carries the right status
-		if (e && typeof e === 'object' && 'status' in e) throw e
+		if (e && typeof e === 'object' && 'status' in e && typeof e.status === 'number') {
+			throw error(e.status, e.message || 'Image proxy failed')
+		}
 		const err = e instanceof Error ? e : new Error(String(e))
 		logger.error('Proxy error processing image', err, { imageUrl })
 		throw error(500, 'Internal server error')

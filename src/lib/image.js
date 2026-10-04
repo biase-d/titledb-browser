@@ -8,9 +8,23 @@
 export function proxyImage (src, width = 0, height = 0) {
 	if (!src) return src
 
-	// Proxy external images for caching and CORS
-	if (src.includes('nintendo.net') || src.includes('nintendo.com') || src.includes('githubusercontent.com')) {
-		let url = `/api/v1/proxy/image?url=${encodeURIComponent(src)}`
+	// If already proxied, extract original URL to avoid nested proxy paths
+	let rawSrc = src
+	if (typeof src === 'string' && src.startsWith('/api/v1/proxy/image')) {
+		try {
+			const parsed = new URL(src, 'http://localhost')
+			const underlying = parsed.searchParams.get('url')
+			if (underlying) {
+				rawSrc = underlying
+			}
+		} catch {
+			// ignore and use src
+		}
+	}
+
+	// Proxy external images for caching and CORS (full-res when w/h are 0, or resized when specified)
+	if (rawSrc.includes('nintendo.net') || rawSrc.includes('nintendo.com') || rawSrc.includes('githubusercontent.com')) {
+		let url = `/api/v1/proxy/image?url=${encodeURIComponent(rawSrc)}`
 		if (width > 0) url += `&w=${width}`
 		if (height > 0) url += `&h=${height}`
 		return url

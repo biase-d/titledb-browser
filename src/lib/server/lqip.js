@@ -17,6 +17,7 @@
 import crypto from 'node:crypto'
 import sharp from 'sharp'
 import { getStorage } from '$lib/storage/context'
+import { getSourceImage } from '$lib/server/assetCache'
 import logger from '$lib/services/loggerService'
 
 /** Wide enough to read as the image, small enough to inline */
@@ -61,10 +62,9 @@ async function generate (sourceUrl) {
 	inFlight.add(sourceUrl)
 
 	try {
-		const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(10_000) })
-		if (!response.ok) return
+		const { body: sourceBuffer } = await getSourceImage(sourceUrl)
 
-		const body = await sharp(Buffer.from(await response.arrayBuffer()))
+		const body = await sharp(sourceBuffer)
 			.resize(WIDTH, null, { withoutEnlargement: true })
 			.webp({ quality: QUALITY })
 			.toBuffer()

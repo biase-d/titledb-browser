@@ -15,6 +15,7 @@ import { createRequire } from 'node:module'
 import { readFile } from 'node:fs/promises'
 import logger from '$lib/services/loggerService'
 import { isSwitch2Id } from '$lib/platform'
+import { getSourceImage } from '$lib/server/assetCache'
 
 const require = createRequire(import.meta.url)
 
@@ -142,8 +143,19 @@ export interface OgData {
  */
 async function imageDataUri (url: string | undefined | null, opts: { width: number; height: number; blur?: number; fit?: 'cover' | 'inside'; quality?: number }): Promise<string | null> {
 	if (!url) return null
-	const bytes = await fetchBuffer(url.startsWith('data:') ? url : encodeURI(url), 6000)
-	if (!bytes) return null
+	let bytes: Buffer | ArrayBuffer | null = null
+	if (url.startsWith('data:')) {
+		bytes = Buffer.from(url.split(',')[1] || '', 'base64')
+	} else {
+		try {
+			const source = await getSourceImage(url)
+			bytes = source.body
+		} catch (e) {
+			logger.warn('Failed to get source image from cache for OG, falling back to fetchBuffer', { url, error: e instanceof Error ? e.message : String(e) })
+			bytes = await fetchBuffer(encodeURI(url), 6000)
+		}
+	}
+	if (!bytes || (bytes as Buffer).length === 0) return null
 	try {
 		let image = sharp(Buffer.from(bytes)).resize(opts.width, opts.height, { fit: opts.fit ?? 'cover' })
 		if (opts.blur) image = image.blur(opts.blur).modulate({ brightness: 0.75, saturation: 1.5 })

@@ -3,6 +3,7 @@
     import { slide } from 'svelte/transition'
     import { preferences } from '$lib/stores/preferences'
     import { getLocalizedName } from '$lib/i18n'
+    import { proxyImage } from '$lib/image'
 
     let { titleData } = $props()
 
@@ -46,7 +47,7 @@
 >
     <div class="activity-accent"></div>
     <div class="activity-icon-wrapper">
-        <img src={iconUrl} alt="" loading="lazy" width="40" height="40" />
+        <img src={proxyImage(iconUrl, 80)} alt="" loading="lazy" width="40" height="40" />
     </div>
     <div class="activity-body">
         <div class="activity-header">

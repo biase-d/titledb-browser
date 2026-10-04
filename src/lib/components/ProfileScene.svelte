@@ -70,8 +70,8 @@
 				{ icon: 'mdi:jellyfish', kind: 'float', size: 2.6, top: 14, dur: 30, delay: 0 },
 				{ icon: 'mdi:jellyfish-outline', kind: 'float', size: 1.8, top: 38, dur: 38, delay: 12 },
 				{ icon: 'mdi:jellyfish', kind: 'float', size: 3.2, top: 26, dur: 46, delay: 22 },
-				{ icon: 'mdi:seaweed', kind: 'sprout', size: 2, at: 14, delay: 0 },
-				{ icon: 'mdi:seaweed', kind: 'sprout', size: 2.4, at: 70, delay: 1.5 }
+				{ icon: 'mdi:grass', kind: 'sprout', size: 2, at: 14, delay: 0 },
+				{ icon: 'mdi:grass', kind: 'sprout', size: 2.4, at: 70, delay: 1.5 }
 			]
 		},
 		30: {
