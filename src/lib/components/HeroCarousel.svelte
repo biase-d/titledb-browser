@@ -397,8 +397,9 @@
         z-index: 1;
         right: clamp(3rem, 9%, 7.5rem);
         bottom: 1.75rem;
-        /* A real cartridge: 21.3 mm wide (it is 31 mm tall), at 1 CSS mm to the mm */
-        width: 21.3mm;
+        /* A real cartridge: 21 mm wide (31 tall, 3 thick), at this screen's own
+           millimetre (a guess, or what the visitor calibrated in Settings) */
+        width: calc(21 * var(--real-mm, 3.7795px));
         --cart-max: 100%;
         opacity: 0;
         transition: opacity 0.5s ease 0.15s;
@@ -707,7 +708,7 @@
             bottom: auto;
             right: 50%;
             translate: 50% 0;
-            width: 21.3mm;
+            width: calc(21 * var(--real-mm, 3.7795px));
         }
 
         .hero-eyebrow {

@@ -15,6 +15,7 @@
     import { preferences, isReducedMotion } from '$lib/stores/preferences'
     import { fade } from 'svelte/transition'
     import { createImageSet } from '$lib/image'
+    import { guessPxPerMm, clampPxPerMm } from '$lib/realSize'
 
     let { data, children } = $props()
 
@@ -27,6 +28,19 @@
         const query = window.matchMedia('(prefers-reduced-motion: reduce)')
         query.addEventListener('change', reduce)
         return () => query.removeEventListener('change', reduce)
+    })
+
+    // How many CSS pixels a real millimetre is on this screen: what the visitor
+    // calibrated, or a guess from the device. The hero cartridge is sized from it
+    $effect(() => {
+        const mm = $preferences.pxPerMm ?? guessPxPerMm({
+            width: screen.width,
+            height: screen.height,
+            dpr: window.devicePixelRatio || 1,
+            ua: navigator.userAgent,
+            touch: navigator.maxTouchPoints > 0
+        })
+        document.documentElement.style.setProperty('--real-mm', `${clampPxPerMm(mm).toFixed(3)}px`)
     })
 
     $effect(() => {

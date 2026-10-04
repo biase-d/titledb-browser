@@ -102,7 +102,13 @@ function createPreferencesStore () {
 	// Off until asked for: it reads the phone's sensors and keeps the screen busy
 	const initialGridTilt = browser && localStorage.getItem('grid_tilt') === 'true'
 
+	// null: use the guess for this device. A number: what the visitor calibrated, in
+	// CSS pixels per millimetre (see $lib/realSize)
+	const storedMm = browser ? Number(localStorage.getItem('px_per_mm')) : 0
+	const initialPxPerMm = Number.isFinite(storedMm) && storedMm > 0 ? storedMm : null
+
 	const { subscribe, update } = writable({
+		pxPerMm: initialPxPerMm,
 		gridTilt: initialGridTilt,
 		seasonal: initialSeasonal,
 		motion: initialMotion,
@@ -183,6 +189,20 @@ function createPreferencesStore () {
 			update(state => {
 				localStorage.setItem('motion', motion)
 				return { ...state, motion }
+			})
+		},
+		/**
+		 * Calibrates how big a real-size cartridge is drawn. null goes back to the
+		 * guess for this device
+		 * @param {number | null} pxPerMm CSS pixels per millimetre
+		 */
+		setPxPerMm: (pxPerMm) => {
+			if (!browser) return
+
+			update(state => {
+				if (pxPerMm === null) localStorage.removeItem('px_per_mm')
+				else localStorage.setItem('px_per_mm', String(pxPerMm))
+				return { ...state, pxPerMm }
 			})
 		},
 		/**

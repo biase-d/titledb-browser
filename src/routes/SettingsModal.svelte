@@ -7,8 +7,22 @@
     import { tick, onMount } from 'svelte'
     import { getCountryName } from '$lib/flags'
     import { sensorsPossible, requestPermission } from '$lib/sensors'
+    import { guessPxPerMm, clampPxPerMm, CSS_PX_PER_MM, MIN_PX_PER_MM, MAX_PX_PER_MM, CARD_MM, CARTRIDGE_MM } from '$lib/realSize'
 
     let { show = $bindable() } = $props()
+
+    // The size of a real cartridge on this screen: what was calibrated, or the guess
+    let guessedMm = $state(CSS_PX_PER_MM)
+    onMount(() => {
+        guessedMm = guessPxPerMm({
+            width: screen.width,
+            height: screen.height,
+            dpr: window.devicePixelRatio || 1,
+            ua: navigator.userAgent,
+            touch: navigator.maxTouchPoints > 0
+        })
+    })
+    let pxPerMm = $derived(clampPxPerMm($preferences.pxPerMm ?? guessedMm))
 
     let currentRegion = $state('US')
     let showCountryGrid = $state(false)
@@ -326,6 +340,47 @@
                                 >{label}</button>
                             {/each}
                         </div>
+                    </div>
+
+                    <div class="setting-item stacked">
+                        <div class="setting-info">
+                            <span class="setting-label">Cartridge size</span>
+                            <span class="setting-desc"
+                                >Hold a bank card upright against the screen and
+                                drag until the outlined card matches it. The
+                                cartridge on the home page is then drawn the size
+                                of a real one ({CARTRIDGE_MM.width} × {CARTRIDGE_MM.height} mm).
+                                {#if $preferences.pxPerMm === null}Right now it is
+                                    set from a guess about your screen.{/if}</span
+                            >
+                        </div>
+                        <div class="size-preview" aria-hidden="true">
+                            <span
+                                class="ref-card"
+                                style="width: {CARD_MM.height * pxPerMm}px; height: {CARD_MM.width * pxPerMm}px; border-radius: {3.2 * pxPerMm}px"
+                                >bank card</span
+                            >
+                            <span
+                                class="ref-cart"
+                                style="width: {CARTRIDGE_MM.width * pxPerMm}px; height: {CARTRIDGE_MM.height * pxPerMm}px"
+                                >cartridge</span
+                            >
+                        </div>
+                        <input
+                            class="size-slider"
+                            type="range"
+                            min={MIN_PX_PER_MM}
+                            max={MAX_PX_PER_MM}
+                            step="0.05"
+                            value={pxPerMm}
+                            aria-label="Cartridge size"
+                            oninput={(e) => preferences.setPxPerMm(Number(e.currentTarget.value))}
+                        />
+                        <button
+                            class="size-reset"
+                            disabled={$preferences.pxPerMm === null}
+                            onclick={() => preferences.setPxPerMm(null)}
+                        >Use my device's estimate</button>
                     </div>
 
                     <div class="setting-item stacked">
@@ -719,4 +774,15 @@
         font-weight: 600;
         color: var(--text-primary);
     }
+
+    .size-preview { display: flex; align-items: flex-end; gap: 1rem; padding: 0.75rem 0; overflow-x: auto; }
+    .ref-card, .ref-cart {
+        flex: none; display: grid; place-items: center; box-sizing: border-box;
+        border: 2px dashed var(--text-secondary); color: var(--text-secondary);
+        font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .ref-cart { border-style: solid; border-color: var(--primary-color); color: var(--primary-color); border-radius: 3px; }
+    .size-slider { width: 100%; accent-color: var(--primary-color); }
+    .size-reset { align-self: flex-start; margin-top: 0.25rem; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); cursor: pointer; font-size: 0.8rem; }
+    .size-reset:disabled { opacity: 0.4; cursor: default; }
 </style>
