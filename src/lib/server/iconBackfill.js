@@ -13,7 +13,13 @@
 import { sql } from 'drizzle-orm'
 import logger from '$lib/services/loggerService'
 
-const REGION = 'US'
+/**
+ * Stores asked in turn until one has the title. Only ones whose page carries the square
+ * product image in the same page data: the US and Canadian stores. The others redirect
+ * to pages without it (GB, DE), to the older eShop host with only a wide banner (AU, HK),
+ * or into a waiting room (JP)
+ */
+const REGIONS = ['US', 'CA']
 const SPACING_MS = 1500
 const MAX_QUEUED = 50
 const TIMEOUT_MS = 10_000
@@ -64,11 +70,12 @@ export function extractSquareIcon (html) {
 
 /**
  * @param {string} titleId
+ * @param {string} region
  * @returns {Promise<{ icon: string | null, transient: boolean }>}
  */
-async function lookup (titleId) {
+async function lookupIn (titleId, region) {
 	try {
-		const response = await fetch(`https://ec.nintendo.com/apps/${encodeURIComponent(titleId)}/${REGION}`, {
+		const response = await fetch(`https://ec.nintendo.com/apps/${encodeURIComponent(titleId)}/${region}`, {
 			headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SwitchPerformance/1.0)', Accept: 'text/html' },
 			signal: AbortSignal.timeout(TIMEOUT_MS)
 		})
@@ -81,6 +88,21 @@ async function lookup (titleId) {
 		logger.warn('Icon lookup failed', { titleId, error: e instanceof Error ? e.message : String(e) })
 		return { icon: null, transient: true }
 	}
+}
+
+/**
+ * The first store with an icon for the title. A store that is merely busy ends the
+ * search as transient: the title is asked about again soon rather than written off
+ * @param {string} titleId
+ * @returns {Promise<{ icon: string | null, transient: boolean }>}
+ */
+async function lookup (titleId) {
+	for (const region of REGIONS) {
+		const result = await lookupIn(titleId, region)
+		if (result.icon || result.transient) return result
+		await sleep(SPACING_MS)
+	}
+	return { icon: null, transient: false }
 }
 
 /** @type {Set<string>} */
