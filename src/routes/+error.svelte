@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment'
 	import { getSystemStatus } from '$lib/remote/status.remote.js'
 	import CartridgeItem from './CartridgeItem.svelte'
+	import ErrorCoin from '$lib/components/ErrorCoin.svelte'
 
 	// Browser-only: an error page should never depend on a server round trip
 	// that might be failing for the same reason we are here
@@ -40,9 +41,14 @@
 
 <div class="error-container">
 	<div class="error-card">
-		<div class="stand" aria-hidden="true">
-			<CartridgeItem titleData={stand} hero ghost />
-		</div>
+		{#if page.status >= 500}
+			<!-- Something broke on our side: a coin that spins, then slows to a halt -->
+			<ErrorCoin />
+		{:else}
+			<div class="stand" aria-hidden="true">
+				<CartridgeItem titleData={stand} hero ghost />
+			</div>
+		{/if}
 		<h1>{page.status}</h1>
 		<p class="message">{message}</p>
 

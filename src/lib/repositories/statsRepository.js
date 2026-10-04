@@ -151,7 +151,8 @@ export async function getStats (db, searchParams) {
 			.where(and(scopeWithout('publisher'), sql`${games.publisher} IS NOT NULL`))
 			.groupBy(games.publisher)
 			.orderBy(desc(count(games.id)), games.publisher)
-			.limit(10),
+			// Fourteen, so the list fills the card beside the download-size chart
+			.limit(14),
 
 		// Titles with no recorded size have no bucket and are left out of this
 		// chart only - they are still titles, and still counted everywhere else
