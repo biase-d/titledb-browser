@@ -103,18 +103,25 @@
 			</div>
 		</div>
 
+		<!-- The maker, in a section of its own -->
+		<section class="made-by" aria-label="About the maker">
+			<span class="made-label">Made by</span>
+			<a
+				class="self-plug"
+				href="https://github.com/biase-d"
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				a biase-d project
+			</a>
+			<span class="made-note"
+				>Built in the open and free to use, under the AGPL v3.</span
+			>
+		</section>
+
 		<div class="footer-bottom">
 			<div class="copyright">
 				&copy; {currentYear} Switch Performance
-				<span class="dot" aria-hidden="true"></span>
-				<a
-					class="self-plug"
-					href="https://github.com/biase-d"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					a biase-d project
-				</a>
 			</div>
 
 			<!-- A cartridge in its slot; hovering lifts it out, pressing takes you to the top -->
@@ -289,10 +296,9 @@
 		text-decoration: none;
 		color: var(--primary-action-text, #fff);
 		background: var(--primary-color);
-		box-shadow: 0 4px 14px color-mix(in srgb, var(--primary-color) 35%, transparent);
-		transition: transform 0.2s, box-shadow 0.2s;
+		transition: transform 0.2s, background 0.2s;
 	}
-	.cta:hover { transform: translateY(-2px); box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-color) 40%, transparent); }
+	.cta:hover { transform: translateY(-2px); background: var(--primary-color-hover, var(--primary-color)); }
 	.cta :global(svg) { transition: transform 0.2s; }
 	.cta:hover :global(svg) { transform: translateX(3px); }
 
@@ -361,7 +367,7 @@
 
 	/* ---- Bottom ---- */
 	.footer-bottom {
-		padding-top: 1.75rem;
+		padding-top: 1.5rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -370,29 +376,44 @@
 		font-size: 0.85rem;
 	}
 
-	.copyright {
+	/* ---- The maker ---- */
+	.made-by {
 		display: flex;
-		align-items: center;
+		align-items: baseline;
 		flex-wrap: wrap;
-		gap: 0.4rem 0.75rem;
+		gap: 0.25rem 1.25rem;
+		padding: 1.75rem 0;
+		border-bottom: 1px solid var(--border-color);
 	}
 
-	.dot {
-		width: 0.25rem;
-		height: 0.25rem;
-		border-radius: 50%;
-		background: currentColor;
-		opacity: 0.5;
+	.made-label {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.72rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.16em;
+		color: var(--text-secondary);
+	}
+
+	.made-note {
+		margin-left: auto;
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+	}
+
+	@media (max-width: 560px) {
+		.made-note { margin-left: 0; flex-basis: 100%; }
 	}
 
 	.self-plug {
 		font-family: "Caveat Variable", cursive;
-		font-size: 1.25rem;
-		color: var(--text-secondary);
+		font-size: 2rem;
+		line-height: 1;
+		color: var(--text-primary);
 		text-decoration: none;
 		transition: color 0.2s;
 	}
-	.self-plug:hover { color: var(--text-primary); }
+	.self-plug:hover { color: var(--primary-color); }
 
 	/* Back to top: a cartridge in a slot. It lifts on hover, so it can be seen to be pressed */
 	.to-top {
