@@ -102,7 +102,7 @@ export async function revokeToken (db, userId, tokenId) {
 export async function verifyToken (db, token) {
 	if (!looksLikeToken(token)) return null
 	await ensureTable(db)
-	const rows = await db.select({ id: apiTokens.id, userId: apiTokens.userId, login: apiTokens.login })
+	const rows = await db.select({ id: apiTokens.id, userId: apiTokens.userId, login: apiTokens.login, name: apiTokens.name })
 		.from(apiTokens)
 		.where(and(eq(apiTokens.tokenHash, hashToken(token)), isNull(apiTokens.revokedAt)))
 		.limit(1)

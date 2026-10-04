@@ -51,6 +51,20 @@
                 repositories.
             </p>
 
+            <h3>Using the API</h3>
+            <p>
+                If you use our public data API, we count your use so that very
+                heavy use can be found and limited. For each day we keep how
+                many requests came from you (a token, which belongs to your
+                GitHub username, or if you use none, your IP address), how
+                many were turned away for going over the limit, when you were
+                last seen, and the User-Agent your software sent. We do not
+                keep what you asked for or what you were given. These records
+                are deleted after 30 days. Requests made by this site's own
+                pages are not recorded. Tokens are stored only as a one-way
+                hash.
+            </p>
+
             <h3>Preferences & Local Storage</h3>
             <p>
                 We use your browser's local storage and cookies to save your

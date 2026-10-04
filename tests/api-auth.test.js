@@ -95,3 +95,41 @@ describe('isGatedPath', () => {
 		expect(isGatedPath('/api/v1/gamesx')).toBe(false)
 	})
 })
+
+import { UsageBuffer, dayOf } from '../src/lib/server/apiUsage.js'
+
+describe('UsageBuffer', () => {
+	const t = Date.UTC(2026, 9, 4, 12, 0, 0)
+
+	it('counts requests per user per day, and keeps only the start of a User-Agent', () => {
+		const b = new UsageBuffer()
+		b.add({ subject: 'token:1', label: 'someone: my bot', userAgent: 'x'.repeat(400), now: t })
+		b.add({ subject: 'token:1', now: t + 1000 })
+		b.add({ subject: 'ip:1.2.3.4', now: t })
+		b.add({ subject: 'token:1', now: t + 24 * 3600 * 1000 })
+		expect(b.size).toBe(3)
+		const rows = b.drain()
+		const first = rows.find(r => r.subject === 'token:1' && r.day === dayOf(t))
+		expect(first?.requests).toBe(2)
+		expect(first?.label).toBe('someone: my bot')
+		expect(first?.userAgent.length).toBe(160)
+		expect(rows.find(r => r.subject === 'token:1' && r.day === dayOf(t + 24 * 3600 * 1000))?.requests).toBe(1)
+	})
+
+	it('counts the requests that were turned away separately', () => {
+		const b = new UsageBuffer()
+		b.add({ subject: 'ip:9', now: t })
+		b.add({ subject: 'ip:9', limited: true, now: t })
+		const [row] = b.drain()
+		expect(row.requests).toBe(2)
+		expect(row.limited).toBe(1)
+	})
+
+	it('is empty once drained', () => {
+		const b = new UsageBuffer()
+		b.add({ subject: 'a', now: t })
+		expect(b.drain().length).toBe(1)
+		expect(b.size).toBe(0)
+		expect(b.drain()).toEqual([])
+	})
+})

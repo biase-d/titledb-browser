@@ -7,6 +7,7 @@ import { dev } from '$app/environment'
 import { json } from '@sveltejs/kit'
 import { createRateLimiter, isGatedPath, isSameOrigin, parseBearer } from '$lib/server/apiAuth'
 import { verifyToken } from '$lib/server/apiTokens'
+import { recordUsage } from '$lib/server/apiUsage'
 
 /** @type {import('@sveltejs/kit').Handle} */
 const dbHandler = async ({ event, resolve }) => {
@@ -101,16 +102,31 @@ const authHandler = SvelteKitAuth({
 	}
 }).handle
 
-/** A token may make this many requests a minute */
-const apiLimiter = createRateLimiter({ limit: 120, windowMs: 60_000 })
+/**
+ * How many requests a minute: each token, and each caller with no token (counted by
+ * IP address). Both can be set in the environment
+ */
+const limitFrom = (/** @type {string | undefined} */ value, /** @type {number} */ fallback) => {
+	const n = Number(value)
+	return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback
+}
+const TOKEN_LIMIT = limitFrom(env.API_TOKEN_LIMIT, 300)
+const ANON_LIMIT = limitFrom(env.API_ANON_LIMIT, 30)
+const tokenLimiter = createRateLimiter({ limit: TOKEN_LIMIT, windowMs: 60_000 })
+const anonLimiter = createRateLimiter({ limit: ANON_LIMIT, windowMs: 60_000 })
+
+/** The caller's address, or 'unknown' where the server cannot tell @param {import('@sveltejs/kit').RequestEvent} event */
+function callerAddress (event) {
+	try { return event.getClientAddress() } catch { return 'unknown' }
+}
 
 /**
- * The data API is for signed-in people, each with a token of their own (made at
- * /docs/api). A request needs one in an Authorization header, unless it comes
- * from one of this site's own pages, which use the same endpoints for search.
- * That exemption rests on what the browser says about itself and is only a
- * courtesy: the gate is there to know who is using the API and to give each a
- * rate limit, not to keep it secret
+ * The data API is open, with a modest limit for anyone, and a token (made at
+ * /docs/api by signing in with GitHub) lifts it. Either way the use is counted
+ * (see $lib/server/apiUsage) so that someone using it heavily can be found. The
+ * site's own pages, which use the same endpoints for search, are not limited or
+ * counted. They are recognised by what the browser says about itself, which a
+ * script can say too: this is not a lock, only a way of knowing who is calling
  * @type {import('@sveltejs/kit').Handle}
  */
 const apiGateHandler = async ({ event, resolve }) => {
@@ -118,6 +134,24 @@ const apiGateHandler = async ({ event, resolve }) => {
 
 	const header = event.request.headers.get('authorization')
 	const token = parseBearer(header)
+	const userAgent = event.request.headers.get('user-agent') ?? ''
+
+	/** @param {{ ok: boolean, remaining: number, retryAfter: number }} limit @param {number} max @param {string} tier */
+	const answer = async (limit, max, tier) => {
+		if (!limit.ok) {
+			return json(
+				{ message: tier === 'anonymous' ? `Too many requests. Without a token the limit is ${max} a minute; a token raises it (see the docs).` : 'Too many requests. Slow down a little.', retryAfter: limit.retryAfter, docs: `${event.url.origin}/docs/api#authentication` },
+				{ status: 429, headers: { 'Retry-After': String(limit.retryAfter), 'X-RateLimit-Limit': String(max), 'X-RateLimit-Remaining': '0', 'X-RateLimit-Tier': tier } }
+			)
+		}
+		const response = await resolve(event)
+		try {
+			response.headers.set('X-RateLimit-Limit', String(max))
+			response.headers.set('X-RateLimit-Remaining', String(limit.remaining))
+			response.headers.set('X-RateLimit-Tier', tier)
+		} catch { /* immutable */ }
+		return response
+	}
 
 	if (token || header) {
 		const owner = token ? await verifyToken(event.locals.db, token) : null
@@ -127,24 +161,17 @@ const apiGateHandler = async ({ event, resolve }) => {
 				{ status: 401, headers: { 'WWW-Authenticate': 'Bearer realm="Switch Performance API", error="invalid_token"' } }
 			)
 		}
-		const limit = apiLimiter.hit(owner.id)
-		if (!limit.ok) {
-			return json(
-				{ message: 'Too many requests. Slow down a little.', retryAfter: limit.retryAfter },
-				{ status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
-			)
-		}
-		const response = await resolve(event)
-		try { response.headers.set('X-RateLimit-Remaining', String(limit.remaining)) } catch { /* immutable */ }
-		return response
+		const limit = tokenLimiter.hit(owner.id)
+		recordUsage(event.locals.db, { subject: `token:${owner.id}`, label: owner.name ? `${owner.login}: ${owner.name}` : owner.login, userAgent, limited: !limit.ok })
+		return answer(limit, TOKEN_LIMIT, 'token')
 	}
 
 	if (isSameOrigin(event.request, event.url)) return resolve(event)
 
-	return json(
-		{ message: 'This API needs a token. Sign in with GitHub and make one at /docs/api.', docs: `${event.url.origin}/docs/api#authentication` },
-		{ status: 401, headers: { 'WWW-Authenticate': 'Bearer realm="Switch Performance API"' } }
-	)
+	const ip = callerAddress(event)
+	const limit = anonLimiter.hit(ip)
+	recordUsage(event.locals.db, { subject: `ip:${ip}`, userAgent, limited: !limit.ok })
+	return answer(limit, ANON_LIMIT, 'anonymous')
 }
 
 /**

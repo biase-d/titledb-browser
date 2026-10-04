@@ -14,8 +14,6 @@
 	const origin = $derived(page.url.origin)
 	const user = $derived(data.session?.user)
 
-	/** These need no token: monitors, page images and link previews use them */
-	const OPEN = new Set(['image', 'og', 'status', 'health', 'version'])
 
 	/** @typedef {{ name: string, type: string, desc: string, required?: boolean }} Param */
 
@@ -246,7 +244,7 @@
 	/** @param {{ id: string, request: string }} e */
 	function curlFor (e) {
 		const url = `${origin}${e.request.replace('GET ', '')}`
-		return OPEN.has(e.id) ? `curl "${url}"` : `curl "${url}" -H "Authorization: Bearer $TOKEN"`
+		return `curl "${url}"`
 	}
 
 	/** @param {string | Date | null} value */
@@ -291,9 +289,9 @@
 			<p class="lede">
 				The data behind this site, as JSON. Games, their performance
 				profiles and graphics settings, and statistics for the whole
-				library. It is the API the site itself uses. To use it
-				yourself, sign in with GitHub and make a token, which takes
-				a few seconds.
+				library. It is the API the site itself uses, and anyone can try
+				it with no sign-up. For more requests a minute, sign in with
+				GitHub and make a token.
 			</p>
 			<div class="base">
 				<span>Base URL</span>
@@ -304,10 +302,19 @@
 		<section id="authentication">
 			<h2>Authentication</h2>
 			<p>
-				The data endpoints need a token, sent in an
-				<code>Authorization</code> header. Anyone with a GitHub account can
-				make one below. A token is yours: requests made with it are
-				counted against you, and you can revoke it whenever you like.
+				You can call the data endpoints with nothing at all, up to
+				<strong>30 requests a minute</strong> (counted by IP address). If
+				you need more, make a token below and send it in an
+				<code>Authorization</code> header: it raises your limit to
+				<strong>300 a minute</strong>. A token is yours, you can revoke it
+				whenever you like, and it is how we can tell your use apart
+				from everyone else&rsquo;s.
+			</p>
+			<p class="soft">
+				To spot very heavy use, we count requests per token (or per IP
+				address, when there is no token) for 30 days: how many, how many were turned
+				away, when last, and the User-Agent. We do not keep what you
+				ask for. See the <a href="/privacy">privacy policy</a>.
 			</p>
 
 			<div class="code">
@@ -319,7 +326,7 @@
 			<h3>Your tokens</h3>
 			{#if !user}
 				<div class="signin">
-					<p>Sign in with GitHub to make a token. We only read your GitHub username.</p>
+					<p>Sign in with GitHub to make a token for a higher limit. We only read your GitHub username.</p>
 					<form action="/auth/signin/github" method="post">
 						<input type="hidden" name="callbackUrl" value="/docs/api#authentication" />
 						<button type="submit" class="github-btn">
@@ -382,9 +389,9 @@
 			{/if}
 
 			<p class="soft">
-				These need no token: <code>/api/v1/status</code>,
-				<code>/api/health</code>, <code>/api/version</code>, the image proxy and the
-				share images.
+				<code>/api/v1/status</code>, <code>/api/health</code>,
+				<code>/api/version</code>, the image proxy and the share images
+				have no limit of this kind and need no token.
 			</p>
 		</section>
 
@@ -432,7 +439,7 @@
 							{copied === e.id ? 'Copied' : 'Copy curl'}
 						</button>
 					</div>
-					<pre><code>{e.request}{OPEN.has(e.id) ? '' : '\nAuthorization: Bearer spk_your_token_here'}</code></pre>
+					<pre><code>{e.request}</code></pre>
 				</div>
 				<div class="code">
 					<div class="code-head"><span>Response</span></div>
@@ -455,10 +462,10 @@
 					<thead><tr><th>Status</th><th>Meaning</th></tr></thead>
 					<tbody>
 						<tr><td><code>400</code></td><td>A required parameter is missing.</td></tr>
-						<tr><td><code>401</code></td><td>No token, or one that is not valid or has been revoked. The body says where to make one.</td></tr>
+						<tr><td><code>401</code></td><td>A token was sent, but it is not valid or has been revoked. (Sending none is fine.)</td></tr>
 						<tr><td><code>403</code></td><td>The image proxy was asked for an address it does not serve.</td></tr>
 						<tr><td><code>404</code></td><td>No such game.</td></tr>
-						<tr><td><code>429</code></td><td>More than 120 requests in a minute on one token. <code>Retry-After</code> says how many seconds to wait.</td></tr>
+						<tr><td><code>429</code></td><td>Over the limit: 30 a minute without a token, 300 with one. <code>Retry-After</code> says how many seconds to wait.</td></tr>
 						<tr><td><code>500</code></td><td>Something went wrong on our side. The message is deliberately vague. Try again shortly, and check <a href="/status">the status page</a>.</td></tr>
 						<tr><td><code>503</code></td><td>Only from <code>/api/v1/status?strict=1</code>, when the system is down.</td></tr>
 					</tbody>
@@ -473,10 +480,10 @@
 		<section id="etiquette">
 			<h2>Using it kindly</h2>
 			<ul class="plain">
-				<li>This is a community project run on a small budget. Each token may make 120 requests a minute, and every answer carries an <code>X-RateLimit-Remaining</code> header. A few a second is plenty, and a crawl of the whole library should be spread out.</li>
+				<li>This is a community project run on a small budget. Without a token the limit is 30 a minute, with one 300, and every answer carries <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code> and <code>X-RateLimit-Tier</code> headers. A few a second is plenty, and a crawl of the whole library should be spread out.</li>
 				<li>Cache what you fetch. Profiles change when a pull request is merged, not by the minute, so an hour or a day is usually fresh enough. <code>/api/v1/status</code> is cached for 30 seconds already.</li>
 				<li>To read the entire library, page through <code>/api/v1/games</code> rather than asking for every game one by one. Or take the data straight from its source, below.</li>
-				<li>One token per thing you run, named for it, so that if one misbehaves it can be revoked without stopping the rest. Never put a token in code that is published or that visitors can read.</li>
+				<li>If you run something regular, make a token for it and name it, so that if it misbehaves it can be revoked without stopping anything else. Never put a token in code that is published or that visitors can read.</li>
 				<li>The signed-in endpoints the site uses for favourites, requests and preferences (<code>/api/v1/favorites</code>, <code>/api/v1/requests</code>, <code>/api/v1/preferences</code>) work from a signed-in browser session. They are not part of this API, and may change without notice.</li>
 			</ul>
 		</section>
